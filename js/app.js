@@ -7,7 +7,7 @@ import {
 } from './engine/session.js';
 import {
   getNextQuestion, submitAnswer, getMirror, submitCorrection,
-  ensureEngines, getReading,
+  ensureSpread, castMeihua, ensureEngines, getReading,
 } from './engine/integrate.js';
 import { detectCrisis } from './content/crisis.js';
 import { AI_CONFIG } from './ai/client.js';
@@ -23,7 +23,7 @@ function showScreen(id) {
 }
 
 function setStage(stage) {
-  const order = ['narrative', 'mirror', 'reading'];
+  const order = ['narrative', 'mirror', 'divine', 'reading'];
   const cur = order.indexOf(stage);
   document.querySelectorAll('.stage').forEach((el) => {
     const i = order.indexOf(el.dataset.stage);
@@ -169,9 +169,82 @@ async function runMirror() {
   submitCorrection(state, correction);
   if (correction && detectCrisis(correction)) { showScreen('screenCare'); return; }
 
-  state.status = 'weaving';
+  state.status = 'spread';
   saveSession(state);
-  await runWeaving();
+  runSpread();
+}
+
+// ---- 占卜一：雷諾曼九宮格翻牌 ----
+// 牌面可見；解讀不逐牌說明，只進最後的交叉彙整。
+const POS_TIME = { past: '過去', present: '現在', future: '走向' };
+const POS_LAYER = { mind: '想法', core: '現實', root: '潛意識' };
+
+function runSpread() {
+  setStage('divine');
+  const spread = ensureSpread(state);
+  saveSession(state);
+
+  const grid = $('spreadGrid');
+  const doneBtn = $('btnSpreadDone');
+  grid.innerHTML = '';
+  let flipped = 0;
+
+  spread.forEach(({ position, card }) => {
+    const el = document.createElement('div');
+    el.className = 'scard';
+    el.innerHTML = `
+      <div class="scard-inner">
+        <div class="scard-face scard-back"></div>
+        <div class="scard-face scard-front">
+          <span class="scard-no">${card.id}</span>
+          <span class="scard-name">${card.name}</span>
+        </div>
+      </div>
+      <div class="scard-pos">${POS_TIME[position.time]}・${POS_LAYER[position.layer]}</div>`;
+    el.addEventListener('click', () => {
+      if (el.classList.contains('flipped')) return;
+      el.classList.add('flipped');
+      flipped++;
+      if (flipped === spread.length) doneBtn.disabled = false;
+    });
+    grid.appendChild(el);
+  });
+
+  doneBtn.disabled = true;
+  doneBtn.onclick = () => {
+    state.status = 'numbers';
+    saveSession(state);
+    runNumbers();
+  };
+  showScreen('screenSpread');
+}
+
+// ---- 占卜二：梅花易數報數起卦 ----
+function runNumbers() {
+  setStage('divine');
+  const inputs = [$('num1'), $('num2'), $('num3')];
+  const doneBtn = $('btnNumbersDone');
+  const skipBtn = $('btnNumbersSkip');
+
+  const valid = (el) => {
+    const v = Number(el.value);
+    return Number.isInteger(v) && v >= 1 && v <= 100;
+  };
+  const refresh = () => { doneBtn.disabled = !inputs.every(valid); };
+  inputs.forEach((el) => { el.value = ''; el.oninput = refresh; });
+  refresh();
+
+  const proceed = (numbers) => {
+    castMeihua(state, numbers);
+    state.status = 'weaving';
+    saveSession(state);
+    runWeaving();
+  };
+  doneBtn.onclick = () => { if (inputs.every(valid)) proceed(inputs.map((el) => Number(el.value))); };
+  skipBtn.onclick = () => proceed(null);
+
+  showScreen('screenNumbers');
+  setTimeout(() => inputs[0].focus(), 200);
 }
 
 // ---- 安靜整理 → 照見 ----
@@ -272,12 +345,16 @@ function restart() {
       });
       if (correction) addUserMsg(correction);
       submitCorrection(state, correction);
-      state.status = 'weaving';
+      state.status = 'spread';
       saveSession(state);
-      await runWeaving();
+      runSpread();
     } else {
       await runMirror();
     }
+  } else if (state.status === 'spread') {
+    runSpread();
+  } else if (state.status === 'numbers') {
+    runNumbers();
   } else if (state.status === 'weaving') {
     await runWeaving();
   }

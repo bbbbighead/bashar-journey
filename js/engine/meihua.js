@@ -30,7 +30,16 @@ function hexFromTrigrams(upper, lower) {
   return { key, upper, lower, ...HEXAGRAMS[key] };
 }
 
-// 起卦主函式
+// 報數起卦（主要路徑）：來談者提供三個 1–100 的數字。
+// 第一數取上卦、第二數取下卦、三數相加取動爻（傳統報數起卦法）。
+export function castFromNumbers(n1, n2, n3) {
+  const a = Math.abs(Math.trunc(n1)) || 1;
+  const b = Math.abs(Math.trunc(n2)) || 1;
+  const c = Math.abs(Math.trunc(n3)) || 1;
+  return buildCast(a % 8 || 8, b % 8 || 8, (a + b + c) % 6 || 6);
+}
+
+// 時間＋字數起卦（跳過報數時的後備路徑）
 export function castHexagrams(question, when = new Date()) {
   const y = when.getFullYear(), m = when.getMonth() + 1, d = when.getDate();
   const sc = shichen(when.getHours());
@@ -38,9 +47,10 @@ export function castHexagrams(question, when = new Date()) {
 
   const upperSum = y + m + d + qLen;
   const lowerSum = y + m + d + sc + qLen;
-  const upper = upperSum % 8 || 8;
-  const lower = lowerSum % 8 || 8;
-  const moving = (upperSum + lowerSum) % 6 || 6; // 1–6，由下而上
+  return buildCast(upperSum % 8 || 8, lowerSum % 8 || 8, (upperSum + lowerSum) % 6 || 6);
+}
+
+function buildCast(upper, lower, moving) {
 
   // 本卦六爻（由下而上）
   const benLines = [...TRIGRAM_LINES[lower], ...TRIGRAM_LINES[upper]];

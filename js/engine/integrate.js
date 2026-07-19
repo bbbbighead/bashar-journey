@@ -7,7 +7,7 @@
 import { callAI, AI_CONFIG } from '../ai/client.js';
 import { logAiCall, NARRATIVE_TURNS } from './session.js';
 import { drawSpread, spreadForAI, convergingClusters, offlinePatterns } from './lenormand.js';
-import { castHexagrams, meihuaForAI, offlineDynamics } from './meihua.js';
+import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics } from './meihua.js';
 import {
   NARRATIVE_QUESTIONS, offlineMirror,
   CLUSTER_QUESTIONS, CLUSTER_EXPERIMENTS, CLOSINGS, GENERIC_QUESTIONS,
@@ -36,9 +36,9 @@ function transcript(state) {
     .join('\n');
 }
 
-// ---- 1. 敘事收集：下一個提問 ----
-// 涵蓋面向依序：現況 → 情緒與身體 → 重複模式與已試方法 → 期待的樣子
-const COVERAGE = ['現況與具體情境', '情緒、想法與身體感受', '重複的模式與已試過的方法', '期待的樣子與渴望'];
+// ---- 1. 敘事收集：下一個提問（共 3 題） ----
+// 涵蓋面向依序：現況 → 情緒與身體 → 重複模式與渴望
+const COVERAGE = ['現況與具體情境', '情緒、想法與身體感受', '重複的模式、已試過的方法，以及期待的樣子'];
 
 export async function getNextQuestion(state) {
   const idx = state.turns.length; // 0-based
@@ -88,10 +88,27 @@ export function submitCorrection(state, correction) {
   if (state.mirror) state.mirror.correction = clean;
 }
 
-// ---- 4. 擲符號引擎（純本地、進 weaving 時執行一次） ----
-export function ensureEngines(state) {
+// ---- 4. 占卜引擎（純本地） ----
+
+// 進入九宮格站時抽牌（玩家看得到牌面）
+export function ensureSpread(state) {
   if (!state.lenormand) state.lenormand = drawSpread();
-  if (!state.meihua) state.meihua = castHexagrams(state.opening);
+  return state.lenormand;
+}
+
+// 報數起卦：numbers 為 [n1, n2, n3]（1–100）；null 表示跳過 → 以時間起卦
+export function castMeihua(state, numbers) {
+  state.numbers = Array.isArray(numbers) ? numbers.slice(0, 3) : null;
+  state.meihua = state.numbers
+    ? castFromNumbers(state.numbers[0], state.numbers[1], state.numbers[2])
+    : castHexagrams(state.opening);
+  return state.meihua;
+}
+
+// 後備：直接進整合時仍保證兩個引擎都有結果
+export function ensureEngines(state) {
+  ensureSpread(state);
+  if (!state.meihua) castMeihua(state, state.numbers);
 }
 
 // ---- 5. 多源整合 → 照見文件 ----
