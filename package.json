@@ -1,7 +1,7 @@
 {
-  "name": "bashar-journey",
+  "name": "reflection-platform",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "巴夏抽卡站 + 沉浸式互動旅程（純前端靜態站 + Vercel serverless AI 代理）"
+  "description": "照見——AI 自我探索對談平台（純前端靜態站 + Vercel serverless 洞察整合代理）"
 }
