@@ -62,7 +62,7 @@ function buildPrompt(action, p) {
 目前的對談逐字稿：
 ${String(p.transcript || '（尚無，這是第一個追問）').slice(0, 3000)}
 
-這是敘事收集的第 ${p.questionIndex || 1} 個提問（共 ${p.totalQuestions || 4} 個）。
+這是敘事收集的第 ${p.questionIndex || 1} 個提問（共 ${p.totalQuestions || 3} 個）。
 這一問要涵蓋的面向：「${p.coverage || '現況與具體情境'}」。
 
 請生成 question：一個開放式提問（≤80字）——一次只問一件事、順著使用者剛說過的話自然銜接、溫柔不逼迫、不是問卷式的制式提問。若使用者上一題選擇跳過，不要追問同一件事，輕輕換個角度即可。`;

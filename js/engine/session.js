@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = 'reflection_session_v1';
 
-export const NARRATIVE_TURNS = 4; // 敘事收集共 4 個提問（含開場後的追問）
+export const NARRATIVE_TURNS = 3; // 敘事收集共 3 個提問——問滿即彙整，進入占卜
 
 function newRunId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -17,7 +17,8 @@ export function createSession(opening) {
     version: 1,
     createdAt: now,
     updatedAt: now,
-    // narrative（敘事收集）→ mirror（理解確認）→ weaving（整理中）→ done（照見）
+    // narrative（敘事收集）→ mirror（彙整確認）→ spread（九宮格翻牌）
+    // → numbers（報數起卦）→ weaving（交叉彙整中）→ done（照見）
     status: 'narrative',
 
     opening: String(opening || '').trim().slice(0, 600),
@@ -31,9 +32,10 @@ export function createSession(opening) {
     // 內部個案模型（AI 產出；離線時由模板推得）
     caseModel: null,
 
-    // 兩個符號引擎的結果（進入 weaving 時擲出，序列化保存以支援續談）
-    lenormand: null,     // spread
-    meihua: null,        // cast
+    // 兩個占卜引擎的結果（序列化保存以支援續談）
+    lenormand: null,     // spread（進入 spread 站時抽出，玩家看得到牌面）
+    numbers: null,       // 玩家報的三個數字 [n1, n2, n3]（跳過則為 null）
+    meihua: null,        // cast（依 numbers 起卦；跳過則以時間起卦）
 
     // 最終照見文件
     reading: null,       // { understanding, newPerspective, tension, questions[], experiment, closing }

@@ -45,7 +45,8 @@
     <header class="talk-head">
       <div class="stages" id="stages">
         <span class="stage on" data-stage="narrative">敘事</span>
-        <span class="stage" data-stage="mirror">回照</span>
+        <span class="stage" data-stage="mirror">彙整</span>
+        <span class="stage" data-stage="divine">占卜</span>
         <span class="stage" data-stage="reading">照見</span>
       </div>
       <span class="offline-tag" id="offlineTag" style="display:none">本地模式</span>
@@ -60,11 +61,38 @@
     </div>
   </section>
 
+  <!-- 占卜一：雷諾曼九宮格（牌面可見；解讀只進交叉彙整，不逐牌說明） -->
+  <section class="screen" id="screenSpread">
+    <div class="spread">
+      <p class="divine-lede">為你此刻的問題，抽出了九張牌。<br>它們排成一個九宮格——由左至右是過去、現在、走向；<br>由上至下是想法、現實、潛意識。請逐一翻開。</p>
+      <div class="spread-grid" id="spreadGrid"></div>
+      <div class="divine-actions">
+        <button class="btn primary" id="btnSpreadDone" disabled>都翻開了，繼續</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 占卜二：梅花易數報數起卦 -->
+  <section class="screen" id="screenNumbers">
+    <div class="numbers">
+      <p class="divine-lede">現在，請不要思考——<br>憑直覺說出三個 1 到 100 之間的數字。</p>
+      <div class="num-row">
+        <input type="number" min="1" max="100" inputmode="numeric" class="num" id="num1" placeholder="—">
+        <input type="number" min="1" max="100" inputmode="numeric" class="num" id="num2" placeholder="—">
+        <input type="number" min="1" max="100" inputmode="numeric" class="num" id="num3" placeholder="—">
+      </div>
+      <div class="divine-actions">
+        <button class="btn primary" id="btnNumbersDone" disabled>就是這三個數</button>
+        <button class="btn ghost" id="btnNumbersSkip">讓此刻的時間替我決定</button>
+      </div>
+    </div>
+  </section>
+
   <!-- 整理中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
       <div class="orb"></div>
-      <p id="weavingText">讓我安靜地整理一下，<br>把你說的話和幾個不同的視角放在一起看……</p>
+      <p id="weavingText">讓我安靜地整理一下——<br>把你說的話、九張牌、和你報的數，放在一起交叉比對……</p>
     </div>
   </section>
 

@@ -126,6 +126,70 @@ textarea::placeholder { color: var(--ink-faint); }
 .composer { padding-bottom: 40px; }
 .composer-actions { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
 
+/* ---- 占卜 ---- */
+.spread, .numbers { text-align: center; padding-top: 7vh; }
+.divine-lede {
+  font-family: var(--serif); font-size: 16px; color: var(--ink-dim);
+  margin-bottom: 40px;
+}
+.divine-actions { margin-top: 40px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+.spread-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  max-width: 480px; margin: 0 auto;
+}
+.scard { perspective: 800px; cursor: pointer; }
+.scard-inner {
+  position: relative; width: 100%; aspect-ratio: 5 / 7;
+  transform-style: preserve-3d; transition: transform .7s cubic-bezier(.4, .1, .2, 1);
+}
+.scard.flipped .scard-inner { transform: rotateY(180deg); }
+.scard.flipped { cursor: default; }
+.scard-face {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: 10px; border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.scard-back {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(201, 185, 138, .16), transparent 58%),
+    var(--bg-soft);
+}
+.scard-back::after {
+  content: '✶'; color: var(--accent-dim); font-size: 20px; opacity: .8;
+}
+.scard:not(.flipped):hover .scard-back { border-color: var(--accent-dim); }
+.scard-front {
+  transform: rotateY(180deg);
+  background: linear-gradient(160deg, #232936, var(--bg-soft));
+  border-color: var(--accent-dim);
+}
+.scard-no {
+  position: absolute; top: 7px; left: 10px;
+  font-size: 10px; color: var(--ink-faint); letter-spacing: .1em;
+}
+.scard-name {
+  font-family: var(--serif); font-size: clamp(15px, 3.6vw, 19px);
+  color: var(--ink); letter-spacing: .22em; text-indent: .22em;
+  text-align: center; line-height: 1.4; padding: 0 4px;
+}
+.scard-pos {
+  margin-top: 8px; font-size: 10px; color: var(--ink-faint); letter-spacing: .05em;
+  padding: 0 4px; text-align: center;
+}
+
+.num-row { display: flex; justify-content: center; gap: 16px; }
+input.num {
+  width: 92px; text-align: center;
+  background: var(--bg-soft); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 8px; font: inherit; font-size: 26px; font-family: var(--serif);
+  -moz-appearance: textfield; appearance: textfield;
+}
+input.num::-webkit-outer-spin-button, input.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input.num:focus { outline: none; border-color: var(--accent-dim); }
+input.num::placeholder { color: var(--ink-faint); }
+
 /* ---- 整理中 ---- */
 .weaving { text-align: center; padding-top: 26vh; color: var(--ink-dim); font-family: var(--serif); font-size: 16px; }
 .orb {
