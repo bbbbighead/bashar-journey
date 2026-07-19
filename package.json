@@ -1,0 +1,7 @@
+{
+  "name": "bashar-journey",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "巴夏抽卡站 + 沉浸式互動旅程（純前端靜態站 + Vercel serverless AI 代理）"
+}

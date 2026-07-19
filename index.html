@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心之星旅 · Bashar Journey</title>
+<link rel="stylesheet" href="css/cosmic.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div class="stars" id="stars"></div>
+<div class="app themed" id="app" data-palette="cosmic">
+
+  <!-- 入口：提問 -->
+  <section class="screen active" id="screenIntake">
+    <div class="intake">
+      <div class="eyebrow">沉浸式心靈旅程</div>
+      <h1>心 之 星 旅</h1>
+      <p class="lede">帶著一個你正在思索的問題出發。<br>旅程會為你的提問展開一個世界——<br>沿途與你對話、為你拾起訊息，最後給你一個回應你提問的答案。</p>
+      <div class="ask-box">
+        <label>此刻，你想帶著什麼問題上路？</label>
+        <textarea id="question" placeholder="例如：我該如何面對與家中貓咪的離別焦慮？" maxlength="500"></textarea>
+        <div class="examples" id="examples">
+          <span>我該不該換一份工作？</span>
+          <span>怎麼面對與家人的關係緊張？</span>
+          <span>我想更了解自己人生的方向</span>
+          <span>如何照顧最近疲憊的身心？</span>
+        </div>
+      </div>
+      <button class="dice-btn go" id="btnStart">開始旅程 ✦</button>
+      <div class="fineprint">這是一場心靈式的互動體驗，非醫療、法律或財務建議。</div>
+    </div>
+  </section>
+
+  <!-- 世界成形 / 編織回應 -->
+  <section class="screen" id="screenForming">
+    <div class="forming">
+      <div class="orb"></div>
+      <p id="formingText">世界正在成形…</p>
+    </div>
+  </section>
+
+  <!-- 危機關懷（模板固定，不進遊戲） -->
+  <section class="screen" id="screenCare">
+    <div class="intake">
+      <h1 style="font-size:24px">先停一停，這裡有人在乎你</h1>
+      <p class="lede" style="max-width:520px">謝謝你願意把這麼重的心情說出來。這趟旅程無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
+      <button class="dice-btn" id="btnCareBack">回到入口</button>
+    </div>
+  </section>
+
+  <!-- 遊玩 -->
+  <section class="screen" id="screenPlay">
+    <div class="worldbar">
+      <h2 id="worldTitle"></h2>
+      <p id="worldSetting"></p>
+      <div><span class="offline-tag" id="offlineTag" style="display:none">離線模式 · 純模板旅程</span></div>
+    </div>
+    <div class="track" id="track"></div>
+    <div class="scene-panel" id="panel"></div>
+    <div class="controls-row" id="controls">
+      <button class="dice-btn" id="btnNext">啟程 ✦</button>
+    </div>
+  </section>
+
+  <!-- 結局 -->
+  <section class="screen" id="screenFinale">
+    <div class="finale-wrap" id="finaleHost"></div>
+  </section>
+
+</div>
+<script type="module" src="js/ui/screens.js"></script>
+</body>
+</html>
