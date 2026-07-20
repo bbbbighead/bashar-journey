@@ -7,7 +7,8 @@
 import { callAI, AI_CONFIG } from '../ai/client.js';
 import { logAiCall, NARRATIVE_TURNS } from './session.js';
 import { drawSpread, spreadForAI, convergingClusters, offlinePatterns } from './lenormand.js';
-import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics } from './meihua.js';
+import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics, RELATION_MEANING } from './meihua.js';
+import { STAGE_MEANING } from '../../data/hexagrams.js';
 import {
   NARRATIVE_QUESTIONS, offlineMirror,
   CLUSTER_QUESTIONS, CLUSTER_EXPERIMENTS, CLOSINGS, GENERIC_QUESTIONS,
@@ -131,6 +132,8 @@ export async function getReading(state) {
         tension: sanitize(String(data.tension || '')),
         questions: (Array.isArray(data.questions) ? data.questions : []).slice(0, 3).map((q) => sanitize(String(q))),
         experiment: sanitize(String(data.experiment || '')),
+        // 對應說明：唯一允許出現牌名與卦名的區塊，不做術語去識別
+        basis: String(data.basis || '') || offlineBasis(state),
         closing: sanitize(String(data.closing || '')),
       };
       state.status = 'done';
@@ -186,8 +189,51 @@ function offlineReading(state) {
     tension,
     questions: qs,
     experiment,
+    basis: offlineBasis(state),
     closing,
   };
+}
+
+// 對應說明（basis）：唯一點名牌與卦的區塊——攤開彙整的工作底稿。
+function offlineBasis(state) {
+  const spread = state.lenormand;
+  const cast = state.meihua;
+  const lines = [];
+
+  if (spread && spread.length === 9) {
+    const clusters = convergingClusters(spread);
+    const center = spread[4];
+    lines.push(`九宮格的中心是「${center.card.name}」（${center.position.label}）——${firstSentence(center.card.meaning)}上面關於核心課題的觀察，主要由這張牌定調。`);
+    if (clusters[0]) {
+      const inCluster = spread.filter((s) => s.card.cluster === clusters[0].cluster);
+      const centerInCluster = inCluster.includes(center);
+      const mates = inCluster
+        .filter((s) => s !== center)
+        .map((s) => `「${s.card.name}」（${POS_SHORT(s.position)}）`);
+      if (inCluster.length >= 2) {
+        lines.push(`${mates.join('、')}${centerInCluster ? `與中心的「${center.card.name}」` : ''}共 ${clusters[0].n} 張牌同屬「${clusters[0].label}」的主題——這是牌陣裡最強的收斂訊號，彙整中相關的判讀由此而來。`);
+      }
+    }
+  }
+
+  if (cast && cast.ben) {
+    const src = state.numbers ? `你報的三個數（${state.numbers.join('、')}）` : '此刻的時間';
+    lines.push(`${src}起出的本卦是「${cast.ben.name}」（${STAGE_MEANING[cast.ben.stage].label}）——${cast.ben.dyn}`);
+    lines.push(`動爻之後轉為變卦「${cast.bian.name}」（${STAGE_MEANING[cast.bian.stage].label}），加上體用「${RELATION_MEANING[cast.relation].label}」的格局——上面關於時機與節奏的判讀，便是以此為據，再與你的敘事相互印證。`);
+  }
+
+  return lines.join('\n\n');
+}
+
+function firstSentence(m) {
+  const first = String(m || '').split('。')[0];
+  return first ? first + '。' : '';
+}
+
+function POS_SHORT(position) {
+  const t = { past: '過去', present: '現在', future: '走向' }[position.time] || '';
+  const l = { mind: '想法', core: '現實', root: '潛意識' }[position.layer] || '';
+  return `${t}・${l}`;
 }
 
 // 對立主題 → 張力語句（規格：矛盾呈現為值得探索之處，而非錯誤）

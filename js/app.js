@@ -273,6 +273,7 @@ function renderReading(r) {
     ${r.tension ? `<div class="r-block"><h3>值得探索的張力</h3><p>${esc(r.tension)}</p></div>` : ''}
     ${qs ? `<div class="r-block"><h3>留給你的問題</h3><ul class="r-questions">${qs}</ul></div>` : ''}
     ${r.experiment ? `<div class="r-block"><h3>一個小實驗</h3><p>${esc(r.experiment)}</p></div>` : ''}
+    ${r.basis ? `<div class="r-block r-basis"><h3>對應說明 · 牌與卦</h3><p>${esc(r.basis)}</p></div>` : ''}
     ${r.closing ? `<div class="r-closing">${esc(r.closing)}</div>` : ''}
     <div class="r-actions">
       <button class="btn" id="btnCopy">帶走這份照見</button>
@@ -294,6 +295,7 @@ function copyReading(r) {
     r.tension ? `\n【值得探索的張力】\n${r.tension}` : '',
     r.questions && r.questions.length ? `\n【留給你的問題】\n${r.questions.map((q) => '— ' + q).join('\n')}` : '',
     r.experiment ? `\n【一個小實驗】\n${r.experiment}` : '',
+    r.basis ? `\n【對應說明 · 牌與卦】\n${r.basis}` : '',
     r.closing ? `\n${r.closing}` : '',
   ].filter((s) => s !== '').join('\n');
   const btn = $('btnCopy');

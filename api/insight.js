@@ -48,9 +48,9 @@ const SCHEMAS = {
       desired: S(),         // 期待的樣子
     }),
   }),
-  integrate: OBJ(['understanding', 'newPerspective', 'tension', 'questions', 'experiment', 'closing'], {
+  integrate: OBJ(['understanding', 'newPerspective', 'tension', 'questions', 'experiment', 'basis', 'closing'], {
     understanding: S(), newPerspective: S(), tension: S(),
-    questions: ARR(S()), experiment: S(), closing: S(),
+    questions: ARR(S()), experiment: S(), basis: S(), closing: S(),
   }),
 };
 
@@ -98,6 +98,7 @@ ${JSON.stringify(p.meihua || {}).slice(0, 1500)}
 - tension：80-150字。一個值得探索的矛盾或張力（來源之間的、或使用者自身的），以好奇而非糾錯的姿態呈現。
 - questions：2-3 個反思提問，切中他的具體處境。
 - experiment：一個具體、低門檻、一週內可完成的小實驗（不是建議，是實驗——附上「觀察什麼」）。
+- basis：150-280字的「對應說明」——這是**唯一**允許出現牌名與卦名的區塊。補充說明上面的彙整是怎麼來的：點名 2-4 張關鍵牌（牌名＋九宮格位置），說明各自對應了彙整中的哪一個觀察；再說明起出的卦（本卦與變卦的名稱與大意、體用關係），以及它如何支撐「時機與節奏」的判讀。語氣平實、像攤開工作底稿給對方看，不神秘化、不宿命化。
 - closing：一句溫暖收尾（≤40字）。`;
     default:
       return '';
