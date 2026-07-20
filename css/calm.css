@@ -222,6 +222,8 @@ input.num::placeholder { color: var(--ink-faint); }
 }
 .r-questions li + li { border-top: 1px dashed var(--line); }
 .r-questions li::before { content: '—'; position: absolute; left: 0; color: var(--accent-dim); }
+.r-block.r-basis { border-top: 1px dashed var(--line); padding-top: 26px; }
+.r-block.r-basis p { font-size: 14px; color: var(--ink-dim); font-family: var(--sans); }
 .r-closing { text-align: center; font-family: var(--serif); color: var(--accent); font-size: 16px; margin: 54px 0 40px; }
 
 .r-actions { display: flex; justify-content: center; gap: 14px; padding-bottom: 30px; }
