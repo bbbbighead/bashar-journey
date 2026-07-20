@@ -126,6 +126,11 @@ textarea::placeholder { color: var(--ink-faint); }
 .composer { padding-bottom: 40px; }
 .composer-actions { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
 
+.verdict-row {
+  display: flex; justify-content: center; gap: 14px;
+  padding: 6px 0 44px; animation: fadein .5s ease both;
+}
+
 /* ---- 占卜 ---- */
 .spread, .numbers { text-align: center; padding-top: 7vh; }
 .divine-lede {
