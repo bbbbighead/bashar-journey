@@ -3,68 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>照見 · 自我探索對談</title>
+<title>拖延探索 · Procrastination Inquiry</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/calm.css">
 </head>
 <body>
 <div class="app" id="app">
 
-  <!-- 入口：帶著問題來 -->
+  <!-- 首頁：輸入拖延情境 -->
   <section class="screen active" id="screenIntake">
     <div class="intake">
-      <div class="eyebrow">一場安靜的對談</div>
-      <h1>照 見</h1>
-      <p class="lede">帶著一件你正在思索的事坐下來。<br>這裡不算命、不預言——只是陪你把事情攤開，<br>從幾個不同的角度看清楚它，然後找到一步可以走的路。</p>
+      <div class="eyebrow">AI 拖延探索</div>
+      <h1>拖 延 探 索</h1>
+      <p class="lede">有些事情，你一直知道該做，卻始終沒有開始？<br>這裡不教你打敗拖延——只陪你探索一件事：<br><b>我真正為什麼沒有往前走？</b></p>
       <div class="ask-box">
-        <label for="question">此刻，你心裡放著什麼事？</label>
-        <textarea id="question" placeholder="例如：我在考慮要不要離開現在的工作，但一直下不了決心……" maxlength="600" rows="3"></textarea>
+        <label for="question">描述你目前一直想做，卻遲遲沒有開始的事情。</label>
+        <textarea id="question" placeholder="請描述你目前最想解決的一個拖延情境。例如：報告死線快到了，我卻一直滑手機，越拖越焦慮……" maxlength="600" rows="3"></textarea>
         <div class="examples" id="examples">
-          <span>和家人的關係最近很緊繃</span>
-          <span>不確定自己現在走的路對不對</span>
-          <span>一段關係讓我反覆消耗</span>
-          <span>最近總是提不起勁</span>
+          <span>報告一直寫不下去</span>
+          <span>運動計畫永遠是「明天開始」</span>
+          <span>該回的訊息拖了好幾天</span>
+          <span>想轉職，卻遲遲沒有行動</span>
         </div>
       </div>
-      <button class="btn primary" id="btnStart">開始對談</button>
-      <div class="fineprint">這是一場自我探索的對談，不是醫療、法律或財務建議，也不是心理治療。</div>
+      <button class="btn primary" id="btnStart">開始探索</button>
+      <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。</div>
     </div>
   </section>
 
-  <!-- 危機關懷（固定模板，不進對談） -->
+  <!-- 危機關懷（固定模板，不進探索） -->
   <section class="screen" id="screenCare">
     <div class="intake care">
       <h1 class="care-title">先停一停，這裡有人在乎你</h1>
-      <p class="lede">謝謝你願意把這麼重的心情說出來。這場對談無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
+      <p class="lede">謝謝你願意把這麼重的心情說出來。這場探索無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
       <button class="btn" id="btnCareBack">回到入口</button>
     </div>
   </section>
 
-  <!-- 對談 -->
-  <section class="screen" id="screenTalk">
-    <header class="talk-head">
-      <div class="stages" id="stages">
-        <span class="stage on" data-stage="narrative">敘事</span>
-        <span class="stage" data-stage="mirror">彙整</span>
-        <span class="stage" data-stage="divine">占卜</span>
-        <span class="stage" data-stage="reading">照見</span>
-      </div>
-      <span class="offline-tag" id="offlineTag" style="display:none">本地模式</span>
-    </header>
-    <div class="talk-log" id="talkLog"></div>
-    <div class="composer" id="composer" style="display:none">
-      <textarea id="answer" rows="3" maxlength="800" placeholder="用你自己的話，慢慢說……"></textarea>
-      <div class="composer-actions">
-        <button class="btn primary" id="btnSend" disabled>說出來</button>
-        <button class="btn ghost" id="btnSkip">先跳過</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- 占卜一：雷諾曼九宮格（牌面可見；解讀只進交叉彙整，不逐牌說明） -->
+  <!-- 占卜一：雷諾曼九宮格（先行；牌面可見，解讀進交叉整合） -->
   <section class="screen" id="screenSpread">
     <div class="spread">
-      <p class="divine-lede">為你此刻的問題，抽出了九張牌。<br>它們排成一個九宮格——由左至右是過去、現在、走向；<br>由上至下是想法、現實、潛意識。請逐一翻開。</p>
+      <p class="divine-lede">為你描述的情境，抽出了九張牌。<br>它們排成一個九宮格——由左至右是過去、現在、走向；<br>由上至下是想法、現實、潛意識。請逐一翻開。</p>
       <div class="spread-grid" id="spreadGrid"></div>
       <div class="divine-actions">
         <button class="btn primary" id="btnSpreadDone" disabled>都翻開了，繼續</button>
@@ -88,17 +67,43 @@
     </div>
   </section>
 
-  <!-- 整理中 -->
-  <section class="screen" id="screenWeaving">
-    <div class="weaving">
-      <div class="orb"></div>
-      <p id="weavingText">讓我安靜地整理一下——<br>把你說的話、九張牌、和你報的數，放在一起交叉比對……</p>
+  <!-- 探索與確認：四題驗證提問 + 第五題主假說確認 -->
+  <section class="screen" id="screenTalk">
+    <header class="talk-head">
+      <div class="stages" id="stages">
+        <span class="stage on" data-stage="divine">占卜</span>
+        <span class="stage" data-stage="probe">探索</span>
+        <span class="stage" data-stage="confirm">確認</span>
+        <span class="stage" data-stage="analysis">分析</span>
+      </div>
+      <span class="offline-tag" id="offlineTag" style="display:none">本地模式</span>
+    </header>
+    <div class="talk-log" id="talkLog"></div>
+    <div class="composer" id="composer" style="display:none">
+      <textarea id="answer" rows="3" maxlength="800" placeholder="用你自己的話，慢慢說……"></textarea>
+      <div class="composer-actions">
+        <button class="btn primary" id="btnSend" disabled>這樣回答</button>
+        <button class="btn ghost" id="btnSkip">先跳過</button>
+      </div>
+    </div>
+    <div class="verdict-row" id="verdictRow" style="display:none">
+      <button class="btn primary" data-verdict="yes">是</button>
+      <button class="btn" data-verdict="partly">部分是</button>
+      <button class="btn" data-verdict="no">不是</button>
     </div>
   </section>
 
-  <!-- 照見：最終文件 -->
-  <section class="screen" id="screenReading">
-    <div class="reading-wrap" id="readingHost"></div>
+  <!-- 分析中 -->
+  <section class="screen" id="screenWeaving">
+    <div class="weaving">
+      <div class="orb"></div>
+      <p id="weavingText">正在整理……</p>
+    </div>
+  </section>
+
+  <!-- 最後分析 -->
+  <section class="screen" id="screenResult">
+    <div class="reading-wrap" id="resultHost"></div>
   </section>
 
 </div>
