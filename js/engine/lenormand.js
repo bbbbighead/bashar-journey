@@ -3,7 +3,27 @@
 
 import { LENORMAND, CLUSTER_MEANING, GRID_POSITIONS } from '../../data/lenormand.js';
 
-// 從 36 張中抽 9 張不重複的牌（crypto 隨機）
+// 使用者自選：以 36 張中被選的 9 個索引（依選取順序對應九宮格位置）組成牌陣
+export function spreadFromPicks(cardIndices) {
+  return cardIndices.slice(0, 9).map((cardIdx, pos) => ({
+    position: GRID_POSITIONS[pos],
+    card: LENORMAND[cardIdx],
+  }));
+}
+
+// 洗亂 0..35 的顯示順序（讓牌池每次排列不同；crypto 隨機）
+export function shuffledDeckOrder() {
+  const order = [...LENORMAND.keys()];
+  const rand = new Uint32Array(order.length);
+  crypto.getRandomValues(rand);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = rand[i] % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+// 系統隨機抽 9 張（後備用，例如續玩異常時）
 export function drawSpread() {
   const indices = [...LENORMAND.keys()];
   const picked = [];
