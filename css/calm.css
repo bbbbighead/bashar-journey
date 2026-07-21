@@ -83,53 +83,39 @@ textarea::placeholder { color: var(--ink-faint); }
 .care-title { font-family: var(--serif); font-size: 24px; letter-spacing: .1em; margin-bottom: 24px; }
 .care .btn { margin-top: 28px; }
 
-/* ---- 對談 ---- */
-.talk-head {
-  position: sticky; top: 0; z-index: 5;
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 18px 2px 14px;
-  background: linear-gradient(var(--bg) 75%, transparent);
+/* ---- 雷諾曼：36 張牌池選牌 ---- */
+.pick-count {
+  font-size: 12.5px; color: var(--accent-dim); letter-spacing: .25em; text-indent: .25em;
+  margin-bottom: 18px;
 }
-.stages { display: flex; gap: 22px; }
-.stage {
-  font-size: 12px; letter-spacing: .3em; text-indent: .3em;
-  color: var(--ink-faint); transition: color .4s;
+.deck-grid {
+  display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px;
+  max-width: 560px; margin: 0 auto 36px;
 }
-.stage.on { color: var(--accent); }
-.stage.done { color: var(--ink-dim); }
-.offline-tag {
-  font-size: 11px; color: var(--ink-faint);
-  border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px;
+.deck-card {
+  aspect-ratio: 5 / 7; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(201, 185, 138, .14), transparent 60%),
+    var(--bg-soft);
+  position: relative; transition: transform .15s, border-color .2s, opacity .3s;
 }
+.deck-card::after {
+  content: '✶'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent-dim); font-size: 11px; opacity: .7;
+}
+.deck-card:hover:not(.taken) { transform: translateY(-3px); border-color: var(--accent-dim); }
+.deck-card.taken { opacity: .12; cursor: default; pointer-events: none; }
 
-.talk-log { padding: 12px 0 26px; }
-.msg { margin-bottom: 26px; animation: fadein .5s ease both; }
-.msg.guide { font-family: var(--serif); font-size: 16.5px; color: var(--ink); max-width: 92%; }
-.msg.guide p + p { margin-top: 14px; }
-.msg.user {
-  margin-left: auto; max-width: 86%; width: fit-content;
-  background: var(--user-bubble); border-radius: 14px 14px 4px 14px;
-  padding: 12px 18px; font-size: 15px; color: var(--ink-dim);
-  white-space: pre-wrap;
+.spread-grid.picked { margin-top: 6px; }
+.slot-empty .slot-box {
+  aspect-ratio: 5 / 7; border-radius: 10px;
+  border: 1px dashed var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--ink-faint); letter-spacing: .15em; text-indent: .15em;
 }
-.msg.user.skip { background: none; border: 1px dashed var(--line); color: var(--ink-faint); font-size: 13px; }
-
-.typing { display: inline-flex; gap: 6px; padding: 8px 2px; }
-.typing i {
-  width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
-  animation: breathe 1.4s ease-in-out infinite;
-}
-.typing i:nth-child(2) { animation-delay: .2s; }
-.typing i:nth-child(3) { animation-delay: .4s; }
-@keyframes breathe { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
-
-.composer { padding-bottom: 40px; }
-.composer-actions { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
-
-.verdict-row {
-  display: flex; justify-content: center; gap: 14px;
-  padding: 6px 0 44px; animation: fadein .5s ease both;
-}
+.slot-empty.next .slot-box { border-color: var(--accent-dim); color: var(--accent-dim); }
 
 /* ---- 占卜 ---- */
 .spread, .numbers { text-align: center; padding-top: 7vh; }

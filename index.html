@@ -40,13 +40,16 @@
     </div>
   </section>
 
-  <!-- 占卜一：雷諾曼九宮格（先行；牌面可見，解讀進交叉整合） -->
+  <!-- 占卜一：雷諾曼——使用者親手從 36 張牌中選 9 張 -->
   <section class="screen" id="screenSpread">
     <div class="spread">
-      <p class="divine-lede">為你描述的情境，抽出了九張牌。<br>它們排成一個九宮格——由左至右是過去、現在、走向；<br>由上至下是想法、現實、潛意識。請逐一翻開。</p>
-      <div class="spread-grid" id="spreadGrid"></div>
+      <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你剛剛描述的事，憑直覺選出九張——<br>它們會依序落入九宮格：由左至右是過去、現在、走向；由上至下是想法、現實、潛意識。</p>
+      <div class="pick-count" id="pickCount">已選 0 / 9</div>
+      <div class="deck-grid" id="deckGrid"></div>
+      <div class="spread-grid picked" id="spreadGrid"></div>
       <div class="divine-actions">
-        <button class="btn primary" id="btnSpreadDone" disabled>都翻開了，繼續</button>
+        <button class="btn primary" id="btnSpreadDone" disabled>就是這九張，繼續</button>
+        <button class="btn ghost" id="btnSpreadReset">重選</button>
       </div>
     </div>
   </section>
@@ -67,37 +70,11 @@
     </div>
   </section>
 
-  <!-- 探索與確認：四題驗證提問 + 第五題主假說確認 -->
-  <section class="screen" id="screenTalk">
-    <header class="talk-head">
-      <div class="stages" id="stages">
-        <span class="stage on" data-stage="divine">占卜</span>
-        <span class="stage" data-stage="probe">探索</span>
-        <span class="stage" data-stage="confirm">確認</span>
-        <span class="stage" data-stage="analysis">分析</span>
-      </div>
-      <span class="offline-tag" id="offlineTag" style="display:none">本地模式</span>
-    </header>
-    <div class="talk-log" id="talkLog"></div>
-    <div class="composer" id="composer" style="display:none">
-      <textarea id="answer" rows="3" maxlength="800" placeholder="用你自己的話，慢慢說……"></textarea>
-      <div class="composer-actions">
-        <button class="btn primary" id="btnSend" disabled>這樣回答</button>
-        <button class="btn ghost" id="btnSkip">先跳過</button>
-      </div>
-    </div>
-    <div class="verdict-row" id="verdictRow" style="display:none">
-      <button class="btn primary" data-verdict="yes">是</button>
-      <button class="btn" data-verdict="partly">部分是</button>
-      <button class="btn" data-verdict="no">不是</button>
-    </div>
-  </section>
-
   <!-- 分析中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
       <div class="orb"></div>
-      <p id="weavingText">正在整理……</p>
+      <p id="weavingText">正在把你的描述、你選的九張牌、和你報的數，<br>放在一起交叉整合……</p>
     </div>
   </section>
 
