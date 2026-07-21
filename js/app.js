@@ -1,6 +1,6 @@
-// app.js — 「拖延探索」頂層流程控制（無問答互動版）。
-// 節奏：輸入拖延情境 → 雷諾曼（使用者親手從 36 張選 9 張入九宮格）
-// → 梅花易數報數起卦 → 交叉整合 → 最後分析。
+// app.js — 「靈感訊息」頂層流程控制。
+// 節奏：輸入想獲得靈感的主題 → 雷諾曼（使用者親手從 36 張選 9 張入九宮格）
+// → 梅花易數報數起卦 → 交叉整合 → 綜合靈感訊息。
 // 每一步都 saveSession，支援重整續玩。
 
 import {
@@ -172,18 +172,13 @@ async function runAnalysis() {
 
 function renderResult(a) {
   $('resultHost').innerHTML = `
-    <div class="r-title">最 後 分 析</div>
-    <div class="r-sub">關於你為什麼還沒往前走</div>
-    <div class="r-block core"><h3>拖延真正可能代表什麼</h3><p>${esc(a.meaning)}</p></div>
-    ${a.coreBelief ? `<div class="r-block"><h3>正在運作的核心信念</h3><p>${esc(a.coreBelief)}</p></div>` : ''}
-    ${a.direction ? `<div class="r-block"><h3>牌與卦共同指出的方向</h3><p>${esc(a.direction)}</p></div>` : ''}
-    ${a.need ? `<div class="r-block"><h3>你目前真正需要的</h3><p>${esc(a.need)}</p></div>` : ''}
-    ${a.action ? `<div class="r-block"><h3>一個最值得嘗試的小行動</h3><p>${esc(a.action)}</p></div>` : ''}
-    ${a.basis ? `<div class="r-block r-basis"><h3>對應說明 · 牌與卦</h3><p>${esc(a.basis)}</p></div>` : ''}
+    <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
+    <div class="r-sub">來自你親手選的牌，與你報出的數</div>
+    <div class="r-block core"><h3>靈感訊息</h3><p>${esc(a.message)}</p></div>
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-actions">
-      <button class="btn" id="btnCopy">帶走這份分析</button>
-      <button class="btn" id="btnRestart">開始新的探索</button>
+      <button class="btn" id="btnCopy">帶走這則訊息</button>
+      <button class="btn" id="btnRestart">再求一則靈感</button>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
@@ -192,21 +187,17 @@ function renderResult(a) {
 
 function copyAnalysis(a) {
   const text = [
-    '拖延探索 · 最後分析',
+    a.title || '給你的靈感訊息',
     '',
-    `我的拖延情境:${state.opening}`,
+    `我的主題:${state.opening}`,
     '',
-    '【拖延真正可能代表什麼】', a.meaning,
-    a.coreBelief ? `\n【正在運作的核心信念】\n${a.coreBelief}` : '',
-    a.direction ? `\n【牌與卦共同指出的方向】\n${a.direction}` : '',
-    a.need ? `\n【你目前真正需要的】\n${a.need}` : '',
-    a.action ? `\n【一個最值得嘗試的小行動】\n${a.action}` : '',
-    a.basis ? `\n【對應說明 · 牌與卦】\n${a.basis}` : '',
+    a.message,
     a.closing ? `\n${a.closing}` : '',
+    '\n— 靈感訊息',
   ].filter((s) => s !== '').join('\n');
   const btn = $('btnCopy');
   navigator.clipboard.writeText(text).then(
-    () => { btn.textContent = '已帶走 ✓'; setTimeout(() => { btn.textContent = '帶走這份分析'; }, 1800); },
+    () => { btn.textContent = '已帶走 ✓'; setTimeout(() => { btn.textContent = '帶走這則訊息'; }, 1800); },
     () => { btn.textContent = '複製失敗'; }
   );
 }

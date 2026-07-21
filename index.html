@@ -3,39 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>拖延探索 · Procrastination Inquiry</title>
+<title>靈感訊息 · 今天想獲得什麼靈感</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/calm.css">
 </head>
 <body>
 <div class="app" id="app">
 
-  <!-- 首頁：輸入拖延情境 -->
+  <!-- 首頁：輸入想獲得靈感的主題 -->
   <section class="screen active" id="screenIntake">
     <div class="intake">
-      <div class="eyebrow">AI 拖延探索</div>
-      <h1>拖 延 探 索</h1>
-      <p class="lede">有些事情，你一直知道該做，卻始終沒有開始？<br>這裡不教你打敗拖延——只陪你探索一件事：<br><b>我真正為什麼沒有往前走？</b></p>
+      <div class="eyebrow">AI 靈感訊息</div>
+      <h1 class="h1-long">今天想獲得什麼靈感訊息？</h1>
+      <p class="lede">帶著一個你想被啟發的主題坐下來。<br>親手選牌、憑直覺報數——<br>讓兩套古老的視角，為你交織出一則此刻的靈感訊息。</p>
       <div class="ask-box">
-        <label for="question">描述你目前一直想做，卻遲遲沒有開始的事情。</label>
-        <textarea id="question" placeholder="請描述你目前最想解決的一個拖延情境。例如：報告死線快到了，我卻一直滑手機，越拖越焦慮……" maxlength="600" rows="3"></textarea>
+        <label for="question">我想獲得什麼的靈感</label>
+        <textarea id="question" placeholder="例如：我想獲得創作的靈感……" maxlength="600" rows="3"></textarea>
         <div class="examples" id="examples">
-          <span>報告一直寫不下去</span>
-          <span>運動計畫永遠是「明天開始」</span>
-          <span>該回的訊息拖了好幾天</span>
-          <span>想轉職，卻遲遲沒有行動</span>
+          <span>我想獲得事業的靈感</span>
+          <span>我想獲得創作的靈感</span>
+          <span>我想獲得感情的靈感</span>
+          <span>我想獲得人生方向的靈感</span>
         </div>
       </div>
-      <button class="btn primary" id="btnStart">開始探索</button>
+      <button class="btn primary" id="btnStart">開始</button>
       <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。</div>
     </div>
   </section>
 
-  <!-- 危機關懷（固定模板，不進探索） -->
+  <!-- 危機關懷（固定模板，不進體驗） -->
   <section class="screen" id="screenCare">
     <div class="intake care">
       <h1 class="care-title">先停一停，這裡有人在乎你</h1>
-      <p class="lede">謝謝你願意把這麼重的心情說出來。這場探索無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
+      <p class="lede">謝謝你願意把這麼重的心情說出來。這個體驗無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
       <button class="btn" id="btnCareBack">回到入口</button>
     </div>
   </section>
@@ -43,7 +43,7 @@
   <!-- 占卜一：雷諾曼——使用者親手從 36 張牌中選 9 張 -->
   <section class="screen" id="screenSpread">
     <div class="spread">
-      <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你剛剛描述的事，憑直覺選出九張——<br>它們會依序落入九宮格：由左至右是過去、現在、走向；由上至下是想法、現實、潛意識。</p>
+      <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你想獲得靈感的主題，憑直覺選出九張——<br>它們會依序落入九宮格：由左至右是過去、現在、走向；由上至下是想法、現實、潛意識。</p>
       <div class="pick-count" id="pickCount">已選 0 / 9</div>
       <div class="deck-grid" id="deckGrid"></div>
       <div class="spread-grid picked" id="spreadGrid"></div>
@@ -70,15 +70,15 @@
     </div>
   </section>
 
-  <!-- 分析中 -->
+  <!-- 整合中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
       <div class="orb"></div>
-      <p id="weavingText">正在把你的描述、你選的九張牌、和你報的數，<br>放在一起交叉整合……</p>
+      <p id="weavingText">正在把你選的九張牌、和你報的數，<br>交叉比對、交織成給你的靈感訊息……</p>
     </div>
   </section>
 
-  <!-- 最後分析 -->
+  <!-- 靈感訊息 -->
   <section class="screen" id="screenResult">
     <div class="reading-wrap" id="resultHost"></div>
   </section>

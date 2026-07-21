@@ -1,8 +1,8 @@
-// session.js — 拖延探索的狀態模型 + localStorage 存檔／續玩。
+// session.js — 靈感訊息的狀態模型 + localStorage 存檔／續玩。
 // 單一可序列化物件，所有引擎與 UI 都讀寫這個物件。
 //
-// 流程：輸入拖延情境 → spread（雷諾曼九宮格）→ numbers（報數起卦）
-// → weaving（分析中）→ done（最後分析）
+// 流程：輸入主題 → spread（親手選九張牌）→ numbers（報數起卦）
+// → weaving（交叉整合中）→ done（靈感訊息）
 
 const STORAGE_KEY = 'inquiry_session_v1';
 
@@ -20,7 +20,7 @@ export function createSession(opening) {
     updatedAt: now,
     status: 'spread', // spread | numbers | weaving | done
 
-    opening: String(opening || '').trim().slice(0, 600), // 拖延情境描述
+    opening: String(opening || '').trim().slice(0, 600), // 想獲得靈感的主題
 
     // 占卜
     lenormand: null,   // 九宮格 spread（玩家看得到牌面）
