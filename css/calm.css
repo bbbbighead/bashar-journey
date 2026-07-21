@@ -43,6 +43,9 @@ body {
   font-size: 44px; letter-spacing: .35em; text-indent: .35em;
   color: var(--ink); margin-bottom: 26px;
 }
+.intake h1.h1-long {
+  font-size: clamp(24px, 5.4vw, 32px); letter-spacing: .14em; text-indent: .14em;
+}
 .lede { color: var(--ink-dim); font-size: 15px; margin-bottom: 44px; }
 
 .ask-box { text-align: left; margin-bottom: 30px; }

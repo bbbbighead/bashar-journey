@@ -28,32 +28,27 @@ const ARR = (items) => ({ type: 'array', items });
 const OBJ = (required, properties) => ({ type: 'object', additionalProperties: false, required, properties });
 
 const SCHEMAS = {
-  analyze: OBJ(['meaning', 'coreBelief', 'direction', 'need', 'action', 'basis', 'closing'], {
-    meaning: S(), coreBelief: S(), direction: S(),
-    need: S(), action: S(), basis: S(), closing: S(),
+  analyze: OBJ(['title', 'message', 'closing'], {
+    title: S(), message: S(), closing: S(),
   }),
 };
 
 function buildPrompt(action, p) {
   switch (action) {
     case 'analyze':
-      return `使用者描述的拖延情境：「${String(p.opening || '').slice(0, 600)}」
+      return `使用者想獲得靈感的主題：「${String(p.opening || '').slice(0, 600)}」
 
-【雷諾曼九宮格讀數（內部參考；牌名僅可用於 basis）】
+【雷諾曼九宮格讀數（內部參考，術語與牌名嚴禁出現在輸出）】
 ${JSON.stringify(p.lenormand || {}).slice(0, 3500)}
 
-【梅花易數讀數（內部參考；卦名僅可用於 basis）】
+【梅花易數讀數（內部參考，術語與卦名嚴禁出現在輸出）】
 ${JSON.stringify(p.meihua || {}).slice(0, 1500)}
 
-沒有問答互動——你只有使用者的情境描述與兩套占卜讀數。九張牌是使用者親手選的。
-請先在心中依機制透鏡建立最可能的假說（不輸出），並且**把雷諾曼與梅花易數放在一起交叉看**——找出兩個來源收斂之處與互補之處；direction、need、action 必須是綜合兩者（再對照使用者描述）的結論，不可只依單一來源。以假說語氣（「可能」「似乎」）生成最後分析：
-- meaning：這個拖延真正可能代表什麼（150–250字，緊扣他描述中的字句，點出一到兩個最可能的機制的白話版本）。
-- coreBelief：可能正在運作的核心信念（80–150字，把隱形規則說出來，保持假說語氣）。
-- direction：雷諾曼與梅花共同指出的方向（120–200字，兩個來源收斂之處，翻譯成生活語言，不提牌名卦名）。
-- need：目前真正需要的是什麼（80–150字）。
-- action：一個最值得嘗試的小行動（具體、低門檻、附「做完觀察什麼」）。
-- basis：對應說明（150–280字）——唯一可出現牌名卦名的區塊：2–4 張關鍵牌（牌名＋位置）對應哪個觀察、本卦變卦與體用格局如何支撐 direction 與 action。
-- closing：一句溫暖收尾（≤40字）。`;
+九張牌是使用者親手選的、三個數是他憑直覺報的。
+請**把兩套讀數交叉比對**——找出收斂之處與互補之處——再對照他的主題，綜合成一則直接寫給他的靈感訊息。不逐牌解釋、不逐卦解說、不出現任何術語與名稱。生成：
+- title：這則訊息的名字（≤16字，有畫面感）。
+- message：350–550字、分 3–4 段的正式綜合內容——核心狀態（兩源收斂）→ 正在醞釀什麼／阻力或盲點在哪／時機與節奏 → 方向性啟發＋一個具體可嘗試的小行動。
+- closing：一句臨別祝福（≤40字）。`;
     default:
       return '';
   }

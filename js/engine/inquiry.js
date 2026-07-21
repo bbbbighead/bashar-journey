@@ -1,15 +1,15 @@
-// inquiry.js — 拖延探索引擎（無問答互動版）。
-// 先試 AI（serverless 代理），失敗即靜默降級到引擎規則式分析。
+// inquiry.js — 靈感訊息引擎。
+// 先試 AI（serverless 代理），失敗即靜默降級到引擎規則式綜合。
 // 對 UI 而言介面一致：不論 AI 是否成功，回傳形狀相同。
 //
-// 流程：ensureSpread → castMeihua → getAnalysis（描述＋牌＋卦 → 最後分析）
+// 流程：ensureSpread（使用者選牌）→ castMeihua（報數起卦）
+//       → getAnalysis（主題＋牌＋卦 → 綜合靈感訊息）
 
 import { callAI, AI_CONFIG } from '../ai/client.js';
 import { logAiCall } from './session.js';
-import { drawSpread, spreadForAI, convergingClusters, offlinePatterns } from './lenormand.js';
-import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics, RELATION_MEANING } from './meihua.js';
-import { STAGE_MEANING } from '../../data/hexagrams.js';
-import { OFFLINE_ANALYSIS } from '../content/templates.js';
+import { drawSpread, spreadForAI, offlinePatterns } from './lenormand.js';
+import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics } from './meihua.js';
+import { OFFLINE_MESSAGE, OFFLINE_CLOSINGS } from '../content/templates.js';
 
 function aiOn(state) {
   return AI_CONFIG.enabled && state.aiAvailable;
@@ -30,7 +30,7 @@ async function tryAI(state, action, payload) {
 // ---- 1. 占卜（純本地） ----
 
 export function ensureSpread(state) {
-  if (!state.lenormand) state.lenormand = drawSpread();
+  if (!state.lenormand) state.lenormand = drawSpread(); // 後備（正常由使用者選牌寫入）
   return state.lenormand;
 }
 
@@ -48,7 +48,7 @@ function ensureEngines(state) {
   if (!state.meihua) castMeihua(state, state.numbers);
 }
 
-// ---- 2. 最後分析（描述＋雷諾曼＋梅花易數 → 五段式） ----
+// ---- 2. 綜合靈感訊息（主題＋雷諾曼＋梅花易數 → 單一正式文字） ----
 export async function getAnalysis(state) {
   ensureEngines(state);
 
@@ -58,15 +58,10 @@ export async function getAnalysis(state) {
       lenormand: spreadForAI(state.lenormand),
       meihua: meihuaForAI(state.meihua),
     });
-    if (data && data.meaning) {
+    if (data && data.message) {
       state.analysis = {
-        meaning: sanitize(String(data.meaning)),
-        coreBelief: sanitize(String(data.coreBelief || '')),
-        direction: sanitize(String(data.direction || '')),
-        need: sanitize(String(data.need || '')),
-        action: sanitize(String(data.action || '')),
-        // 對應說明：唯一允許出現牌名與卦名的區塊，不做術語去識別
-        basis: String(data.basis || '') || offlineBasis(state),
+        title: sanitize(String(data.title || '給你的靈感訊息')),
+        message: sanitize(String(data.message)),
         closing: sanitize(String(data.closing || '')),
       };
       state.status = 'done';
@@ -79,69 +74,29 @@ export async function getAnalysis(state) {
   return state.analysis;
 }
 
-// ---- 離線最後分析（從簡：固定素材 + 引擎讀數 + 情境回扣） ----
+// ---- 離線綜合（從簡：兩個引擎的讀數 + 固定段落拼成一則訊息） ----
 function offlineAnalysis(state) {
-  const patterns = offlinePatterns(state.lenormand);
-  const dynamics = offlineDynamics(state.meihua);
+  const patterns = offlinePatterns(state.lenormand);   // 牌陣的模式觀察（無術語）
+  const dynamics = offlineDynamics(state.meihua);      // 時機與節奏的讀數（無術語）
 
-  const meaningParts = [
-    `回到你描述的情境——「${stripEnd(state.opening)}」。`,
-    OFFLINE_ANALYSIS.meaning,
+  const paras = [
+    `關於「${stripEnd(state.opening)}」——${OFFLINE_MESSAGE.opening}`,
+    [OFFLINE_MESSAGE.bridge, ...patterns.slice(0, 2).map(ensurePeriod)].join('\n'),
+    dynamics.join('\n'),
+    OFFLINE_MESSAGE.invite,
   ];
 
-  const direction = [...patterns.slice(0, 2).map(ensurePeriod), ...dynamics].join('\n\n');
-
   return {
-    meaning: meaningParts.join('\n\n'),
-    coreBelief: OFFLINE_ANALYSIS.coreBelief,
-    direction,
-    need: OFFLINE_ANALYSIS.need,
-    action: OFFLINE_ANALYSIS.action,
-    basis: offlineBasis(state),
-    closing: OFFLINE_ANALYSIS.closing,
+    title: '給你的靈感訊息',
+    message: paras.join('\n\n'),
+    closing: OFFLINE_CLOSINGS[hashCode(state.runId) % OFFLINE_CLOSINGS.length],
   };
 }
 
-// 對應說明（basis）：唯一點名牌與卦的區塊——攤開分析的工作底稿。
-function offlineBasis(state) {
-  const spread = state.lenormand;
-  const cast = state.meihua;
-  const lines = [];
-
-  if (spread && spread.length === 9) {
-    const clusters = convergingClusters(spread);
-    const center = spread[4];
-    lines.push(`九宮格的中心是「${center.card.name}」（${center.position.label}）——${firstSentence(center.card.meaning)}上面關於拖延核心的觀察，主要由這張牌定調。`);
-    if (clusters[0]) {
-      const inCluster = spread.filter((s) => s.card.cluster === clusters[0].cluster);
-      const centerInCluster = inCluster.includes(center);
-      const mates = inCluster
-        .filter((s) => s !== center)
-        .map((s) => `「${s.card.name}」（${POS_SHORT(s.position)}）`);
-      if (inCluster.length >= 2) {
-        lines.push(`${mates.join('、')}${centerInCluster ? `與中心的「${center.card.name}」` : ''}共 ${clusters[0].n} 張牌同屬「${clusters[0].label}」的主題——這是牌陣裡最強的收斂訊號。`);
-      }
-    }
-  }
-
-  if (cast && cast.ben) {
-    const src = state.numbers ? `你報的三個數（${state.numbers.join('、')}）` : '此刻的時間';
-    lines.push(`${src}起出的本卦是「${cast.ben.name}」（${STAGE_MEANING[cast.ben.stage].label}）——${cast.ben.dyn}`);
-    lines.push(`動爻之後轉為變卦「${cast.bian.name}」（${STAGE_MEANING[cast.bian.stage].label}），加上體用「${RELATION_MEANING[cast.relation].label}」的格局——「方向」與「下一步」的判讀，便是以此為據。`);
-  }
-
-  return lines.join('\n\n');
-}
-
-function firstSentence(m) {
-  const first = String(m || '').split('。')[0];
-  return first ? first + '。' : '';
-}
-
-function POS_SHORT(position) {
-  const t = { past: '過去', present: '現在', future: '走向' }[position.time] || '';
-  const l = { mind: '想法', core: '現實', root: '潛意識' }[position.layer] || '';
-  return `${t}・${l}`;
+function hashCode(s) {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
 }
 
 function ensurePeriod(s) {
@@ -153,7 +108,7 @@ function stripEnd(s) {
   return String(s || '').replace(/[。．\s]+$/, '');
 }
 
-// ---- 去識別：正文抹去可能外洩的占卜術語（basis 區塊除外；主要靠 prompt 約束） ----
+// ---- 去識別：抹去可能外洩的占卜術語（最後防線；主要靠 prompt 約束） ----
 const TERM_REPLACEMENTS = [
   [/雷諾曼|塔羅|占卜|算命/g, '內在探索'],
   [/梅花易數|易經|六爻|動爻|體用|本卦|互卦|變卦|卦象|起卦|卦辭/g, '時機的觀察'],
