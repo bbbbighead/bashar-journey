@@ -181,6 +181,9 @@ function runNumbers() {
     refresh();
   };
 
+  // 不報數：由此刻的時間起卦
+  $('btnNumbersSkip').onclick = () => proceed(null);
+
   showScreen('screenNumbers');
   setTimeout(() => inputs[0].focus(), 200);
 }
