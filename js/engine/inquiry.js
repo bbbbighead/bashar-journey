@@ -35,7 +35,7 @@ export function ensureSpread(state) {
   return state.lenormand;
 }
 
-// 報數起卦：numbers 為 [n1,n2,n3]（1–100）；null 表示跳過 → 以時間起卦
+// 報數起卦：numbers 為 [n1,n2,n3]（1–9 單位數）；null 表示未報數 → 以時間起卦（後備）
 export function castMeihua(state, numbers) {
   state.numbers = Array.isArray(numbers) ? numbers.slice(0, 3) : null;
   state.meihua = state.numbers

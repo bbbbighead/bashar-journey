@@ -63,13 +63,106 @@ const SCHEMAS = {
   }),
 };
 
-// 各階段丟給模型前的資料段（分別記錄供後台復盤）
+// ---- 各階段資料段：排版成可讀文字（送給模型與記錄的就是這串文字，非 JSON 結構） ----
+
+function fmtLenormand(L) {
+  if (!L || !Array.isArray(L.grid)) return '（無牌陣資料）';
+  const lines = L.grid.map((g) =>
+    `・${g.position}｜${g.card}（${(g.keys || []).join('、')}）——${g.meaning}`);
+  return [
+    '九宮格（依位置，由左至右、由上至下）：',
+    ...lines,
+    `中心牌（全局核心）：${L.center || '—'}`,
+    `收斂主題：${(L.themes || []).join('、') || '（無明顯收斂）'}`,
+  ].join('\n');
+}
+
+function fmtMeihua(M) {
+  if (!M) return '（無卦象資料）';
+  return [
+    `當前狀態：${M.present || '—'}`,
+    `過程：${M.process || '—'}`,
+    `發展方向：${M.direction || '—'}`,
+    `動能：${M.dynamics || '—'}`,
+    `動爻：第 ${M.movingLine || '—'} 爻`,
+  ].join('\n');
+}
+
+function fmtAstro(A) {
+  if (!A) return null;
+  const out = [];
+  const meta = A.meta || {};
+  const input = meta.input || {};
+  out.push(`計算系統：${meta.systems || '—'}`);
+  out.push(`出生資料：${input.date || '—'} ${input.timeUnknown ? '（時間不確定，以當地正午計）' : (input.time || '')}｜${input.city || ''}${input.country ? `（${input.country}）` : ''}`);
+  if (meta.place) out.push(`地點解析：${meta.place.resolved}（${meta.place.lat}, ${meta.place.lon}）｜時區 ${(meta.timezone || {}).iana}｜UTC ${meta.utc}`);
+  for (const w of meta.warnings || []) out.push(`注意：${w}`);
+
+  out.push('', '【點位】');
+  for (const p of A.points || []) {
+    out.push(`・${p.name}：${p.position}${p.house ? `，第 ${p.house} 宮` : ''}${p.retrograde ? '（逆行）' : ''}`);
+  }
+
+  if (Array.isArray(A.houses) && A.houses.length) {
+    out.push('', '【十二宮】');
+    for (const h of A.houses) {
+      out.push(`・第 ${h.house} 宮：宮頭 ${h.cuspPosition}，宮主星 ${h.rulerTraditional}${h.rulerModernCo ? `（現代共管 ${h.rulerModernCo}）` : ''}${h.rulerSign ? `——落 ${h.rulerSign}${h.rulerHouse ? ` 第 ${h.rulerHouse} 宮` : ''}` : ''}${(h.occupants || []).length ? `；宮內：${h.occupants.join('、')}` : ''}`);
+    }
+    if ((A.intercepted || []).length) out.push(`攔截星座：${A.intercepted.join('、')}`);
+    if ((A.duplicatedCuspSigns || []).length) out.push(`重複宮頭星座：${A.duplicatedCuspSigns.join('、')}`);
+  }
+
+  if (Array.isArray(A.aspects) && A.aspects.length) {
+    out.push('', '【相位（依容許度由緊至鬆）】');
+    for (const a of A.aspects) {
+      out.push(`・${a.a} ${a.type} ${a.b}｜實際 ${a.actual}°｜容許度 ${a.orb}｜${a.state}${a.major ? '' : '（次要）'}`);
+    }
+  }
+
+  const s = A.structure || {};
+  out.push('', '【整體結構】');
+  if (s.distributions) {
+    const d = s.distributions;
+    out.push(`元素分布：${Object.entries(d.elements || {}).map(([k, v]) => `${k}${v}`).join('、')}｜模式分布：${Object.entries(d.modes || {}).map(([k, v]) => `${k}${v}`).join('、')}｜陰陽：${Object.entries(d.polarity || {}).map(([k, v]) => `${k}${v}`).join('、')}`);
+  }
+  if (s.hemispheres) out.push(`半球與象限：${Object.entries(s.hemispheres).map(([k, v]) => `${k}${v}`).join('、')}`);
+  if (s.dignities && Object.keys(s.dignities).length) out.push(`尊貴：${Object.entries(s.dignities).map(([k, v]) => `${k}${v}`).join('、')}`);
+  if (s.chartRuler) out.push(`命主星：${s.chartRuler.name}${s.chartRuler.modernCo ? `（現代共管 ${s.chartRuler.modernCo}）` : ''}${s.chartRuler.sign ? `，落 ${s.chartRuler.sign}${s.chartRuler.house ? ` 第 ${s.chartRuler.house} 宮` : ''}` : ''}`);
+  if ((s.retrogradePlanets || []).length) out.push(`逆行行星：${s.retrogradePlanets.join('、')}`);
+
+  const dsp = A.dispositors || {};
+  if (dsp.chain) {
+    out.push('', '【飛星（傳統定位星）】');
+    out.push(`定位鏈：${Object.entries(dsp.chain).map(([k, v]) => `${k}→${v}`).join('；')}`);
+    if ((dsp.finalDispositors || []).length) out.push(`最終定位星：${dsp.finalDispositors.join('、')}`);
+    for (const loop of dsp.loops || []) out.push(`定位星循環：${loop.join('→')}→（回到起點）`);
+    for (const m of dsp.mutualReceptions || []) out.push(`互容：${m.join(' ↔ ')}`);
+  }
+
+  if ((A.patterns || []).length) {
+    out.push('', '【特殊格局】');
+    for (const pt of A.patterns) {
+      if (pt.type === '群星') {
+        out.push(`・群星：${pt.sign}（${(pt.bodies || []).join('、')}）｜同宮：${pt.sameHouse == null ? '不明' : pt.sameHouse ? '是' : '否'}｜最大距離 ${pt.maxSpreadDeg}°｜內行星參與：${pt.personalInvolved ? '是' : '否'}`);
+      } else {
+        out.push(`・${pt.type}：${(pt.bodies || []).join('、')}${pt.apex ? `（頂點 ${pt.apex}）` : ''}`);
+      }
+    }
+  }
+  if ((A.unaspected || []).length) {
+    out.push(`無主相位行星：${A.unaspected.map((u) => `${u.body}${u.minorOnly ? '（僅有次要相位）' : '（近乎孤立）'}`).join('、')}`);
+  }
+  return out.join('\n');
+}
+
+// 各階段丟給模型前的資料段（可讀文字；分別記錄供後台復盤）
 function buildSegments(p) {
+  const astroText = fmtAstro(p.astro);
   return {
     opening: String(p.opening || '').slice(0, 600),
-    lenormand: JSON.stringify(p.lenormand || {}).slice(0, 3500),
-    meihua: JSON.stringify(p.meihua || {}).slice(0, 1500),
-    astro: p.astro ? JSON.stringify(p.astro).slice(0, 11000) : null,
+    lenormand: fmtLenormand(p.lenormand).slice(0, 4000),
+    meihua: fmtMeihua(p.meihua).slice(0, 1500),
+    astro: astroText ? astroText.slice(0, 11000) : null,
   };
 }
 

@@ -330,9 +330,8 @@ async function toggleDetail(tr, s) {
       ${d.prompt ? `
       <div class="d-line d-message"><b>Prompt</b>
         <div class="prompt-wrap">
-          <div class="prompt-meta">送給模型的 prompt（可分段檢視）｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
+          <div class="prompt-meta">最後送給模型的完整文字（可分段檢視）｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
             <button class="btn ghost small btn-copy-prompt">複製此段</button>
-            <button class="btn ghost small btn-sys-prompt">查看 system prompt</button>
           </div>
           <div class="seg-tabs">
             <button class="seg-tab on" data-seg="full">完整 Prompt</button>
@@ -341,8 +340,7 @@ async function toggleDetail(tr, s) {
             <button class="seg-tab" data-seg="meihua">梅花易數</button>
             <button class="seg-tab" data-seg="astro">占星</button>
           </div>
-          <div class="d-msg-text prompt-text">${esc(d.prompt.prompt || '')}</div>
-          <div class="d-msg-text prompt-text sys-text" style="display:none"></div>
+          <div class="d-msg-text prompt-text">讀取中……</div>
         </div>
       </div>` : ''}
       <div class="d-line d-note"><b>標註</b>
@@ -354,50 +352,55 @@ async function toggleDetail(tr, s) {
         <button class="btn small danger btn-del">刪除這筆紀錄</button>
       </div>`;
 
-    // Prompt 操作：分段檢視 / 複製目前段 / 查看 system prompt
+    // Prompt 操作：分段檢視 / 複製目前段。
+    // 「完整 Prompt」＝最後丟給模型的整串文字：System Prompt ＋ User Prompt 接續呈現。
     const copyPromptBtn = detail.querySelector('.btn-copy-prompt');
     if (copyPromptBtn) {
       const promptBox = detail.querySelector('.prompt-text');
       const segs = d.prompt.segments || {};
-      // 分段內容（JSON 段落盡量美化呈現）
+      let fullText = null; // 快取組合後的完整文字
+
+      const buildFull = async () => {
+        if (fullText != null) return fullText;
+        let sys = '';
+        try {
+          const r = await api({ view: 'sysprompt', hash: d.prompt.sysHash || '' });
+          sys = r.content || '（此版本的 system prompt 未留存——可能是舊紀錄）';
+        } catch { sys = '（system prompt 讀取失敗）'; }
+        fullText = [
+          '════ System Prompt ════', '', sys, '',
+          '════ User Prompt（接續於 system 之後送出） ════', '',
+          d.prompt.prompt || '',
+        ].join('\n');
+        return fullText;
+      };
+
       const segText = (key) => {
-        if (key === 'full') return d.prompt.prompt || '';
         if (key === 'opening') return segs.opening || '（此紀錄未含分段資料——舊版本）';
         const raw = segs[key];
         if (raw == null) return key === 'astro' ? '（使用者跳過占星）' : '（此紀錄未含分段資料——舊版本）';
-        try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
+        return raw;
       };
+
       let curSeg = 'full';
+      const show = async (key) => {
+        curSeg = key;
+        detail.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t.dataset.seg === key));
+        promptBox.textContent = key === 'full' ? '讀取中……' : segText(key);
+        if (key === 'full') promptBox.textContent = await buildFull();
+      };
       detail.querySelectorAll('.seg-tab').forEach((tab) => {
-        tab.addEventListener('click', (e) => {
-          e.stopPropagation();
-          curSeg = tab.dataset.seg;
-          detail.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t === tab));
-          promptBox.textContent = segText(curSeg);
-        });
+        tab.addEventListener('click', (e) => { e.stopPropagation(); show(tab.dataset.seg); });
       });
-      copyPromptBtn.addEventListener('click', (e) => {
+      show('full');
+
+      copyPromptBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(segText(curSeg)).then(
+        const text = curSeg === 'full' ? await buildFull() : segText(curSeg);
+        navigator.clipboard.writeText(text).then(
           () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製此段'; }, 1800); },
           () => { copyPromptBtn.textContent = '失敗'; }
         );
-      });
-      const sysBtn = detail.querySelector('.btn-sys-prompt');
-      const sysBox = detail.querySelector('.sys-text');
-      sysBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (sysBox.style.display !== 'none') { sysBox.style.display = 'none'; sysBtn.textContent = '查看 system prompt'; return; }
-        if (!sysBox.textContent) {
-          sysBtn.disabled = true;
-          try {
-            const r = await api({ view: 'sysprompt', hash: d.prompt.sysHash || '' });
-            sysBox.textContent = r.content || '（此版本的 system prompt 未留存——可能是舊紀錄）';
-          } catch { sysBox.textContent = '（讀取失敗）'; }
-          sysBtn.disabled = false;
-        }
-        sysBox.style.display = 'block';
-        sysBtn.textContent = '收合 system prompt';
       });
     }
 
