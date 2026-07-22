@@ -23,6 +23,9 @@ function visitorId() {
 const SID = (crypto.randomUUID ? crypto.randomUUID() : 'S' + Math.random().toString(36).slice(2)).slice(0, 12);
 const VID = visitorId();
 
+// 供其他模組（如 analyze 呼叫）帶上本次 session id，讓 server 端記錄可對上這筆來訪
+export function sessionId() { return SID; }
+
 function send(payload) {
   try {
     const body = JSON.stringify({ sid: SID, vid: VID, ...payload });

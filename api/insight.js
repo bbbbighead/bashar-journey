@@ -9,6 +9,35 @@
 // 回傳：{ ok:true, data } 或 { ok:false, fallback:true }。
 
 import { SYSTEM_PROMPT } from '../prompts/system.js';
+import { redisPipeline, redisConfigured } from '../lib/redis.js';
+
+// system prompt 版本雜湊（djb2）——prompt 紀錄引用它，system prompt 本體依版本去重存一份
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(16);
+}
+const SYS_HASH = djb2(SYSTEM_PROMPT);
+
+// 把實際送給 LLM 的 prompt 記錄到該次來訪（供後台複盤；失敗靜默，不影響回應）
+async function recordPrompt(sid, provider, model, prompt) {
+  try {
+    if (!sid || !redisConfigured()) return;
+    const record = JSON.stringify({
+      ts: Date.now(), provider, model, sysHash: SYS_HASH,
+      prompt: prompt.slice(0, 20000),
+    });
+    const results = await redisPipeline([
+      ['SET', `pi:prompt:${sid}`, record],
+      ['SET', `pi:sysprompt:${SYS_HASH}`, SYSTEM_PROMPT, 'NX'],
+      ['INCRBY', 'pi:agg:bytes', String(record.length + 64)],
+    ]);
+    // system prompt 首次寫入才計入用量
+    if (results && results[1] && results[1].result === 'OK') {
+      await redisPipeline([['INCRBY', 'pi:agg:bytes', String(SYSTEM_PROMPT.length + 64)]]);
+    }
+  } catch { /* 靜默 */ }
+}
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -148,6 +177,15 @@ export default async function handler(req, res) {
   const prompt = buildPrompt(action, body);
   const maxTokens = MAX_TOKENS[action];
   const schema = SCHEMAS[action];
+
+  // 記錄實際送出的 prompt（呼叫前寫入——即使模型呼叫失敗也留有紀錄可複盤）
+  const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
+  await recordPrompt(
+    sid,
+    openaiKey ? 'openai' : 'anthropic',
+    openaiKey ? openaiModels()[action] : MODEL[action],
+    prompt,
+  );
 
   // 呼叫一次，失敗重試一次，再失敗回 fallback（兩者皆設時優先 OpenAI）
   for (let attempt = 0; attempt < 2; attempt++) {

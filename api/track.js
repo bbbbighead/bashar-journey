@@ -96,24 +96,28 @@ export function dwellBytes(dwell, dcnt) {
 // 刪除一批來訪紀錄（清單項已由呼叫端移出或將以 LREM 移出），回傳估算釋放的 bytes
 async function removeEntries(entries, useLrem) {
   if (!entries.length) return 0;
+  const STRIDE = 5;
   const reads = await redisPipeline(entries.flatMap((e) => [
     ['STRLEN', `pi:journey:${e.sid}`],
     ['HGETALL', `pi:dwell:${e.sid}`],
     ['HGETALL', `pi:dwellcnt:${e.sid}`],
     ['STRLEN', `pi:note:${e.sid}`],
+    ['STRLEN', `pi:prompt:${e.sid}`],
   ]));
 
   const cmds = [];
   let freed = 0;
   entries.forEach((e, i) => {
     freed += e.raw.length + 16;
-    const jLen = Number(reads[i * 4].result || 0);
+    const jLen = Number(reads[i * STRIDE].result || 0);
     if (jLen) freed += jLen + KEY_OVERHEAD;
-    const dwell = toObj(reads[i * 4 + 1].result);
-    const dcnt = toObj(reads[i * 4 + 2].result);
+    const dwell = toObj(reads[i * STRIDE + 1].result);
+    const dcnt = toObj(reads[i * STRIDE + 2].result);
     freed += dwellBytes(dwell, dcnt);
-    const nLen = Number(reads[i * 4 + 3].result || 0);
+    const nLen = Number(reads[i * STRIDE + 3].result || 0);
     if (nLen) freed += nLen + KEY_OVERHEAD;
+    const pLen = Number(reads[i * STRIDE + 4].result || 0);
+    if (pLen) freed += pLen + KEY_OVERHEAD;
 
     if (useLrem) cmds.push(['LREM', 'pi:sessions', '1', e.raw]);
     if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
@@ -128,6 +132,7 @@ async function removeEntries(entries, useLrem) {
         ['DEL', `pi:dwell:${e.sid}`],
         ['DEL', `pi:dwellcnt:${e.sid}`],
         ['DEL', `pi:note:${e.sid}`],
+        ['DEL', `pi:prompt:${e.sid}`],
       );
     }
   });

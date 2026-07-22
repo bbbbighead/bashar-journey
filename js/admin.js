@@ -327,6 +327,17 @@ async function toggleDetail(tr, s) {
         <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
       ` : '<div class="d-line"><b>題目</b>（此次來訪未完成體驗）</div>'}
       <div class="d-line"><b>停留</b>${dwell || '—'}</div>
+      ${d.prompt ? `
+      <div class="d-line d-message"><b>Prompt</b>
+        <div class="prompt-wrap">
+          <div class="prompt-meta">送給模型的完整 user prompt｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
+            <button class="btn ghost small btn-copy-prompt">複製</button>
+            <button class="btn ghost small btn-sys-prompt">查看 system prompt</button>
+          </div>
+          <div class="d-msg-text prompt-text">${esc(d.prompt.prompt || '')}</div>
+          <div class="d-msg-text prompt-text sys-text" style="display:none"></div>
+        </div>
+      </div>` : ''}
       <div class="d-line d-note"><b>標註</b>
         <input type="text" class="note-input" maxlength="300" placeholder="例如：我自己測試的訊息……" value="${esc(d.note || s.note || '')}">
         <button class="btn small btn-save-note">儲存標註</button>
@@ -335,6 +346,34 @@ async function toggleDetail(tr, s) {
       <div class="d-actions-row">
         <button class="btn small danger btn-del">刪除這筆紀錄</button>
       </div>`;
+
+    // Prompt 操作：複製 / 查看 system prompt
+    const copyPromptBtn = detail.querySelector('.btn-copy-prompt');
+    if (copyPromptBtn) {
+      copyPromptBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(d.prompt.prompt || '').then(
+          () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製'; }, 1800); },
+          () => { copyPromptBtn.textContent = '失敗'; }
+        );
+      });
+      const sysBtn = detail.querySelector('.btn-sys-prompt');
+      const sysBox = detail.querySelector('.sys-text');
+      sysBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (sysBox.style.display !== 'none') { sysBox.style.display = 'none'; sysBtn.textContent = '查看 system prompt'; return; }
+        if (!sysBox.textContent) {
+          sysBtn.disabled = true;
+          try {
+            const r = await api({ view: 'sysprompt', hash: d.prompt.sysHash || '' });
+            sysBox.textContent = r.content || '（此版本的 system prompt 未留存——可能是舊紀錄）';
+          } catch { sysBox.textContent = '（讀取失敗）'; }
+          sysBtn.disabled = false;
+        }
+        sysBox.style.display = 'block';
+        sysBtn.textContent = '收合 system prompt';
+      });
+    }
 
     // 儲存標註
     const noteInput = detail.querySelector('.note-input');

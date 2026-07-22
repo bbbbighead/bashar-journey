@@ -100,18 +100,21 @@ export default async function handler(req, res) {
             ['HGETALL', `pi:dwell:${s}`],
             ['HGETALL', `pi:dwellcnt:${s}`],
             ['STRLEN', `pi:note:${s}`],
+            ['STRLEN', `pi:prompt:${s}`],
           ]));
           chunk.forEach((s, j) => {
-            const jLen = Number(reads[j * 4].result || 0);
+            const jLen = Number(reads[j * 5].result || 0);
             if (jLen) bytes += jLen + KEY_OVERHEAD;
             const toObj2 = (arr) => {
               const o = {}; const a = arr || [];
               for (let k = 0; k < a.length; k += 2) o[a[k]] = a[k + 1];
               return o;
             };
-            bytes += dwellBytesOf(toObj2(reads[j * 4 + 1].result), toObj2(reads[j * 4 + 2].result));
-            const nLen = Number(reads[j * 4 + 3].result || 0);
+            bytes += dwellBytesOf(toObj2(reads[j * 5 + 1].result), toObj2(reads[j * 5 + 2].result));
+            const nLen = Number(reads[j * 5 + 3].result || 0);
             if (nLen) bytes += nLen + KEY_OVERHEAD;
+            const pLen = Number(reads[j * 5 + 4].result || 0);
+            if (pLen) bytes += pLen + KEY_OVERHEAD;
           });
         }
         await redisPipeline([['SET', 'pi:agg:bytes', String(Math.round(bytes))]]);
@@ -134,11 +137,13 @@ export default async function handler(req, res) {
         }
 
         // 讀取各筆的停留數據與大小，供回扣統計與用量
+        const STRIDE = 5;
         const reads = await redisPipeline(sids.flatMap((s) => [
           ['HGETALL', `pi:dwell:${s}`],
           ['HGETALL', `pi:dwellcnt:${s}`],
           ['STRLEN', `pi:journey:${s}`],
           ['STRLEN', `pi:note:${s}`],
+          ['STRLEN', `pi:prompt:${s}`],
         ]));
         const toObj = (arr) => {
           const o = {}; const a = arr || [];
@@ -159,22 +164,25 @@ export default async function handler(req, res) {
             freed += raw.length + 16;
             removed++;
           }
-          const dwell = toObj(reads[i * 4].result), dcnt = toObj(reads[i * 4 + 1].result);
+          const dwell = toObj(reads[i * STRIDE].result), dcnt = toObj(reads[i * STRIDE + 1].result);
           for (const [screen, ms] of Object.entries(dwell)) {
             cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(ms))]);
             // 舊紀錄可能沒有事件數：以 1 估計，避免平均值分母永不下降
             cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(dcnt[screen] || 1))]);
           }
           freed += dwellBytesOf(dwell, dcnt);
-          const jLen = Number(reads[i * 4 + 2].result || 0);
+          const jLen = Number(reads[i * STRIDE + 2].result || 0);
           if (jLen) freed += jLen + KEY_OVERHEAD;
-          const nLen = Number(reads[i * 4 + 3].result || 0);
+          const nLen = Number(reads[i * STRIDE + 3].result || 0);
           if (nLen) freed += nLen + KEY_OVERHEAD;
+          const pLen = Number(reads[i * STRIDE + 4].result || 0);
+          if (pLen) freed += pLen + KEY_OVERHEAD;
           cmds.push(
             ['DEL', `pi:journey:${s}`],
             ['DEL', `pi:dwell:${s}`],
             ['DEL', `pi:dwellcnt:${s}`],
             ['DEL', `pi:note:${s}`],
+            ['DEL', `pi:prompt:${s}`],
           );
         });
         cmds.push(['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))]);
@@ -249,10 +257,11 @@ export default async function handler(req, res) {
     if (view === 'session') {
       const sid = String(url.searchParams.get('sid') || '').slice(0, 16).replace(/[^\w-]/g, '');
       if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
-      const [jR, dR, nR] = await redisPipeline([
+      const [jR, dR, nR, pR] = await redisPipeline([
         ['GET', `pi:journey:${sid}`],
         ['HGETALL', `pi:dwell:${sid}`],
         ['GET', `pi:note:${sid}`],
+        ['GET', `pi:prompt:${sid}`],
       ]);
       const dwell = {};
       const da = dR.result || [];
@@ -262,7 +271,16 @@ export default async function handler(req, res) {
         journey: jR.result ? parseJSON(jR.result, null) : null,
         dwellMs: dwell,
         note: nR.result || '',
+        prompt: pR.result ? parseJSON(pR.result, null) : null,
       });
+      return;
+    }
+
+    if (view === 'sysprompt') {
+      const hash = String(url.searchParams.get('hash') || '').slice(0, 16).replace(/[^\w]/g, '');
+      if (!hash) { res.status(400).json({ ok: false, error: 'bad_hash' }); return; }
+      const [r] = await redisPipeline([['GET', `pi:sysprompt:${hash}`]]);
+      res.status(200).json({ ok: true, content: r.result || null });
       return;
     }
 
