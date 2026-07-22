@@ -30,30 +30,36 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- 星圖背景：博物館級天文版畫（assets/sky.svg），整個頁面座落其上 ---- */
+/* ---- 星圖背景：站主提供的星圖攝影 + 可讀性暗色塗層 ----
+   橫向視窗用方形圖（bg-square）、直向視窗用縱向圖（bg-portrait）。 */
 .sky {
-  position: fixed; inset: 0; z-index: 0;
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: url('../assets/bg-square.jpg') center / cover no-repeat #0a0f16;
 }
-.sky img {
-  width: max(150vmax, 1100px); height: max(150vmax, 1100px);
-  flex-shrink: 0; max-width: none;
+@media (orientation: portrait) {
+  .sky { background-image: url('../assets/bg-portrait.jpg'); }
 }
-/* 內容區後方的柔和暗暈：讓文字浮在版畫之上、版畫在四周展開 */
+/* 可讀性塗層：中央（內容欄）較深、四周保留照片氛圍，上下再壓一層 */
 .sky::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(closest-side at 50% 44%,
-    rgba(11, 16, 23, .66), rgba(11, 16, 23, .30) 52%, transparent 76%);
+  background:
+    radial-gradient(closest-side at 50% 42%,
+      rgba(5, 9, 16, .78), rgba(5, 9, 16, .52) 55%, rgba(5, 9, 16, .22) 82%, rgba(5, 9, 16, .16)),
+    linear-gradient(180deg, rgba(5, 9, 16, .38), rgba(5, 9, 16, .08) 32%, rgba(5, 9, 16, .08) 68%, rgba(5, 9, 16, .46));
 }
-/* 小螢幕：構圖稍微放大並偏移，讓主焦點（星盤系統）留在視野內 */
-@media (max-width: 700px) {
-  .sky img { width: 250vmax; height: 250vmax; transform: translate(10%, -5%); }
+/* 後台：縱向星圖＋更深的塗層（資料密度高，可讀性優先） */
+.sky-admin { background-image: url('../assets/bg-portrait.jpg'); }
+.sky-admin::after {
+  background:
+    linear-gradient(180deg, rgba(5, 9, 16, .78), rgba(5, 9, 16, .68) 40%, rgba(5, 9, 16, .78));
 }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
 
 .screen { display: none; width: 100%; max-width: 660px; padding: 0 22px 60px; }
+/* 照片背景上的文字可讀性：全域細字陰影（發光面按鈕除外） */
+.screen { text-shadow: 0 1px 3px rgba(3, 7, 13, .75); }
+.btn.primary { text-shadow: none; }
 .screen.active { display: block; animation: fadein 1s ease both; }
 @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
@@ -74,29 +80,27 @@ body {
 }
 .lede { color: var(--ink-dim); font-size: 15px; margin-bottom: 44px; }
 
-/* 雕版式分隔飾線：細金線 + 中央菱形 */
+/* 分隔飾線：兩端淡出的金線 + 中央發光星點（呼應照片裡的星節點） */
 .rule-orn {
-  width: 200px; margin: 0 auto 30px; position: relative;
-  border-top: 1px solid var(--line-strong);
+  width: 220px; height: 1px; margin: 0 auto 30px; position: relative;
+  background: linear-gradient(90deg, transparent, rgba(214, 183, 122, .6), transparent);
 }
 .rule-orn::after {
-  content: ''; position: absolute; left: 50%; top: -3.5px;
-  width: 6px; height: 6px; transform: translateX(-50%) rotate(45deg);
-  background: var(--bg); border: 1px solid var(--accent-dim);
+  content: ''; position: absolute; left: 50%; top: -2.5px;
+  width: 6px; height: 6px; border-radius: 50%; transform: translateX(-50%);
+  background: #ecd7a4;
+  box-shadow: 0 0 10px 2px rgba(236, 215, 164, .55);
 }
 
-/* 提問區＝展示櫃說明牌：外框細線＋角落 L 飾角，標籤為圖說小字（附延伸髮絲線） */
+/* 提問區：毛玻璃暗色面板＋柔光金邊（文字浮在照片上仍清晰） */
 .ask-box {
   text-align: left; margin-bottom: 30px; position: relative;
-  padding: 20px 20px 18px; border: 1px solid var(--line);
-  background: rgba(11, 16, 23, .35);
+  padding: 20px 20px 18px; border: 1px solid rgba(214, 183, 122, .28);
+  border-radius: 3px;
+  background: rgba(6, 10, 17, .58);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  box-shadow: 0 0 22px rgba(214, 183, 122, .08), 0 10px 34px rgba(0, 0, 0, .4);
 }
-.ask-box::before, .ask-box::after {
-  content: ''; position: absolute; width: 14px; height: 14px;
-  border: 0 solid var(--accent-dim); pointer-events: none;
-}
-.ask-box::before { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
-.ask-box::after { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
 .ask-box label {
   display: flex; align-items: center; gap: 12px;
   font-size: 11.5px; color: var(--accent-dim); margin-bottom: 14px;
@@ -119,38 +123,34 @@ textarea::placeholder { color: var(--ink-faint); }
   font-family: var(--sans); letter-spacing: .04em;
 }
 
-/* 按鈕＝黃銅銘牌：方角、角落 L 形飾角（hover 時展開）、主要鈕為舊黃銅金屬面 */
+/* 按鈕：柔光金線（hover 光暈增強），主要鈕為發光的暖金面 */
 .btn {
-  position: relative;
   font: inherit; font-size: 14px; letter-spacing: .24em; text-indent: .24em;
-  color: var(--ink-dim); background: none;
-  border: 1px solid var(--line-strong); border-radius: 0;
+  color: var(--ink-dim);
+  background: rgba(6, 10, 17, .45);
+  border: 1px solid rgba(214, 183, 122, .34); border-radius: 3px;
   padding: 12px 34px; cursor: pointer;
-  transition: color .35s, border-color .35s, background .35s;
+  box-shadow: 0 0 12px rgba(214, 183, 122, .07);
+  transition: color .35s, border-color .35s, background .35s, box-shadow .45s;
 }
-.btn::before, .btn::after {
-  content: ''; position: absolute; width: 7px; height: 7px;
-  border: 0 solid var(--accent-dim); pointer-events: none;
-  transition: width .3s, height .3s, border-color .35s;
+.btn:hover:not(:disabled) {
+  color: var(--ink); border-color: rgba(226, 198, 138, .7);
+  box-shadow: 0 0 20px rgba(220, 190, 130, .22);
 }
-.btn::before { top: -4px; left: -4px; border-top-width: 1px; border-left-width: 1px; }
-.btn::after { bottom: -4px; right: -4px; border-bottom-width: 1px; border-right-width: 1px; }
-.btn:hover:not(:disabled) { color: var(--ink); border-color: var(--accent-dim); }
-.btn:hover:not(:disabled)::before, .btn:hover:not(:disabled)::after { width: 14px; height: 14px; border-color: var(--accent); }
 .btn.primary {
-  color: #14100a;
-  background: linear-gradient(180deg, #d2ba7e 0%, #bda265 55%, #a98e52 100%);
-  border-color: #d8c48c;
-  box-shadow: inset 0 1px 0 rgba(255, 243, 210, .38), inset 0 -1px 0 rgba(20, 16, 10, .3);
+  color: #171207;
+  background: linear-gradient(180deg, #e0c384 0%, #c8aa66 60%, #b3945a 100%);
+  border-color: #ecd7a0;
+  box-shadow: 0 0 22px rgba(224, 195, 132, .32), inset 0 1px 0 rgba(255, 245, 216, .45);
 }
-.btn.primary::before, .btn.primary::after { border-color: rgba(216, 196, 140, .8); }
-.btn.primary:hover:not(:disabled) { background: linear-gradient(180deg, #dcc68c 0%, #c8ad6e 55%, #b2975a 100%); color: #14100a; }
-.btn.primary:disabled { opacity: .35; cursor: default; }
-.btn.ghost { border-color: transparent; color: var(--ink-faint); }
-.btn.ghost::before, .btn.ghost::after { display: none; }
-.btn.ghost:hover { color: var(--ink-dim); }
-.btn.small::before, .btn.small::after { width: 5px; height: 5px; top: -3px; left: -3px; }
-.btn.small::after { top: auto; left: auto; bottom: -3px; right: -3px; }
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ecd194 0%, #d4b672 60%, #bd9e62 100%);
+  color: #171207;
+  box-shadow: 0 0 30px rgba(228, 200, 138, .45), inset 0 1px 0 rgba(255, 245, 216, .5);
+}
+.btn.primary:disabled { opacity: .35; cursor: default; box-shadow: none; }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--ink-faint); }
+.btn.ghost:hover { color: var(--ink-dim); box-shadow: none; }
 
 .fineprint { margin-top: 40px; font-size: 12px; color: var(--ink-faint); font-family: var(--sans); }
 
@@ -253,19 +253,16 @@ textarea::placeholder { color: var(--ink-faint); }
   padding: 0 4px; text-align: center;
 }
 
-/* ---- 占星出生資料：檔案登錄卡 ---- */
+/* ---- 占星出生資料：毛玻璃登錄卡 ---- */
 .astro-privacy { font-size: 12.5px; color: var(--ink-faint); }
 .astro-form {
   max-width: 400px; margin: 0 auto; text-align: left; position: relative;
-  padding: 22px 20px 8px; border: 1px solid var(--line);
-  background: rgba(11, 16, 23, .35);
+  padding: 22px 20px 8px; border: 1px solid rgba(214, 183, 122, .28);
+  border-radius: 3px;
+  background: rgba(6, 10, 17, .58);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  box-shadow: 0 0 22px rgba(214, 183, 122, .08), 0 10px 34px rgba(0, 0, 0, .4);
 }
-.astro-form::before, .astro-form::after {
-  content: ''; position: absolute; width: 14px; height: 14px;
-  border: 0 solid var(--accent-dim); pointer-events: none;
-}
-.astro-form::before { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
-.astro-form::after { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
 .af-row { margin-bottom: 16px; }
 .af-row > label:not(.flt-chk) {
   display: flex; align-items: center; gap: 12px;
@@ -365,8 +362,8 @@ input.num::placeholder { color: var(--ink-faint); }
 }
 .orb::after {
   content: ''; position: absolute; inset: 27px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 14px rgba(194, 168, 105, .45);
+  background: #e6cd96;
+  box-shadow: 0 0 22px 4px rgba(230, 205, 150, .5);
   animation: orbpulse 3.6s ease-in-out infinite;
 }
 @keyframes orbspin { to { transform: rotate(360deg); } }
@@ -504,16 +501,11 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 
 .stat-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .stat {
-  flex: 1; min-width: 140px; text-align: center; position: relative;
-  border: 1px solid var(--line); border-radius: 0; padding: 16px 10px;
-  background: var(--panel);
+  flex: 1; min-width: 140px; text-align: center;
+  border: 1px solid rgba(214, 183, 122, .24); border-radius: 3px; padding: 16px 10px;
+  background: rgba(6, 10, 17, .6);
+  box-shadow: 0 0 14px rgba(214, 183, 122, .06);
 }
-.stat::before, .stat::after {
-  content: ''; position: absolute; width: 9px; height: 9px;
-  border: 0 solid var(--accent-dim); pointer-events: none;
-}
-.stat::before { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
-.stat::after { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
 .stat b { display: block; font-family: var(--serif); font-size: 30px; color: var(--accent); }
 .stat span { font-size: 12px; color: var(--ink-dim); }
 .stat b.warn { color: #cba95e; }
@@ -564,8 +556,9 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .filter-bar {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   margin-bottom: 14px; padding: 10px 12px;
-  border: 1px solid var(--line-strong); border-radius: 0;
-  background: var(--panel);
+  border: 1px solid rgba(214, 183, 122, .24); border-radius: 3px;
+  background: rgba(6, 10, 17, .6);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .scope-bar { margin: 18px 0 26px; }
 .scope-label { font-size: 12.5px; color: var(--accent-dim); letter-spacing: .2em; }
