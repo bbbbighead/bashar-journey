@@ -9,14 +9,19 @@ import {
 import { castMeihua, getAnalysis } from './engine/inquiry.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { detectCrisis } from './content/crisis.js';
+import { trackVisit, trackScreen, trackJourney } from './analytics.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+
+trackVisit();
+trackScreen('screenIntake');
 
 // ---- 螢幕切換 ----
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
+  trackScreen(id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -166,40 +171,103 @@ async function runAnalysis() {
   const t0 = Date.now();
   const analysis = await getAnalysis(state);
   saveSession(state);
+  trackJourney(state);
   const waitMs = Math.max(0, 2400 - (Date.now() - t0));
   setTimeout(() => renderResult(analysis), waitMs);
 }
 
 function renderResult(a) {
+  // 頂部：這一局抽出的九張牌（依九宮格順序）與報的數
+  const drawCards = (state.lenormand || []).map(({ card }, pos) => `
+    <div class="draw-chip">
+      <span class="draw-name">${esc(card.name)}</span>
+      <span class="draw-pos">${POS_LABELS[pos]}</span>
+    </div>`).join('');
+  const numsText = state.numbers ? state.numbers.join(' · ') : '由此刻的時間起卦';
+
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
     <div class="r-sub">來自你親手選的牌，與你報出的數</div>
+    <div class="r-draws">
+      <div class="r-draws-label">你選的九張牌</div>
+      <div class="r-draws-grid">${drawCards}</div>
+      <div class="r-draws-nums">你報的數——<b>${esc(numsText)}</b></div>
+    </div>
     <div class="r-block core"><h3>靈感訊息</h3><p>${esc(a.message)}</p></div>
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-actions">
-      <button class="btn" id="btnCopy">帶走這則訊息</button>
+      <button class="btn" id="btnCopy">複製完整內容</button>
       <button class="btn" id="btnRestart">再求一則靈感</button>
+    </div>
+    <div class="r-continue">
+      <div class="r-continue-title">想針對這則訊息，繼續往下聊？</div>
+      <p class="r-continue-hint">選一個你慣用的 AI——完整內容會自動複製，開啟後直接貼上，就能接著深入提問。</p>
+      <div class="ai-row">
+        <a class="btn ai-btn" data-ai="chatgpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+        <a class="btn ai-btn" data-ai="claude" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
+        <a class="btn ai-btn" data-ai="gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini</a>
+      </div>
+      <div class="copy-toast" id="copyToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
+  $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
+    // 連結本身負責開新分頁（不會被彈窗攔截）；點擊當下同步把 handoff 寫入剪貼簿
+    b.addEventListener('click', () => continueWithAI(a));
+  });
   showScreen('screenResult');
 }
 
-function copyAnalysis(a) {
-  const text = [
+// 完整內容（複製與導流共用）：主題 + 牌 + 數 + 訊息
+function fullText(a) {
+  const cards = (state.lenormand || [])
+    .map(({ card }, pos) => `${POS_LABELS[pos]}：${card.name}`)
+    .join('｜');
+  return [
     a.title || '給你的靈感訊息',
     '',
     `我的主題:${state.opening}`,
+    `我選的九張牌（九宮格）:${cards}`,
+    `我報的三個數:${state.numbers ? state.numbers.join('、') : '（由當下時間起卦）'}`,
     '',
     a.message,
     a.closing ? `\n${a.closing}` : '',
     '\n— 靈感訊息',
   ].filter((s) => s !== '').join('\n');
+}
+
+function copyAnalysis(a) {
   const btn = $('btnCopy');
-  navigator.clipboard.writeText(text).then(
-    () => { btn.textContent = '已帶走 ✓'; setTimeout(() => { btn.textContent = '帶走這則訊息'; }, 1800); },
+  navigator.clipboard.writeText(fullText(a)).then(
+    () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = '複製完整內容'; }, 1800); },
     () => { btn.textContent = '複製失敗'; }
   );
+}
+
+// 導流：連結開啟所選 AI 的新分頁；此函式在點擊當下把「內容＋接續提問引導」寫入剪貼簿
+function continueWithAI(a) {
+  const handoff = [
+    '以下是我剛在「靈感訊息」完成的一次抽引結果，請你先讀完：',
+    '',
+    fullText(a),
+    '',
+    '請你扮演一位溫暖而誠實的引導者，基於以上的主題、牌陣與訊息，陪我繼續深入探討——我接下來會針對其中的內容提問。',
+  ].join('\n');
+
+  navigator.clipboard.writeText(handoff).then(
+    () => showToast('內容已複製——在開啟的分頁裡貼上，就能接著聊。'),
+    () => showToast('分頁已開啟。若貼上時沒有內容，請回來按「複製完整內容」。')
+  );
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = $('copyToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 4200);
 }
 
 function restart() {

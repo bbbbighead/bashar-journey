@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>靈感訊息 · 後台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='14' y='14' width='72' height='72' rx='14' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/calm.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- 登入 -->
+  <section class="screen active admin-screen" id="adminLogin">
+    <div class="intake">
+      <div class="eyebrow">靈感訊息 · 後台</div>
+      <h1 class="h1-long">管理儀表板</h1>
+      <div class="ask-box admin-login-box">
+        <label for="adminPw">管理密碼</label>
+        <input type="password" id="adminPw" class="admin-pw" placeholder="••••••••" autocomplete="current-password">
+        <div class="admin-error" id="loginError"></div>
+      </div>
+      <button class="btn primary" id="btnLogin">登入</button>
+    </div>
+  </section>
+
+  <!-- 儀表板 -->
+  <section class="screen admin-screen" id="adminDash">
+    <header class="admin-head">
+      <div class="admin-title">靈感訊息 · 管理儀表板</div>
+      <button class="btn ghost" id="btnLogout">登出</button>
+    </header>
+
+    <!-- 總覽 -->
+    <div class="a-block">
+      <h3>總覽</h3>
+      <div class="stat-row" id="statRow"></div>
+    </div>
+
+    <div class="a-cols">
+      <!-- 來源 -->
+      <div class="a-block">
+        <h3>登入管道（來源）</h3>
+        <table class="a-table" id="srcTable"><tbody></tbody></table>
+      </div>
+      <!-- 裝置 -->
+      <div class="a-block">
+        <h3>裝置平台</h3>
+        <table class="a-table" id="devTable"><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- 停留時間 -->
+    <div class="a-block">
+      <h3>各頁面平均停留時間</h3>
+      <div id="dwellBars"></div>
+    </div>
+
+    <!-- 使用紀錄 -->
+    <div class="a-block">
+      <h3>使用者歷史紀錄</h3>
+      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。</div>
+      <table class="a-table sessions" id="sessTable">
+        <thead><tr><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>
+    </div>
+  </section>
+
+</div>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
