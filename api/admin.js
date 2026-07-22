@@ -196,39 +196,93 @@ export default async function handler(req, res) {
     }
 
     if (view === 'overview') {
-      const [srcR, devR, sumR, cntR, lenR, bytesR, prunedR, prunedAtR] = await redisPipeline([
-        ['HGETALL', 'pi:agg:src'],
-        ['HGETALL', 'pi:agg:device'],
-        ['HGETALL', 'pi:agg:dwell_sum'],
-        ['HGETALL', 'pi:agg:dwell_cnt'],
-        ['LLEN', 'pi:sessions'],
-        ['GET', 'pi:agg:bytes'],
-        ['GET', 'pi:agg:pruned'],
-        ['GET', 'pi:agg:pruned_at'],
-      ]);
+      // scope：all＝全部來訪（走全域聚合計數器）；complete／incomplete＝
+      // 依「是否留有題目」即時掃描彙總，讓所有分析區塊可動態切換資料範圍。
+      const scope = { all: 'all', complete: 'complete', incomplete: 'incomplete' }[url.searchParams.get('scope')] || 'all';
       const toObj = (arr) => {
         const o = {};
         const a = arr || [];
         for (let i = 0; i < a.length; i += 2) o[a[i]] = Number(a[i + 1]);
         return o;
       };
-      const sum = toObj(sumR.result), cnt = toObj(cntR.result);
+
+      const [bytesR, prunedR, prunedAtR] = await redisPipeline([
+        ['GET', 'pi:agg:bytes'],
+        ['GET', 'pi:agg:pruned'],
+        ['GET', 'pi:agg:pruned_at'],
+      ]);
+      const bytes = Math.max(0, Number(bytesR.result || 0));
+      const usage = {
+        bytes,
+        limitBytes: LIMIT_BYTES,
+        pct: Math.min(100, +((bytes / LIMIT_BYTES) * 100).toFixed(2)),
+        prunedTotal: Number(prunedR.result || 0),
+        prunedAt: Number(prunedAtR.result || 0) || null,
+      };
+
+      if (scope === 'all') {
+        const [srcR, devR, sumR, cntR, lenR] = await redisPipeline([
+          ['HGETALL', 'pi:agg:src'],
+          ['HGETALL', 'pi:agg:device'],
+          ['HGETALL', 'pi:agg:dwell_sum'],
+          ['HGETALL', 'pi:agg:dwell_cnt'],
+          ['LLEN', 'pi:sessions'],
+        ]);
+        const sum = toObj(sumR.result), cnt = toObj(cntR.result);
+        const dwellAvg = {};
+        for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
+        res.status(200).json({
+          ok: true, scope,
+          totalSessions: Number(lenR.result || 0),
+          sources: toObj(srcR.result),
+          devices: toObj(devR.result),
+          dwellAvgMs: dwellAvg,
+          usage,
+        });
+        return;
+      }
+
+      // 過濾範圍：掃描清單 → 以 journey 是否存在分類 → 即時彙總來源/裝置/停留
+      const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '-1']]);
+      const entries = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean).slice(0, 10000);
+      const wanted = [];
+      for (let i = 0; i < entries.length; i += 200) {
+        const chunk = entries.slice(i, i + 200);
+        const flags = await redisPipeline(chunk.map((e) => ['EXISTS', `pi:journey:${e.sid}`]));
+        chunk.forEach((e, j) => {
+          const has = flags[j].result === 1;
+          if ((scope === 'complete') === has) wanted.push(e);
+        });
+      }
+      const sources = {}, devices = {};
+      for (const e of wanted) {
+        if (e.src) sources[e.src] = (sources[e.src] || 0) + 1;
+        if (e.device) devices[e.device] = (devices[e.device] || 0) + 1;
+      }
+      const sum = {}, cnt = {};
+      for (let i = 0; i < wanted.length; i += 100) {
+        const chunk = wanted.slice(i, i + 100);
+        const reads = await redisPipeline(chunk.flatMap((e) => [
+          ['HGETALL', `pi:dwell:${e.sid}`],
+          ['HGETALL', `pi:dwellcnt:${e.sid}`],
+        ]));
+        chunk.forEach((e, j) => {
+          const dwell = toObj(reads[j * 2].result), dcnt = toObj(reads[j * 2 + 1].result);
+          for (const [screen, ms] of Object.entries(dwell)) {
+            sum[screen] = (sum[screen] || 0) + ms;
+            cnt[screen] = (cnt[screen] || 0) + (dcnt[screen] || 1);
+          }
+        });
+      }
       const dwellAvg = {};
       for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
-      const bytes = Math.max(0, Number(bytesR.result || 0));
       res.status(200).json({
-        ok: true,
-        totalSessions: Number(lenR.result || 0),
-        sources: toObj(srcR.result),
-        devices: toObj(devR.result),
+        ok: true, scope,
+        totalSessions: wanted.length,
+        sources,
+        devices,
         dwellAvgMs: dwellAvg,
-        usage: {
-          bytes,
-          limitBytes: LIMIT_BYTES,
-          pct: Math.min(100, +((bytes / LIMIT_BYTES) * 100).toFixed(2)),
-          prunedTotal: Number(prunedR.result || 0),
-          prunedAt: Number(prunedAtR.result || 0) || null,
-        },
+        usage,
       });
       return;
     }

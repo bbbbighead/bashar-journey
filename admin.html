@@ -9,6 +9,31 @@
 <link rel="stylesheet" href="css/calm.css">
 </head>
 <body>
+<!-- 星圖背景（與前台一致的檔案館氛圍，較前台更淡） -->
+<div class="sky" aria-hidden="true" style="opacity:.55">
+<svg viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#c2a869">
+    <circle cx="600" cy="600" r="548" stroke-width="9" pathLength="720" stroke-dasharray="0.35 5.65" opacity=".13"/>
+    <circle cx="600" cy="600" r="560" stroke-width="1" opacity=".2"/>
+    <circle cx="600" cy="600" r="430" stroke-width=".6" opacity=".12" stroke-dasharray="1 7"/>
+    <circle cx="600" cy="600" r="300" stroke-width=".5" opacity=".11"/>
+    <line x1="40" y1="600" x2="1160" y2="600" stroke-width=".5" opacity=".09"/>
+    <line x1="600" y1="40" x2="600" y2="1160" stroke-width=".5" opacity=".09"/>
+    <polygon points="600,64 1136,600 600,1136 64,600" stroke-width=".4" opacity=".07"/>
+  </g>
+  <g class="sky-rot" stroke="#c2a869">
+    <circle cx="600" cy="600" r="500" stroke-width=".6" opacity=".15" stroke-dasharray="2 10"/>
+    <ellipse cx="600" cy="600" rx="500" ry="200" stroke-width=".5" opacity=".13" transform="rotate(-23.4 600 600)"/>
+  </g>
+  <g fill="#d8c79a" stroke="none">
+    <circle class="tw" cx="285" cy="330" r="1.4" opacity=".4"/>
+    <circle cx="830" cy="868" r="1.3" opacity=".35"/>
+    <circle class="tw" cx="985" cy="315" r="1.2" opacity=".35"/>
+    <circle cx="240" cy="905" r="1" opacity=".3"/>
+    <circle class="tw" cx="660" cy="215" r="1.1" opacity=".3"/>
+  </g>
+</svg>
+</div>
 <div class="app">
 
   <!-- 登入 -->
@@ -34,6 +59,17 @@
 
     <!-- 容量警示 -->
     <div class="cap-banner" id="capBanner" style="display:none"></div>
+
+    <!-- 資料範圍：套用到總覽、來源/裝置、停留時間與使用紀錄 -->
+    <div class="filter-bar scope-bar">
+      <label class="scope-label" for="fltScope">資料範圍</label>
+      <select class="flt-select" id="fltScope">
+        <option value="complete">僅有題目的來訪（完成體驗）</option>
+        <option value="all">全部來訪（含未完成）</option>
+        <option value="incomplete">僅未完成的來訪（沒有題目）</option>
+      </select>
+      <span class="flt-count" id="scopeHint">套用到下方所有統計與紀錄清單</span>
+    </div>
 
     <!-- 總覽 -->
     <div class="a-block">
@@ -63,9 +99,8 @@
     <!-- 使用紀錄 -->
     <div class="a-block">
       <h3>使用者歷史紀錄</h3>
-      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。預設只顯示有完成體驗（留下題目）的紀錄。</div>
+      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。顯示範圍由上方「資料範圍」控制——選「僅未完成」即可全選後批次刪除。</div>
       <div class="filter-bar">
-        <label class="flt-chk"><input type="checkbox" id="fltIncomplete">包含未完成的來訪</label>
         <select class="flt-select" id="fltDevice">
           <option value="">全部裝置</option>
           <option value="mobile">手機</option>
