@@ -5,7 +5,10 @@
 export const AI_CONFIG = {
   enabled: true,           // 設 false 可強制全程離線（純模板）
   endpoint: '/api/insight',
-  timeoutMs: 20000,
+  // 逾時需涵蓋 serverless 上限（insight maxDuration 60s）＋網路開銷。
+  // 曾設 20s：帶完整星盤的分析常超過 20s 就被前端中止 → 走離線後備，
+  // 使用者只拿到模板訊息（舊版會顯示「完整解讀需要連線模式」）。
+  timeoutMs: 75000,
 };
 
 export async function callAI(action, payload) {

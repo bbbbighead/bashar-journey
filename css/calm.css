@@ -301,29 +301,34 @@ input.num::placeholder { color: var(--ink-faint); }
   .cv-halo { animation: none; }
 }
 
-/* ---- 結果頁：本局的牌與數（博物館標本面板） ---- */
-.r-draws {
-  margin-bottom: 42px; padding: 22px 20px 18px;
-  border: 1px solid var(--line-strong); border-radius: 2px;
-  outline: 1px solid var(--line); outline-offset: 3px;
-  background: var(--panel);
+/* ---- 結果頁：原始素材索引（弱化為文末備註） ---- */
+.r-index {
+  margin: 46px auto 8px; padding-top: 22px;
+  border-top: 1px dashed var(--line);
+  text-align: center; font-family: var(--sans); font-weight: 300;
 }
-.r-draws-label {
-  font-size: 11px; color: var(--accent-dim); font-family: var(--sans);
-  letter-spacing: .38em; text-indent: .38em; text-align: center; margin-bottom: 14px;
+.r-index-label {
+  font-size: 10.5px; color: var(--ink-faint);
+  letter-spacing: .38em; text-indent: .38em; margin-bottom: 8px;
 }
-.draw-list {
-  list-style: none; max-width: 340px; margin: 0 auto 16px;
+.r-index .r-converge { max-width: 340px; margin: 0 auto 10px; opacity: .5; }
+.r-index-line {
+  font-size: 12px; color: var(--ink-faint); line-height: 2;
+  letter-spacing: .04em;
 }
-.draw-list li {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: 5px 2px; border-bottom: 1px dashed var(--line); font-size: 13.5px;
+.r-index-line span {
+  color: var(--accent-dim); opacity: .8; font-size: 11px;
+  letter-spacing: .18em; margin-right: 10px;
 }
-.draw-list li:last-child { border-bottom: none; }
-.dl-pos { color: var(--ink-faint); font-size: 12px; font-family: var(--sans); }
-.dl-name { font-family: var(--serif); font-size: 15px; color: var(--ink); letter-spacing: .1em; }
-.r-draws-nums { text-align: center; font-size: 13px; color: var(--ink-dim); }
-.r-draws-nums b { font-family: var(--serif); font-size: 16px; color: var(--accent); letter-spacing: .1em; }
+
+/* ---- 結果頁：進階報告 ---- */
+.r-advanced {
+  margin-top: 10px; padding: 30px 20px 44px; text-align: center;
+  border-top: 1px solid var(--line);
+}
+.r-advanced-hint {
+  margin-top: 12px; font-size: 12.5px; color: var(--ink-faint); font-family: var(--sans);
+}
 
 /* ---- 結果頁：帶去 AI 繼續聊 ---- */
 .r-continue {
@@ -517,6 +522,26 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .seg-tab:hover { color: var(--ink-dim); }
 .seg-tab.on { color: var(--accent); border-color: var(--accent-dim); }
 .sys-text { margin-top: 8px; border-left-color: var(--accent-dim); }
+
+/* 後台除錯問答（帶 prompt 脈絡問 LLM） */
+.ask-chat { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.ask-hint { font-size: 12px; color: var(--ink-faint); margin-bottom: 8px; }
+.ask-log { max-height: 320px; overflow-y: auto; }
+.ask-log:not(:empty) { margin-bottom: 10px; }
+.ask-msg {
+  white-space: pre-wrap; line-height: 1.8; font-size: 12.5px;
+  padding: 8px 12px; margin-bottom: 8px; border-radius: 2px;
+}
+.ask-msg.user { color: var(--ink); background: rgba(194, 168, 105, .08); border: 1px solid var(--line); }
+.ask-msg.assistant { color: var(--ink-dim); border-left: 2px solid var(--accent-dim); padding-left: 12px; }
+.ask-msg.error { color: #bd8484; font-size: 12px; }
+.ask-row { display: flex; gap: 10px; }
+.ask-input {
+  flex: 1; font: inherit; font-size: 13px;
+  background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 2px; padding: 8px 12px;
+}
+.ask-input:focus { outline: none; border-color: var(--accent-dim); }
 .note-cell { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font-size: 12.5px; }
 .dim-dash { color: var(--ink-faint); }
 .d-note { display: flex; align-items: center; gap: 10px; margin-top: 10px; }

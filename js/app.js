@@ -372,25 +372,23 @@ function convergeSVG(hasAstro) {
 }
 
 function renderResult(a) {
-  // 頂部：這一局抽出的九張牌（文字列表，依九宮格順序）與報的數
-  const drawList = (state.lenormand || [])
-    .map(({ card }, pos) => `<li><span class="dl-pos">${POS_LABELS[pos]}</span><span class="dl-name">${esc(card.name)}</span></li>`)
-    .join('');
-  const numsText = state.numbers ? state.numbers.join(' · ') : '由此刻的時間起卦';
+  // 訊息本體直接開場、不揭示出處；原始素材（牌/數/星盤）弱化為文末索引
+  const cardsInline = (state.lenormand || []).map(({ card }) => esc(card.name)).join('、');
+  const numsText = state.numbers ? state.numbers.join('・') : '由此刻的時間起卦';
   const astroText = astroSummary(state.astro);
 
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
-    <div class="r-sub">${state.astro ? '三個觀測角度' : '兩個觀測角度'}・交會於同一則訊息</div>
-    ${convergeSVG(!!state.astro)}
-    <div class="r-draws">
-      <div class="r-draws-label">你選的九張牌</div>
-      <ul class="draw-list">${drawList}</ul>
-      <div class="r-draws-nums">你報的數——<b>${esc(numsText)}</b></div>
-      <div class="r-draws-nums">你的星盤——<b>${esc(astroText)}</b></div>
-    </div>
-    <div class="r-block core"><h3>靈感訊息</h3><p>${esc(a.message)}</p></div>
+    <div class="r-sub">寫給此刻的你</div>
+    <div class="r-block core"><p>${esc(a.message)}</p></div>
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
+    <div class="r-index" aria-label="本次紀錄索引">
+      <div class="r-index-label">本次紀錄・索引</div>
+      ${convergeSVG(!!state.astro)}
+      <div class="r-index-line"><span>牌・九宮格序</span>${cardsInline || '—'}</div>
+      <div class="r-index-line"><span>數</span>${esc(numsText)}</div>
+      <div class="r-index-line"><span>星盤</span>${esc(astroText)}</div>
+    </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">複製完整內容</button>
       <button class="btn" id="btnRestart">再求一則靈感</button>
@@ -404,9 +402,20 @@ function renderResult(a) {
         <a class="btn ai-btn" data-ai="gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini</a>
       </div>
       <div class="copy-toast" id="copyToast"></div>
+    </div>
+    <div class="r-advanced">
+      <button class="btn" id="btnAdvanced">查看詳細進階報告</button>
+      <div class="r-advanced-hint">結合牌卡、卦象與星盤的詳細報告解說</div>
+      <div class="copy-toast" id="advToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
+  $('btnAdvanced').addEventListener('click', () => {
+    const t = $('advToast');
+    t.textContent = '詳細進階報告正在打磨中——此功能即將開放，敬請期待。';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3200);
+  });
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
     // 連結本身負責開新分頁（不會被彈窗攔截）；點擊當下同步把 handoff 寫入剪貼簿
     b.addEventListener('click', () => continueWithAI(a));

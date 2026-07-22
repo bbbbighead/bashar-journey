@@ -10,6 +10,7 @@
 //   { action:'recalc' }              全面重算 pi:agg:bytes 用量估算（掃描所有紀錄）
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
+import { chatComplete, llmConfigured } from '../lib/llm.js';
 
 const KEY_OVERHEAD = 64;
 const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
@@ -188,6 +189,60 @@ export default async function handler(req, res) {
         cmds.push(['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))]);
         await redisPipeline(cmds);
         res.status(200).json({ ok: true, removed });
+        return;
+      }
+
+      if (action === 'ask') {
+        // 除錯問答：把「當時實際送出的 prompt＋產出結果」餵給 LLM 當脈絡，
+        // 讓管理者直接詢問某次結果是根據什麼產生的。
+        if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
+        if (!llmConfigured()) { res.status(503).json({ ok: false, error: 'llm_not_configured' }); return; }
+        const history = (Array.isArray(body.messages) ? body.messages : [])
+          .slice(-12)
+          .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
+          .map((m) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+        if (!history.length || history[history.length - 1].role !== 'user') {
+          res.status(400).json({ ok: false, error: 'bad_messages' });
+          return;
+        }
+
+        const [pR, jR] = await redisPipeline([
+          ['GET', `pi:prompt:${sid}`],
+          ['GET', `pi:journey:${sid}`],
+        ]);
+        const promptRec = pR.result ? parseJSON(pR.result, null) : null;
+        const journey = jR.result ? parseJSON(jR.result, null) : null;
+        let sysPrompt = null;
+        if (promptRec && promptRec.sysHash) {
+          const [sR] = await redisPipeline([['GET', `pi:sysprompt:${promptRec.sysHash}`]]);
+          sysPrompt = sR.result || null;
+        }
+
+        const context = [
+          '你是「靈感訊息」平台的後台除錯助手，正在協助管理者理解一次歷史產出的來龍去脈。',
+          '以下是這次來訪的完整脈絡（管理者視角，內部資料，可自由引用術語與系統名稱）：',
+          '',
+          '════ 當時的 System Prompt ════',
+          sysPrompt || '（未留存）',
+          '',
+          '════ 當時實際送出的 User Prompt ════',
+          promptRec ? (promptRec.prompt || '（未留存）') : '（此次來訪沒有 prompt 紀錄——可能走了離線後備、或紀錄已被刪除）',
+          '',
+          '════ 最終呈現給使用者的產出 ════',
+          journey
+            ? `標題：${journey.title || '—'}\n訊息：${journey.message || '—'}\n結語：${journey.closing || '—'}\n離線後備模式：${journey.offline ? '是（AI 呼叫失敗或未設金鑰，訊息由固定模板拼成）' : '否（AI 生成）'}`
+            : '（無產出紀錄）',
+          '',
+          '回答時：直接、誠實、技術上準確；管理者懂這套系統，不需要對他隱藏占卜術語。',
+          '若產出走了離線後備模式，請明確指出訊息內容並非由上述 prompt 生成。繁體中文回答。',
+        ].join('\n');
+
+        try {
+          const out = await chatComplete({ system: context, messages: history, maxTokens: 1600 });
+          res.status(200).json({ ok: true, reply: out.reply, provider: out.provider, model: out.model });
+        } catch {
+          res.status(502).json({ ok: false, error: 'llm_failed' });
+        }
         return;
       }
 

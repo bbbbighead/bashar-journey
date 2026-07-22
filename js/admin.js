@@ -358,6 +358,14 @@ async function toggleDetail(tr, s) {
             <button class="seg-tab" data-seg="astro">占星</button>
           </div>
           <div class="d-msg-text prompt-text">讀取中……</div>
+          <div class="ask-chat">
+            <div class="ask-hint">對這次的結果有疑問？直接問——會把當時的完整 prompt 與產出一併給模型當脈絡。</div>
+            <div class="ask-log"></div>
+            <div class="ask-row">
+              <input type="text" class="ask-input" maxlength="1000" placeholder="例如：為什麼訊息說需要連線模式？這段建議是根據什麼？">
+              <button class="btn small btn-ask">詢問</button>
+            </div>
+          </div>
         </div>
       </div>` : ''}
       <div class="d-line d-note"><b>標註</b>
@@ -418,6 +426,48 @@ async function toggleDetail(tr, s) {
           () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製此段'; }, 1800); },
           () => { copyPromptBtn.textContent = '失敗'; }
         );
+      });
+
+      // 除錯問答：帶著當時的 prompt 與產出脈絡，直接問 LLM
+      const askLog = detail.querySelector('.ask-log');
+      const askInput = detail.querySelector('.ask-input');
+      const askBtn = detail.querySelector('.btn-ask');
+      const askHistory = [];
+      const appendMsg = (role, text) => {
+        const div = document.createElement('div');
+        div.className = 'ask-msg ' + role;
+        div.textContent = text;
+        askLog.appendChild(div);
+        askLog.scrollTop = askLog.scrollHeight;
+      };
+      const sendAsk = async () => {
+        const q = askInput.value.trim();
+        if (!q || askBtn.disabled) return;
+        askInput.value = '';
+        askHistory.push({ role: 'user', content: q });
+        appendMsg('user', q);
+        askBtn.disabled = true;
+        askBtn.textContent = '思考中…';
+        try {
+          const r = await api({}, { action: 'ask', sid: s.sid, messages: askHistory });
+          askHistory.push({ role: 'assistant', content: r.reply });
+          appendMsg('assistant', r.reply);
+        } catch (err) {
+          askHistory.pop(); // 失敗的提問不留在脈絡裡
+          appendMsg('error', ({
+            llm_not_configured: '（未設定 AI 金鑰——請在環境變數加入 OPENAI_API_KEY 或 ANTHROPIC_API_KEY）',
+            llm_failed: '（模型呼叫失敗，請稍後再試）',
+          })[err.code] || '（詢問失敗，請稍後再試）');
+        }
+        askBtn.disabled = false;
+        askBtn.textContent = '詢問';
+        askInput.focus();
+      };
+      askBtn.addEventListener('click', (e) => { e.stopPropagation(); sendAsk(); });
+      askInput.addEventListener('click', (e) => e.stopPropagation());
+      askInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') sendAsk();
       });
     }
 
