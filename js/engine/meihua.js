@@ -30,7 +30,7 @@ function hexFromTrigrams(upper, lower) {
   return { key, upper, lower, ...HEXAGRAMS[key] };
 }
 
-// 報數起卦（主要路徑）：來談者提供三個 1–100 的數字。
+// 報數起卦（主要路徑）：來談者提供三個 1–9 的單位數字（或由系統隨機選出）。
 // 第一數取上卦、第二數取下卦、三數相加取動爻（傳統報數起卦法）。
 export function castFromNumbers(n1, n2, n3) {
   const a = Math.abs(Math.trunc(n1)) || 1;

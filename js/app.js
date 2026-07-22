@@ -138,18 +138,29 @@ function runSpread() {
   showScreen('screenSpread');
 }
 
-// ---- 占卜二：梅花易數報數起卦 ----
+// ---- 占卜二：梅花易數報數起卦（單一數字 1–9） ----
 function runNumbers() {
   const inputs = [$('num1'), $('num2'), $('num3')];
   const doneBtn = $('btnNumbersDone');
-  const skipBtn = $('btnNumbersSkip');
+  const randomBtn = $('btnNumbersRandom');
+  const picked = $('numPicked');
 
   const valid = (el) => {
     const v = Number(el.value);
-    return Number.isInteger(v) && v >= 1 && v <= 100;
+    return Number.isInteger(v) && v >= 1 && v <= 9;
   };
   const refresh = () => { doneBtn.disabled = !inputs.every(valid); };
-  inputs.forEach((el) => { el.value = ''; el.oninput = refresh; });
+  inputs.forEach((el) => {
+    el.value = '';
+    el.oninput = () => {
+      // 只留最後輸入的一位數（1–9）
+      const digits = el.value.replace(/[^1-9]/g, '');
+      el.value = digits.slice(-1);
+      picked.textContent = '';
+      refresh();
+    };
+  });
+  picked.textContent = '';
   refresh();
 
   const proceed = (numbers) => {
@@ -159,7 +170,16 @@ function runNumbers() {
     runAstro();
   };
   doneBtn.onclick = () => { if (inputs.every(valid)) proceed(inputs.map((el) => Number(el.value))); };
-  skipBtn.onclick = () => proceed(null);
+
+  // 隨機選三個 1–9 的數字（結果填入輸入框並列出，讓使用者看見後再確認）
+  randomBtn.onclick = () => {
+    const rand = new Uint32Array(3);
+    crypto.getRandomValues(rand);
+    const nums = [...rand].map((r) => (r % 9) + 1);
+    inputs.forEach((el, i) => { el.value = String(nums[i]); });
+    picked.textContent = `此刻為你選出——${nums.join('、')}`;
+    refresh();
+  };
 
   showScreen('screenNumbers');
   setTimeout(() => inputs[0].focus(), 200);
@@ -232,12 +252,10 @@ async function runAnalysis() {
 }
 
 function renderResult(a) {
-  // 頂部：這一局抽出的九張牌（依九宮格順序）與報的數
-  const drawCards = (state.lenormand || []).map(({ card }, pos) => `
-    <div class="draw-chip">
-      <span class="draw-name">${esc(card.name)}</span>
-      <span class="draw-pos">${POS_LABELS[pos]}</span>
-    </div>`).join('');
+  // 頂部：這一局抽出的九張牌（文字列表，依九宮格順序）與報的數
+  const drawList = (state.lenormand || [])
+    .map(({ card }, pos) => `<li><span class="dl-pos">${POS_LABELS[pos]}</span><span class="dl-name">${esc(card.name)}</span></li>`)
+    .join('');
   const numsText = state.numbers ? state.numbers.join(' · ') : '由此刻的時間起卦';
   const astroText = astroSummary(state.astro);
 
@@ -246,7 +264,7 @@ function renderResult(a) {
     <div class="r-sub">來自你親手選的牌，與你報出的數</div>
     <div class="r-draws">
       <div class="r-draws-label">你選的九張牌</div>
-      <div class="r-draws-grid">${drawCards}</div>
+      <ul class="draw-list">${drawList}</ul>
       <div class="r-draws-nums">你報的數——<b>${esc(numsText)}</b></div>
       <div class="r-draws-nums">你的星盤——<b>${esc(astroText)}</b></div>
     </div>

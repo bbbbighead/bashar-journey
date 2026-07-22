@@ -195,6 +195,10 @@ input.num {
   -moz-appearance: textfield; appearance: textfield;
 }
 input.num::-webkit-outer-spin-button, input.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-picked {
+  margin-top: 18px; min-height: 1.8em;
+  font-family: var(--serif); font-size: 15px; color: var(--accent); letter-spacing: .1em;
+}
 input.num:focus { outline: none; border-color: var(--accent-dim); }
 input.num::placeholder { color: var(--ink-faint); }
 
@@ -217,20 +221,16 @@ input.num::placeholder { color: var(--ink-faint); }
   font-size: 11.5px; color: var(--accent-dim);
   letter-spacing: .3em; text-indent: .3em; text-align: center; margin-bottom: 14px;
 }
-.r-draws-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  max-width: 420px; margin: 0 auto 14px;
+.draw-list {
+  list-style: none; max-width: 340px; margin: 0 auto 16px;
 }
-.draw-chip {
-  border: 1px solid var(--line); border-radius: 8px;
-  padding: 8px 4px 6px; text-align: center;
-  background: linear-gradient(160deg, #222834, var(--bg-soft));
+.draw-list li {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 5px 2px; border-bottom: 1px dashed var(--line); font-size: 13.5px;
 }
-.draw-name {
-  display: block; font-family: var(--serif); font-size: 15px;
-  color: var(--ink); letter-spacing: .15em; text-indent: .15em;
-}
-.draw-pos { display: block; font-size: 10px; color: var(--ink-faint); margin-top: 2px; }
+.draw-list li:last-child { border-bottom: none; }
+.dl-pos { color: var(--ink-faint); font-size: 12px; }
+.dl-name { font-family: var(--serif); font-size: 15px; color: var(--ink); letter-spacing: .1em; }
 .r-draws-nums { text-align: center; font-size: 13px; color: var(--ink-dim); }
 .r-draws-nums b { font-family: var(--serif); font-size: 16px; color: var(--accent); letter-spacing: .1em; }
 
