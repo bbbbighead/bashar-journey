@@ -21,9 +21,14 @@ const filters = { includeIncomplete: false, device: '', source: '' };
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
 
-async function api(params) {
+async function api(params, postBody) {
   const res = await fetch('/api/admin?' + new URLSearchParams(params), {
-    headers: { authorization: 'Bearer ' + pw() },
+    method: postBody ? 'POST' : 'GET',
+    headers: {
+      authorization: 'Bearer ' + pw(),
+      ...(postBody ? { 'content-type': 'application/json' } : {}),
+    },
+    body: postBody ? JSON.stringify(postBody) : undefined,
   });
   const json = await res.json().catch(() => ({ ok: false, error: 'bad_response' }));
   if (!res.ok || !json.ok) throw Object.assign(new Error(json.error || 'error'), { code: json.error, status: res.status });
@@ -99,16 +104,23 @@ function visibleSessions() {
   return allSessions.filter(matchesFilters);
 }
 
-// ---- 總覽 ----
+// ---- 總覽（圓餅圖） ----
+const PIE_COLORS = ['#c9b98a', '#8fa3c7', '#b07a5f', '#9a8fc7', '#7fb39a', '#c78f9b', '#6d675c'];
+
 function renderOverview(o) {
   $('statRow').innerHTML = `
     <div class="stat"><b>${o.totalSessions}</b><span>累計來訪（近 5000 筆）</span></div>
     <div class="stat"><b>${Object.values(o.devices).reduce((a, b) => a + b, 0)}</b><span>裝置事件</span></div>
     <div class="stat"><b>${Object.keys(o.sources).length}</b><span>來源管道數</span></div>`;
 
-  renderCountTable($('srcTable'), o.sources, '（尚無來源資料）');
-  renderCountTable($('devTable'), mapKeys(o.devices, { mobile: '手機', desktop: '電腦', tablet: '平板' }), '（尚無裝置資料）');
-  renderDwell(o.dwellAvgMs);
+  renderPie($('srcChart'), topEntries(o.sources, 6), (v) => `${v} 次`, '（尚無來源資料）');
+  renderPie($('devChart'), topEntries(mapKeys(o.devices, { mobile: '手機', desktop: '電腦', tablet: '平板' }), 6), (v) => `${v} 次`, '（尚無裝置資料）');
+
+  const order = ['screenIntake', 'screenSpread', 'screenNumbers', 'screenWeaving', 'screenResult', 'screenCare'];
+  const dwellEntries = order
+    .filter((k) => o.dwellAvgMs[k] > 0)
+    .map((k) => [SCREEN_LABELS[k] || k, o.dwellAvgMs[k]]);
+  renderPie($('dwellChart'), dwellEntries, fmtMs, '（尚無停留資料）');
 }
 
 function mapKeys(obj, names) {
@@ -117,27 +129,41 @@ function mapKeys(obj, names) {
   return out;
 }
 
-function renderCountTable(table, counts, emptyText) {
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const total = entries.reduce((a, [, n]) => a + n, 0) || 1;
-  table.querySelector('tbody').innerHTML = entries.length
-    ? entries.map(([k, n]) => `
-      <tr><td>${esc(k)}</td><td class="num">${n}</td>
-      <td class="bar-cell"><div class="bar" style="width:${Math.round((n / total) * 100)}%"></div><span>${Math.round((n / total) * 100)}%</span></td></tr>`).join('')
-    : `<tr><td class="empty">${emptyText}</td></tr>`;
+// 取前 N 名，其餘合併為「其他」
+function topEntries(counts, n) {
+  const entries = Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (entries.length <= n) return entries;
+  const head = entries.slice(0, n);
+  const rest = entries.slice(n).reduce((a, [, v]) => a + v, 0);
+  return [...head, ['其他', rest]];
 }
 
-function renderDwell(avg) {
-  const order = ['screenIntake', 'screenSpread', 'screenNumbers', 'screenWeaving', 'screenResult', 'screenCare'];
-  const entries = order.filter((k) => avg[k] != null);
-  if (!entries.length) { $('dwellBars').innerHTML = '<div class="empty">（尚無停留資料）</div>'; return; }
-  const max = Math.max(...entries.map((k) => avg[k])) || 1;
-  $('dwellBars').innerHTML = entries.map((k) => `
-    <div class="dwell-row">
-      <span class="dwell-name">${SCREEN_LABELS[k] || k}</span>
-      <div class="dwell-track"><div class="bar" style="width:${Math.round((avg[k] / max) * 100)}%"></div></div>
-      <span class="dwell-val">${fmtMs(avg[k])}</span>
-    </div>`).join('');
+// 圓餅圖（conic-gradient 甜甜圈 + 圖例：名稱、數值、百分比）
+function renderPie(host, entries, fmtValue, emptyText) {
+  const total = entries.reduce((a, [, v]) => a + v, 0);
+  if (!total) { host.innerHTML = `<div class="empty">${emptyText}</div>`; return; }
+
+  let acc = 0;
+  const stops = entries.map(([, v], i) => {
+    const from = (acc / total) * 360;
+    acc += v;
+    const to = (acc / total) * 360;
+    return `${PIE_COLORS[i % PIE_COLORS.length]} ${from.toFixed(1)}deg ${to.toFixed(1)}deg`;
+  }).join(', ');
+
+  host.innerHTML = `
+    <div class="pie-wrap">
+      <div class="pie" style="background: conic-gradient(${stops})"></div>
+      <div class="pie-legend">
+        ${entries.map(([label, v], i) => `
+          <div class="pl-row">
+            <span class="pl-dot" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span>
+            <span class="pl-label">${esc(label)}</span>
+            <span class="pl-val">${fmtValue(v)}</span>
+            <span class="pl-pct">${Math.round((v / total) * 100)}%</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 // ---- 使用紀錄 ----
@@ -167,7 +193,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">${
       allSessions.length
         ? '（目前的篩選條件下沒有紀錄——試著勾選「包含未完成的來訪」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -182,7 +208,8 @@ function renderSessions() {
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
-      <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>`;
+      <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
+      <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
     tr.addEventListener('click', () => toggleDetail(tr, s));
     tbody.appendChild(tr);
   }
@@ -197,7 +224,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="5" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="6" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {
@@ -216,10 +243,59 @@ async function toggleDetail(tr, s) {
         ${j.message ? `
         <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
       ` : '<div class="d-line"><b>題目</b>（此次來訪未完成體驗）</div>'}
-      <div class="d-line"><b>停留</b>${dwell || '—'}</div>`;
+      <div class="d-line"><b>停留</b>${dwell || '—'}</div>
+      <div class="d-line d-note"><b>標註</b>
+        <input type="text" class="note-input" maxlength="300" placeholder="例如：我自己測試的訊息……" value="${esc(d.note || s.note || '')}">
+        <button class="btn small btn-save-note">儲存標註</button>
+        <span class="note-saved"></span>
+      </div>
+      <div class="d-actions-row">
+        <button class="btn small danger btn-del">刪除這筆紀錄</button>
+      </div>`;
+
+    // 儲存標註
+    const noteInput = detail.querySelector('.note-input');
+    const saveBtn = detail.querySelector('.btn-save-note');
+    const savedTag = detail.querySelector('.note-saved');
+    saveBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      saveBtn.disabled = true;
+      try {
+        const { note } = await api({}, { action: 'note', sid: s.sid, note: noteInput.value });
+        s.note = note;
+        tr.querySelector('.note-cell').innerHTML = esc(truncate(note, 12)) || '<span class="dim-dash">—</span>';
+        tr.querySelector('.note-cell').title = note;
+        savedTag.textContent = '已儲存 ✓';
+        setTimeout(() => { savedTag.textContent = ''; }, 2000);
+      } catch {
+        savedTag.textContent = '儲存失敗';
+      }
+      saveBtn.disabled = false;
+    });
+
+    // 刪除紀錄
+    detail.querySelector('.btn-del').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('確定刪除這筆紀錄？（清單、題目、訊息、停留與標註都會移除，統計數字同步扣除）')) return;
+      try {
+        await api({}, { action: 'delete', sid: s.sid });
+        allSessions = allSessions.filter((x) => x.sid !== s.sid);
+        renderSessions();
+        // 刷新總覽（統計已回扣）
+        const overview = await api({ view: 'overview' });
+        renderOverview(overview);
+      } catch {
+        alert('刪除失敗，請重試。');
+      }
+    });
   } catch {
     detail.querySelector('td').textContent = '讀取失敗。';
   }
+}
+
+function truncate(s, n) {
+  s = String(s || '');
+  return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
 // ---- 自動登入（同分頁重整） ----
