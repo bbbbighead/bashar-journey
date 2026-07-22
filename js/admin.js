@@ -13,7 +13,11 @@ const SCREEN_LABELS = {
   screenCare: '關懷頁',
 };
 
+// 使用紀錄：本地快取 + 篩選（未完成預設隱藏）
+let allSessions = [];
 let sessOffset = 0;
+let exhausted = false;
+const filters = { includeIncomplete: false, device: '', source: '' };
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
 
@@ -57,9 +61,42 @@ async function enterDash() {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $('adminDash').classList.add('active');
   renderOverview(overview);
+
+  // 來源下拉：以總覽的來源清單填充
+  const srcSel = $('fltSource');
+  srcSel.length = 1;
+  for (const src of Object.keys(overview.sources).sort()) {
+    const opt = document.createElement('option');
+    opt.value = src; opt.textContent = src;
+    srcSel.appendChild(opt);
+  }
+
+  allSessions = [];
   sessOffset = 0;
-  $('sessTable').querySelector('tbody').innerHTML = '';
-  await loadSessions();
+  exhausted = false;
+  await loadMore();
+}
+
+// ---- 篩選 ----
+$('fltIncomplete').addEventListener('change', (e) => { filters.includeIncomplete = e.target.checked; onFilterChange(); });
+$('fltDevice').addEventListener('change', (e) => { filters.device = e.target.value; onFilterChange(); });
+$('fltSource').addEventListener('change', (e) => { filters.source = e.target.value; onFilterChange(); });
+
+async function onFilterChange() {
+  renderSessions();
+  // 篩選後畫面太空時，自動補抓幾頁
+  if (visibleSessions().length < 20 && !exhausted) await loadMore();
+}
+
+function matchesFilters(s) {
+  if (!filters.includeIncomplete && !s.hasJourney) return false;
+  if (filters.device && s.device !== filters.device) return false;
+  if (filters.source && s.src !== filters.source) return false;
+  return true;
+}
+
+function visibleSessions() {
+  return allSessions.filter(matchesFilters);
 }
 
 // ---- 總覽 ----
@@ -104,20 +141,40 @@ function renderDwell(avg) {
 }
 
 // ---- 使用紀錄 ----
-$('btnMore').addEventListener('click', loadSessions);
+$('btnMore').addEventListener('click', loadMore);
 
-async function loadSessions() {
+async function fetchPage() {
   const { sessions } = await api({ view: 'sessions', offset: String(sessOffset) });
   sessOffset += 50;
-  const tbody = $('sessTable').querySelector('tbody');
-  if (!sessions.length && !tbody.children.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">（尚無來訪紀錄）</td></tr>';
-    $('btnMore').style.display = 'none';
-    return;
-  }
-  if (sessions.length < 50) $('btnMore').style.display = 'none';
+  if (sessions.length < 50) exhausted = true;
+  allSessions.push(...sessions);
+}
 
-  for (const s of sessions) {
+// 載入更多：抓到「符合篩選的可見筆數」至少多 20 筆，或資料抓完為止（單次最多 6 頁）
+async function loadMore() {
+  const before = visibleSessions().length;
+  let pages = 0;
+  while (!exhausted && pages < 6 && visibleSessions().length - before < 20) {
+    await fetchPage();
+    pages++;
+  }
+  renderSessions();
+}
+
+function renderSessions() {
+  const tbody = $('sessTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  const visible = visibleSessions();
+
+  if (!visible.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${
+      allSessions.length
+        ? '（目前的篩選條件下沒有紀錄——試著勾選「包含未完成的來訪」或放寬條件）'
+        : '（尚無來訪紀錄）'
+    }</td></tr>`;
+  }
+
+  for (const s of visible) {
     const tr = document.createElement('tr');
     tr.className = 'sess-row';
     tr.innerHTML = `
@@ -125,10 +182,13 @@ async function loadSessions() {
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
-      <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">—</span>'}</td>`;
+      <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>`;
     tr.addEventListener('click', () => toggleDetail(tr, s));
     tbody.appendChild(tr);
   }
+
+  $('fltCount').textContent = `顯示 ${visible.length} 筆／已載入 ${allSessions.length} 筆`;
+  $('btnMore').style.display = exhausted ? 'none' : 'inline-block';
 }
 
 async function toggleDetail(tr, s) {

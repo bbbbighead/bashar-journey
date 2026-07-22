@@ -60,7 +60,20 @@
     <!-- 使用紀錄 -->
     <div class="a-block">
       <h3>使用者歷史紀錄</h3>
-      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。</div>
+      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。預設只顯示有完成體驗（留下題目）的紀錄。</div>
+      <div class="filter-bar">
+        <label class="flt-chk"><input type="checkbox" id="fltIncomplete">包含未完成的來訪</label>
+        <select class="flt-select" id="fltDevice">
+          <option value="">全部裝置</option>
+          <option value="mobile">手機</option>
+          <option value="desktop">電腦</option>
+          <option value="tablet">平板</option>
+        </select>
+        <select class="flt-select" id="fltSource">
+          <option value="">全部來源</option>
+        </select>
+        <span class="flt-count" id="fltCount"></span>
+      </div>
       <table class="a-table sessions" id="sessTable">
         <thead><tr><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th></tr></thead>
         <tbody></tbody>
