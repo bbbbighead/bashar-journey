@@ -213,6 +213,8 @@ async function toggleDetail(tr, s) {
         <div class="d-line"><b>選牌</b>${(j.cards || []).map(esc).join('、') || '—'}</div>
         <div class="d-line"><b>報數</b>${j.numbers ? j.numbers.join('、') : '（時間起卦）'}</div>
         <div class="d-line"><b>產出</b>${esc(j.title || '—')}${j.offline ? '（離線模板）' : ''}</div>
+        ${j.message ? `
+        <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
       ` : '<div class="d-line"><b>題目</b>（此次來訪未完成體驗）</div>'}
       <div class="d-line"><b>停留</b>${dwell || '—'}</div>`;
   } catch {

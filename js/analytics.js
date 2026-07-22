@@ -78,6 +78,8 @@ export function trackJourney(state) {
       cards: (state.lenormand || []).map((x) => x.card.name),
       numbers: state.numbers || null,
       title: state.analysis ? String(state.analysis.title || '').slice(0, 60) : '',
+      message: state.analysis ? String(state.analysis.message || '').slice(0, 2000) : '',
+      closing: state.analysis ? String(state.analysis.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
     });
   } catch { /* 靜默 */ }

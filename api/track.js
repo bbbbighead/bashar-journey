@@ -103,6 +103,8 @@ export default async function handler(req, res) {
         cards: Array.isArray(body.cards) ? body.cards.slice(0, 9).map((c) => String(c).slice(0, 8)) : [],
         numbers: Array.isArray(body.numbers) ? body.numbers.slice(0, 3).map(Number) : null,
         title: String(body.title || '').slice(0, 60),
+        message: String(body.message || '').slice(0, 2000), // 完整靈感訊息輸出
+        closing: String(body.closing || '').slice(0, 100),
         offline: !!body.offline,
       });
       cmds.push(
