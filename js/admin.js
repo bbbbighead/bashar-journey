@@ -13,11 +13,12 @@ const SCREEN_LABELS = {
   screenCare: '關懷頁',
 };
 
-// 使用紀錄：本地快取 + 篩選（未完成預設隱藏）
+// 使用紀錄：本地快取 + 篩選（未完成預設隱藏）+ 多選刪除
 let allSessions = [];
 let sessOffset = 0;
 let exhausted = false;
 const filters = { includeIncomplete: false, device: '', source: '' };
+const selected = new Set(); // 已勾選的 sid
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
 
@@ -193,30 +194,80 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">${
       allSessions.length
         ? '（目前的篩選條件下沒有紀錄——試著勾選「包含未完成的來訪」或放寬條件）'
         : '（尚無來訪紀錄）'
     }</td></tr>`;
   }
 
+  // 清掉已不存在的勾選
+  const visibleSids = new Set(visible.map((s) => s.sid));
+  for (const sid of [...selected]) if (!visibleSids.has(sid)) selected.delete(sid);
+
   for (const s of visible) {
     const tr = document.createElement('tr');
     tr.className = 'sess-row';
     tr.innerHTML = `
+      <td class="chk-col"><input type="checkbox" class="row-chk" ${selected.has(s.sid) ? 'checked' : ''}></td>
       <td>${fmtTime(s.ts)}</td>
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
       <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
+
+    const chk = tr.querySelector('.row-chk');
+    chk.addEventListener('click', (e) => e.stopPropagation()); // 勾選不展開詳情
+    chk.addEventListener('change', () => {
+      if (chk.checked) selected.add(s.sid); else selected.delete(s.sid);
+      updateBulkBar();
+    });
     tr.addEventListener('click', () => toggleDetail(tr, s));
     tbody.appendChild(tr);
   }
 
   $('fltCount').textContent = `顯示 ${visible.length} 筆／已載入 ${allSessions.length} 筆`;
   $('btnMore').style.display = exhausted ? 'none' : 'inline-block';
+  updateBulkBar();
 }
+
+// ---- 多選刪除 ----
+function updateBulkBar() {
+  const visible = visibleSessions();
+  $('bulkBar').style.display = selected.size ? 'flex' : 'none';
+  $('bulkCount').textContent = `已選取 ${selected.size} 筆`;
+  const all = $('chkAll');
+  all.checked = visible.length > 0 && visible.every((s) => selected.has(s.sid));
+  all.indeterminate = selected.size > 0 && !all.checked;
+}
+
+$('chkAll').addEventListener('change', () => {
+  const check = $('chkAll').checked;
+  for (const s of visibleSessions()) {
+    if (check) selected.add(s.sid); else selected.delete(s.sid);
+  }
+  document.querySelectorAll('#sessTable .row-chk').forEach((c) => { c.checked = check; });
+  updateBulkBar();
+});
+
+$('btnBulkDel').addEventListener('click', async () => {
+  if (!selected.size) return;
+  if (!confirm(`確定刪除選取的 ${selected.size} 筆紀錄？（題目、訊息、停留與標註都會移除，統計數字同步扣除）`)) return;
+  const btn = $('btnBulkDel');
+  btn.disabled = true;
+  try {
+    await api({}, { action: 'delete', sids: [...selected] });
+    allSessions = allSessions.filter((s) => !selected.has(s.sid));
+    selected.clear();
+    renderSessions();
+    const overview = await api({ view: 'overview' });
+    renderOverview(overview);
+  } catch {
+    alert('刪除失敗，請重試。');
+  }
+  btn.disabled = false;
+});
 
 async function toggleDetail(tr, s) {
   const existing = tr.nextElementSibling;
@@ -224,7 +275,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="6" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="7" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {

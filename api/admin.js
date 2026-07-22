@@ -57,10 +57,11 @@ export default async function handler(req, res) {
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
       const action = body && body.action;
-      const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
-      if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
+      const cleanSid = (s) => String(s || '').slice(0, 16).replace(/[^\w-]/g, '');
+      const sid = cleanSid(body && body.sid);
 
       if (action === 'note') {
+        if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
         const ttl = Math.max(1, Number(process.env.DATA_RETENTION_DAYS) || 365) * 24 * 3600;
         const note = String(body.note || '').trim().slice(0, 300);
         await redisPipeline(note
@@ -71,45 +72,56 @@ export default async function handler(req, res) {
       }
 
       if (action === 'delete') {
-        // 找出清單中該 sid 的原始字串（LREM 需要完整值）
-        const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '4999']]);
-        const raw = (listR.result || []).find((s) => {
-          const p = parseJSON(s, null);
-          return p && p.sid === sid;
-        });
+        // 支援單筆（sid）或批次（sids[]，上限 100）
+        const sids = (Array.isArray(body.sids) ? body.sids : [sid])
+          .map(cleanSid).filter(Boolean).slice(0, 100);
+        if (!sids.length) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
 
-        // 讀取該筆的停留數據，供回扣平均值統計
-        const [dwellR, cntR] = await redisPipeline([
-          ['HGETALL', `pi:dwell:${sid}`],
-          ['HGETALL', `pi:dwellcnt:${sid}`],
-        ]);
+        // 找出清單中各 sid 的原始字串（LREM 需要完整值）
+        const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '4999']]);
+        const rawBySid = new Map();
+        for (const raw of listR.result || []) {
+          const p = parseJSON(raw, null);
+          if (p && sids.includes(p.sid)) rawBySid.set(p.sid, raw);
+        }
+
+        // 讀取各筆的停留數據，供回扣平均值統計
+        const reads = await redisPipeline(sids.flatMap((s) => [
+          ['HGETALL', `pi:dwell:${s}`],
+          ['HGETALL', `pi:dwellcnt:${s}`],
+        ]));
         const toObj = (arr) => {
           const o = {}; const a = arr || [];
           for (let i = 0; i < a.length; i += 2) o[a[i]] = Number(a[i + 1]);
           return o;
         };
-        const dwell = toObj(dwellR.result), dcnt = toObj(cntR.result);
 
         const cmds = [];
-        if (raw) {
-          const entry = parseJSON(raw, {});
-          cmds.push(['LREM', 'pi:sessions', '1', raw]);
-          if (entry.src) cmds.push(['HINCRBY', 'pi:agg:src', entry.src, '-1']);
-          if (entry.device) cmds.push(['HINCRBY', 'pi:agg:device', entry.device, '-1']);
-        }
-        for (const [screen, ms] of Object.entries(dwell)) {
-          cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(ms))]);
-          // 舊紀錄可能沒有事件數：以 1 估計，避免平均值分母永不下降
-          cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(dcnt[screen] || 1))]);
-        }
-        cmds.push(
-          ['DEL', `pi:journey:${sid}`],
-          ['DEL', `pi:dwell:${sid}`],
-          ['DEL', `pi:dwellcnt:${sid}`],
-          ['DEL', `pi:note:${sid}`],
-        );
+        let removed = 0;
+        sids.forEach((s, i) => {
+          const raw = rawBySid.get(s);
+          if (raw) {
+            const entry = parseJSON(raw, {});
+            cmds.push(['LREM', 'pi:sessions', '1', raw]);
+            if (entry.src) cmds.push(['HINCRBY', 'pi:agg:src', entry.src, '-1']);
+            if (entry.device) cmds.push(['HINCRBY', 'pi:agg:device', entry.device, '-1']);
+            removed++;
+          }
+          const dwell = toObj(reads[i * 2].result), dcnt = toObj(reads[i * 2 + 1].result);
+          for (const [screen, ms] of Object.entries(dwell)) {
+            cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(ms))]);
+            // 舊紀錄可能沒有事件數：以 1 估計，避免平均值分母永不下降
+            cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(dcnt[screen] || 1))]);
+          }
+          cmds.push(
+            ['DEL', `pi:journey:${s}`],
+            ['DEL', `pi:dwell:${s}`],
+            ['DEL', `pi:dwellcnt:${s}`],
+            ['DEL', `pi:note:${s}`],
+          );
+        });
         await redisPipeline(cmds);
-        res.status(200).json({ ok: true, removed: !!raw });
+        res.status(200).json({ ok: true, removed });
         return;
       }
 

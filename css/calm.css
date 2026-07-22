@@ -346,6 +346,19 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .flt-select:focus { outline: none; border-color: var(--accent-dim); }
 .flt-count { margin-left: auto; font-size: 12px; color: var(--ink-faint); }
 
+.chk-col { width: 34px; text-align: center !important; }
+.chk-col input {
+  accent-color: var(--accent); width: 15px; height: 15px;
+  cursor: pointer; vertical-align: middle;
+}
+.bulk-bar {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 12px; padding: 9px 14px;
+  border: 1px solid #5a3838; border-radius: 10px;
+  background: rgba(90, 56, 56, .12);
+}
+#bulkCount { font-size: 13px; color: var(--ink-dim); }
+
 .sess-row { cursor: pointer; transition: background .2s; }
 .sess-row:hover { background: rgba(201, 185, 138, .05); }
 .badge {
