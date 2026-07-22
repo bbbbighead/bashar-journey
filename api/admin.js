@@ -10,6 +10,7 @@
 //   { action:'recalc' }              全面重算 pi:agg:bytes 用量估算（掃描所有紀錄）
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
+import { chatComplete, llmConfigured } from '../lib/llm.js';
 
 const KEY_OVERHEAD = 64;
 const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
@@ -191,44 +192,152 @@ export default async function handler(req, res) {
         return;
       }
 
+      if (action === 'ask') {
+        // 除錯問答：把「當時實際送出的 prompt＋產出結果」餵給 LLM 當脈絡，
+        // 讓管理者直接詢問某次結果是根據什麼產生的。
+        if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
+        if (!llmConfigured()) { res.status(503).json({ ok: false, error: 'llm_not_configured' }); return; }
+        const history = (Array.isArray(body.messages) ? body.messages : [])
+          .slice(-12)
+          .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && m.content)
+          .map((m) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+        if (!history.length || history[history.length - 1].role !== 'user') {
+          res.status(400).json({ ok: false, error: 'bad_messages' });
+          return;
+        }
+
+        const [pR, jR] = await redisPipeline([
+          ['GET', `pi:prompt:${sid}`],
+          ['GET', `pi:journey:${sid}`],
+        ]);
+        const promptRec = pR.result ? parseJSON(pR.result, null) : null;
+        const journey = jR.result ? parseJSON(jR.result, null) : null;
+        let sysPrompt = null;
+        if (promptRec && promptRec.sysHash) {
+          const [sR] = await redisPipeline([['GET', `pi:sysprompt:${promptRec.sysHash}`]]);
+          sysPrompt = sR.result || null;
+        }
+
+        const context = [
+          '你是「靈感訊息」平台的後台除錯助手，正在協助管理者理解一次歷史產出的來龍去脈。',
+          '以下是這次來訪的完整脈絡（管理者視角，內部資料，可自由引用術語與系統名稱）：',
+          '',
+          '════ 當時的 System Prompt ════',
+          sysPrompt || '（未留存）',
+          '',
+          '════ 當時實際送出的 User Prompt ════',
+          promptRec ? (promptRec.prompt || '（未留存）') : '（此次來訪沒有 prompt 紀錄——可能走了離線後備、或紀錄已被刪除）',
+          '',
+          '════ 最終呈現給使用者的產出 ════',
+          journey
+            ? `標題：${journey.title || '—'}\n訊息：${journey.message || '—'}\n結語：${journey.closing || '—'}\n離線後備模式：${journey.offline ? '是（AI 呼叫失敗或未設金鑰，訊息由固定模板拼成）' : '否（AI 生成）'}`
+            : '（無產出紀錄）',
+          '',
+          '回答時：直接、誠實、技術上準確；管理者懂這套系統，不需要對他隱藏占卜術語。',
+          '若產出走了離線後備模式，請明確指出訊息內容並非由上述 prompt 生成。繁體中文回答。',
+        ].join('\n');
+
+        try {
+          const out = await chatComplete({ system: context, messages: history, maxTokens: 1600 });
+          res.status(200).json({ ok: true, reply: out.reply, provider: out.provider, model: out.model });
+        } catch {
+          res.status(502).json({ ok: false, error: 'llm_failed' });
+        }
+        return;
+      }
+
       res.status(400).json({ ok: false, error: 'bad_action' });
       return;
     }
 
     if (view === 'overview') {
-      const [srcR, devR, sumR, cntR, lenR, bytesR, prunedR, prunedAtR] = await redisPipeline([
-        ['HGETALL', 'pi:agg:src'],
-        ['HGETALL', 'pi:agg:device'],
-        ['HGETALL', 'pi:agg:dwell_sum'],
-        ['HGETALL', 'pi:agg:dwell_cnt'],
-        ['LLEN', 'pi:sessions'],
-        ['GET', 'pi:agg:bytes'],
-        ['GET', 'pi:agg:pruned'],
-        ['GET', 'pi:agg:pruned_at'],
-      ]);
+      // scope：all＝全部來訪（走全域聚合計數器）；complete／incomplete＝
+      // 依「是否留有題目」即時掃描彙總，讓所有分析區塊可動態切換資料範圍。
+      const scope = { all: 'all', complete: 'complete', incomplete: 'incomplete' }[url.searchParams.get('scope')] || 'all';
       const toObj = (arr) => {
         const o = {};
         const a = arr || [];
         for (let i = 0; i < a.length; i += 2) o[a[i]] = Number(a[i + 1]);
         return o;
       };
-      const sum = toObj(sumR.result), cnt = toObj(cntR.result);
+
+      const [bytesR, prunedR, prunedAtR] = await redisPipeline([
+        ['GET', 'pi:agg:bytes'],
+        ['GET', 'pi:agg:pruned'],
+        ['GET', 'pi:agg:pruned_at'],
+      ]);
+      const bytes = Math.max(0, Number(bytesR.result || 0));
+      const usage = {
+        bytes,
+        limitBytes: LIMIT_BYTES,
+        pct: Math.min(100, +((bytes / LIMIT_BYTES) * 100).toFixed(2)),
+        prunedTotal: Number(prunedR.result || 0),
+        prunedAt: Number(prunedAtR.result || 0) || null,
+      };
+
+      if (scope === 'all') {
+        const [srcR, devR, sumR, cntR, lenR] = await redisPipeline([
+          ['HGETALL', 'pi:agg:src'],
+          ['HGETALL', 'pi:agg:device'],
+          ['HGETALL', 'pi:agg:dwell_sum'],
+          ['HGETALL', 'pi:agg:dwell_cnt'],
+          ['LLEN', 'pi:sessions'],
+        ]);
+        const sum = toObj(sumR.result), cnt = toObj(cntR.result);
+        const dwellAvg = {};
+        for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
+        res.status(200).json({
+          ok: true, scope,
+          totalSessions: Number(lenR.result || 0),
+          sources: toObj(srcR.result),
+          devices: toObj(devR.result),
+          dwellAvgMs: dwellAvg,
+          usage,
+        });
+        return;
+      }
+
+      // 過濾範圍：掃描清單 → 以 journey 是否存在分類 → 即時彙總來源/裝置/停留
+      const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '-1']]);
+      const entries = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean).slice(0, 10000);
+      const wanted = [];
+      for (let i = 0; i < entries.length; i += 200) {
+        const chunk = entries.slice(i, i + 200);
+        const flags = await redisPipeline(chunk.map((e) => ['EXISTS', `pi:journey:${e.sid}`]));
+        chunk.forEach((e, j) => {
+          const has = flags[j].result === 1;
+          if ((scope === 'complete') === has) wanted.push(e);
+        });
+      }
+      const sources = {}, devices = {};
+      for (const e of wanted) {
+        if (e.src) sources[e.src] = (sources[e.src] || 0) + 1;
+        if (e.device) devices[e.device] = (devices[e.device] || 0) + 1;
+      }
+      const sum = {}, cnt = {};
+      for (let i = 0; i < wanted.length; i += 100) {
+        const chunk = wanted.slice(i, i + 100);
+        const reads = await redisPipeline(chunk.flatMap((e) => [
+          ['HGETALL', `pi:dwell:${e.sid}`],
+          ['HGETALL', `pi:dwellcnt:${e.sid}`],
+        ]));
+        chunk.forEach((e, j) => {
+          const dwell = toObj(reads[j * 2].result), dcnt = toObj(reads[j * 2 + 1].result);
+          for (const [screen, ms] of Object.entries(dwell)) {
+            sum[screen] = (sum[screen] || 0) + ms;
+            cnt[screen] = (cnt[screen] || 0) + (dcnt[screen] || 1);
+          }
+        });
+      }
       const dwellAvg = {};
       for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
-      const bytes = Math.max(0, Number(bytesR.result || 0));
       res.status(200).json({
-        ok: true,
-        totalSessions: Number(lenR.result || 0),
-        sources: toObj(srcR.result),
-        devices: toObj(devR.result),
+        ok: true, scope,
+        totalSessions: wanted.length,
+        sources,
+        devices,
         dwellAvgMs: dwellAvg,
-        usage: {
-          bytes,
-          limitBytes: LIMIT_BYTES,
-          pct: Math.min(100, +((bytes / LIMIT_BYTES) * 100).toFixed(2)),
-          prunedTotal: Number(prunedR.result || 0),
-          prunedAt: Number(prunedAtR.result || 0) || null,
-        },
+        usage,
       });
       return;
     }

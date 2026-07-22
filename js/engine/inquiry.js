@@ -90,13 +90,15 @@ export async function getAnalysis(state) {
   ensureEngines(state);
 
   if (aiOn(state)) {
-    const data = await tryAI(state, 'analyze', {
+    const payload = {
       sid: sessionId(), // 供 server 端把實際送出的 prompt 記錄到這筆來訪
       opening: state.opening,
       lenormand: spreadForAI(state.lenormand),
       meihua: meihuaForAI(state.meihua),
       astro: astroForAI(state.astro),
-    });
+    };
+    let data = await tryAI(state, 'analyze', payload);
+    if (!data) data = await tryAI(state, 'analyze', payload); // 暫時性失敗（逾時/限流）重試一次再降級
     if (data && data.message) {
       state.analysis = {
         title: sanitize(String(data.title || '給你的靈感訊息')),
@@ -120,18 +122,13 @@ function offlineAnalysis(state) {
   const patterns = offlinePatterns(state.lenormand);   // 牌陣的模式觀察（無術語）
   const dynamics = offlineDynamics(state.meihua);      // 時機與節奏的讀數（無術語）
 
+  // 訊息不揭示資訊出處（不提牌/卦/星盤）——原始素材由結果頁的索引區呈現
   const paras = [
     `關於「${stripEnd(state.opening)}」——${OFFLINE_MESSAGE.opening}`,
     [OFFLINE_MESSAGE.bridge, ...patterns.slice(0, 2).map(ensurePeriod)].join('\n'),
     dynamics.join('\n'),
     OFFLINE_MESSAGE.invite,
   ];
-  if (state.astro) {
-    const pts = {};
-    for (const p of state.astro.points || []) pts[p.name] = p;
-    const bits = ['太陽', '月亮', '上升點'].filter((k) => pts[k]).map((k) => `${k.replace('點', '')}在${pts[k].sign}`);
-    if (bits.length) paras.push(`（你的本命星盤已完成精算——${bits.join('、')}。完整的三方交叉解讀需要連線模式，此刻的訊息以牌與卦為主。）`);
-  }
 
   return {
     title: '給你的靈感訊息',
@@ -155,11 +152,12 @@ function stripEnd(s) {
   return String(s || '').replace(/[。．\s]+$/, '');
 }
 
-// ---- 去識別：抹去可能外洩的占卜術語（最後防線；主要靠 prompt 約束） ----
+// ---- 去識別：抹去可能外洩的占卜術語與資訊出處（最後防線；主要靠 prompt 約束） ----
 const TERM_REPLACEMENTS = [
-  [/雷諾曼|塔羅|占卜|算命/g, '內在探索'],
+  [/雷諾曼|塔羅|占卜|算命|牌卡|九宮格/g, '內在探索'],
   [/梅花易數|易經|六爻|動爻|體用|本卦|互卦|變卦|卦象|起卦|卦辭/g, '時機的觀察'],
   [/牌陣|抽牌|翻牌|這張牌|牌面/g, '這個視角'],
+  [/本命星盤|本命盤|星盤|占星|星象/g, '長期的內在結構'],
 ];
 
 export function sanitize(text) {

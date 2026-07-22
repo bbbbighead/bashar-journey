@@ -13,11 +13,13 @@ const SCREEN_LABELS = {
   screenCare: '關懷頁',
 };
 
-// 使用紀錄：本地快取 + 篩選（未完成預設隱藏）+ 多選刪除
+// 使用紀錄：本地快取 + 篩選 + 多選刪除。
+// scope 為全域資料範圍（complete／all／incomplete），同時套用到
+// 總覽統計、來源/裝置/停留圓餅圖與使用紀錄清單。
 let allSessions = [];
 let sessOffset = 0;
 let exhausted = false;
-const filters = { includeIncomplete: false, device: '', source: '' };
+const filters = { scope: 'complete', device: '', source: '' };
 const selected = new Set(); // 已勾選的 sid
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
@@ -62,11 +64,16 @@ async function login() {
   }
 }
 
+async function refreshOverview() {
+  const overview = await api({ view: 'overview', scope: filters.scope });
+  renderOverview(overview);
+  return overview;
+}
+
 async function enterDash() {
-  const overview = await api({ view: 'overview' });
+  const overview = await refreshOverview();
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $('adminDash').classList.add('active');
-  renderOverview(overview);
 
   // 來源下拉：以總覽的來源清單填充
   const srcSel = $('fltSource');
@@ -84,7 +91,12 @@ async function enterDash() {
 }
 
 // ---- 篩選 ----
-$('fltIncomplete').addEventListener('change', (e) => { filters.includeIncomplete = e.target.checked; onFilterChange(); });
+// 資料範圍：一次切換總覽統計、三張圓餅圖與使用紀錄清單
+$('fltScope').addEventListener('change', async (e) => {
+  filters.scope = e.target.value;
+  onFilterChange();
+  try { await refreshOverview(); } catch { /* 保留原統計 */ }
+});
 $('fltDevice').addEventListener('change', (e) => { filters.device = e.target.value; onFilterChange(); });
 $('fltSource').addEventListener('change', (e) => { filters.source = e.target.value; onFilterChange(); });
 
@@ -95,7 +107,8 @@ async function onFilterChange() {
 }
 
 function matchesFilters(s) {
-  if (!filters.includeIncomplete && !s.hasJourney) return false;
+  if (filters.scope === 'complete' && !s.hasJourney) return false;
+  if (filters.scope === 'incomplete' && s.hasJourney) return false;
   if (filters.device && s.device !== filters.device) return false;
   if (filters.source && s.src !== filters.source) return false;
   return true;
@@ -106,13 +119,14 @@ function visibleSessions() {
 }
 
 // ---- 總覽（圓餅圖） ----
-const PIE_COLORS = ['#c9b98a', '#8fa3c7', '#b07a5f', '#9a8fc7', '#7fb39a', '#c78f9b', '#6d675c'];
+const PIE_COLORS = ['#c2a869', '#7d94b8', '#a97e5f', '#8f86ad', '#7fa38d', '#b78a92', '#6e6957'];
 
 function renderOverview(o) {
   const u = o.usage || { bytes: 0, limitBytes: 1, pct: 0, prunedTotal: 0, prunedAt: null };
   const capCls = u.pct >= 95 ? 'crit' : u.pct >= 85 ? 'warn' : '';
+  const scopeLabel = { complete: '有題目的來訪', incomplete: '未完成的來訪' }[o.scope] || '累計來訪';
   $('statRow').innerHTML = `
-    <div class="stat"><b>${o.totalSessions}</b><span>累計來訪</span></div>
+    <div class="stat"><b>${o.totalSessions}</b><span>${scopeLabel}</span></div>
     <div class="stat"><b>${Object.values(o.devices).reduce((a, b) => a + b, 0)}</b><span>裝置事件</span></div>
     <div class="stat"><b>${Object.keys(o.sources).length}</b><span>來源管道數</span></div>
     <div class="stat cap-stat">
@@ -127,7 +141,7 @@ function renderOverview(o) {
     b.disabled = true; b.textContent = '重算中……';
     try {
       await api({}, { action: 'recalc' });
-      renderOverview(await api({ view: 'overview' }));
+      await refreshOverview();
     } catch { b.textContent = '重算失敗'; }
   });
 
@@ -227,7 +241,7 @@ function renderSessions() {
   if (!visible.length) {
     tbody.innerHTML = `<tr><td colspan="7" class="empty">${
       allSessions.length
-        ? '（目前的篩選條件下沒有紀錄——試著勾選「包含未完成的來訪」或放寬條件）'
+        ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
     }</td></tr>`;
   }
@@ -288,12 +302,15 @@ $('btnBulkDel').addEventListener('click', async () => {
   const btn = $('btnBulkDel');
   btn.disabled = true;
   try {
-    await api({}, { action: 'delete', sids: [...selected] });
+    // 後端單次上限 100 筆：超過時分批送出
+    const sids = [...selected];
+    for (let i = 0; i < sids.length; i += 100) {
+      await api({}, { action: 'delete', sids: sids.slice(i, i + 100) });
+    }
     allSessions = allSessions.filter((s) => !selected.has(s.sid));
     selected.clear();
     renderSessions();
-    const overview = await api({ view: 'overview' });
-    renderOverview(overview);
+    await refreshOverview();
   } catch {
     alert('刪除失敗，請重試。');
   }
@@ -341,6 +358,14 @@ async function toggleDetail(tr, s) {
             <button class="seg-tab" data-seg="astro">占星</button>
           </div>
           <div class="d-msg-text prompt-text">讀取中……</div>
+          <div class="ask-chat">
+            <div class="ask-hint">對這次的結果有疑問？直接問——會把當時的完整 prompt 與產出一併給模型當脈絡。</div>
+            <div class="ask-log"></div>
+            <div class="ask-row">
+              <input type="text" class="ask-input" maxlength="1000" placeholder="例如：為什麼訊息說需要連線模式？這段建議是根據什麼？">
+              <button class="btn small btn-ask">詢問</button>
+            </div>
+          </div>
         </div>
       </div>` : ''}
       <div class="d-line d-note"><b>標註</b>
@@ -402,6 +427,48 @@ async function toggleDetail(tr, s) {
           () => { copyPromptBtn.textContent = '失敗'; }
         );
       });
+
+      // 除錯問答：帶著當時的 prompt 與產出脈絡，直接問 LLM
+      const askLog = detail.querySelector('.ask-log');
+      const askInput = detail.querySelector('.ask-input');
+      const askBtn = detail.querySelector('.btn-ask');
+      const askHistory = [];
+      const appendMsg = (role, text) => {
+        const div = document.createElement('div');
+        div.className = 'ask-msg ' + role;
+        div.textContent = text;
+        askLog.appendChild(div);
+        askLog.scrollTop = askLog.scrollHeight;
+      };
+      const sendAsk = async () => {
+        const q = askInput.value.trim();
+        if (!q || askBtn.disabled) return;
+        askInput.value = '';
+        askHistory.push({ role: 'user', content: q });
+        appendMsg('user', q);
+        askBtn.disabled = true;
+        askBtn.textContent = '思考中…';
+        try {
+          const r = await api({}, { action: 'ask', sid: s.sid, messages: askHistory });
+          askHistory.push({ role: 'assistant', content: r.reply });
+          appendMsg('assistant', r.reply);
+        } catch (err) {
+          askHistory.pop(); // 失敗的提問不留在脈絡裡
+          appendMsg('error', ({
+            llm_not_configured: '（未設定 AI 金鑰——請在環境變數加入 OPENAI_API_KEY 或 ANTHROPIC_API_KEY）',
+            llm_failed: '（模型呼叫失敗，請稍後再試）',
+          })[err.code] || '（詢問失敗，請稍後再試）');
+        }
+        askBtn.disabled = false;
+        askBtn.textContent = '詢問';
+        askInput.focus();
+      };
+      askBtn.addEventListener('click', (e) => { e.stopPropagation(); sendAsk(); });
+      askInput.addEventListener('click', (e) => e.stopPropagation());
+      askInput.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') sendAsk();
+      });
     }
 
     // 儲存標註
@@ -432,9 +499,7 @@ async function toggleDetail(tr, s) {
         await api({}, { action: 'delete', sid: s.sid });
         allSessions = allSessions.filter((x) => x.sid !== s.sid);
         renderSessions();
-        // 刷新總覽（統計已回扣）
-        const overview = await api({ view: 'overview' });
-        renderOverview(overview);
+        await refreshOverview(); // 刷新總覽（統計已回扣）
       } catch {
         alert('刪除失敗，請重試。');
       }
