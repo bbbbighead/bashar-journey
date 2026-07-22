@@ -64,12 +64,14 @@ export async function getAnalysis(state) {
         message: sanitize(String(data.message)),
         closing: sanitize(String(data.closing || '')),
       };
+      state.usedOffline = false;
       state.status = 'done';
       return state.analysis;
     }
   }
 
   state.analysis = offlineAnalysis(state);
+  state.usedOffline = true;
   state.status = 'done';
   return state.analysis;
 }

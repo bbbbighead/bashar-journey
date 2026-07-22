@@ -9,14 +9,19 @@ import {
 import { castMeihua, getAnalysis } from './engine/inquiry.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { detectCrisis } from './content/crisis.js';
+import { trackVisit, trackScreen, trackJourney } from './analytics.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+
+trackVisit();
+trackScreen('screenIntake');
 
 // ---- 螢幕切換 ----
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
+  trackScreen(id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -166,6 +171,7 @@ async function runAnalysis() {
   const t0 = Date.now();
   const analysis = await getAnalysis(state);
   saveSession(state);
+  trackJourney(state);
   const waitMs = Math.max(0, 2400 - (Date.now() - t0));
   setTimeout(() => renderResult(analysis), waitMs);
 }
