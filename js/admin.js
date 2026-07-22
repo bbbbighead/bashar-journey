@@ -109,10 +109,41 @@ function visibleSessions() {
 const PIE_COLORS = ['#c9b98a', '#8fa3c7', '#b07a5f', '#9a8fc7', '#7fb39a', '#c78f9b', '#6d675c'];
 
 function renderOverview(o) {
+  const u = o.usage || { bytes: 0, limitBytes: 1, pct: 0, prunedTotal: 0, prunedAt: null };
+  const capCls = u.pct >= 95 ? 'crit' : u.pct >= 85 ? 'warn' : '';
   $('statRow').innerHTML = `
-    <div class="stat"><b>${o.totalSessions}</b><span>累計來訪（近 5000 筆）</span></div>
+    <div class="stat"><b>${o.totalSessions}</b><span>累計來訪</span></div>
     <div class="stat"><b>${Object.values(o.devices).reduce((a, b) => a + b, 0)}</b><span>裝置事件</span></div>
-    <div class="stat"><b>${Object.keys(o.sources).length}</b><span>來源管道數</span></div>`;
+    <div class="stat"><b>${Object.keys(o.sources).length}</b><span>來源管道數</span></div>
+    <div class="stat cap-stat">
+      <b class="${capCls}">${u.pct}%</b>
+      <span>容量使用（估算 ${fmtBytes(u.bytes)}／${fmtBytes(u.limitBytes)}）</span>
+      <div class="cap-bar"><div class="cap-fill ${capCls}" style="width:${Math.min(100, u.pct)}%"></div></div>
+      <button class="btn ghost small" id="btnRecalc">重算容量</button>
+    </div>`;
+
+  $('btnRecalc').addEventListener('click', async () => {
+    const b = $('btnRecalc');
+    b.disabled = true; b.textContent = '重算中……';
+    try {
+      await api({}, { action: 'recalc' });
+      renderOverview(await api({ view: 'overview' }));
+    } catch { b.textContent = '重算失敗'; }
+  });
+
+  // 容量警示橫幅
+  const banner = $('capBanner');
+  if (u.prunedTotal > 0) {
+    banner.className = 'cap-banner crit';
+    banner.innerHTML = `⚠ <b>已達容量上限</b>——系統已自動刪除最舊的 <b>${u.prunedTotal}</b> 筆紀錄，讓用量維持在 95% 以下${u.prunedAt ? `（最近一次：${fmtTime(u.prunedAt)}）` : ''}。若要保留更多歷史，請升級 Upstash 容量方案，或調高 STORAGE_LIMIT_MB。`;
+    banner.style.display = 'block';
+  } else if (u.pct >= 85) {
+    banner.className = 'cap-banner warn';
+    banner.innerHTML = `⚠ 儲存容量已使用 <b>${u.pct}%</b>——接近免費方案上限。達到 95% 時，系統會自動從最舊的紀錄開始刪除；若要避免，請留意升級容量。`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
 
   renderPie($('srcChart'), topEntries(o.sources, 6), (v) => `${v} 次`, '（尚無來源資料）');
   renderPie($('devChart'), topEntries(mapKeys(o.devices, { mobile: '手機', desktop: '電腦', tablet: '平板' }), 6), (v) => `${v} 次`, '（尚無裝置資料）');
@@ -366,6 +397,12 @@ function fmtTime(ts) {
 function fmtMs(ms) {
   if (ms >= 60_000) return (ms / 60_000).toFixed(1) + ' 分';
   return (ms / 1000).toFixed(1) + ' 秒';
+}
+function fmtBytes(b) {
+  if (b >= 1024 * 1024 * 1024) return (b / (1024 ** 3)).toFixed(1) + ' GB';
+  if (b >= 1024 * 1024) return (b / (1024 ** 2)).toFixed(1) + ' MB';
+  if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+  return b + ' B';
 }
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
