@@ -30,21 +30,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- 星圖背景：雕刻線稿式天球圖（極淡、緩慢自轉） ---- */
+/* ---- 星圖背景：博物館級天文版畫（assets/sky.svg），整個頁面座落其上 ---- */
 .sky {
   position: fixed; inset: 0; z-index: 0;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; pointer-events: none;
 }
-.sky svg { width: 165vmax; height: 165vmax; flex-shrink: 0; }
-.sky-rot { transform-origin: 600px 600px; animation: skyrot 540s linear infinite; }
-@keyframes skyrot { to { transform: rotate(360deg); } }
-.sky .tw { animation: skytw 8s ease-in-out infinite; }
-.sky .tw:nth-of-type(2n) { animation-delay: 2.7s; }
-.sky .tw:nth-of-type(3n) { animation-delay: 5.2s; animation-duration: 11s; }
-@keyframes skytw { 50% { opacity: .15; } }
-@media (prefers-reduced-motion: reduce) {
-  .sky-rot, .sky .tw { animation: none; }
+.sky img {
+  width: max(150vmax, 1100px); height: max(150vmax, 1100px);
+  flex-shrink: 0; max-width: none;
+}
+/* 內容區後方的柔和暗暈：讓文字浮在版畫之上、版畫在四周展開 */
+.sky::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(closest-side at 50% 44%,
+    rgba(11, 16, 23, .66), rgba(11, 16, 23, .30) 52%, transparent 76%);
+}
+/* 小螢幕：構圖稍微放大並偏移，讓主焦點（星盤系統）留在視野內 */
+@media (max-width: 700px) {
+  .sky img { width: 250vmax; height: 250vmax; transform: translate(10%, -5%); }
 }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
@@ -95,13 +99,10 @@ textarea {
 textarea:focus { outline: 1px solid var(--line); outline-offset: 3px; border-color: var(--accent-dim); }
 textarea::placeholder { color: var(--ink-faint); }
 
-.examples { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
-.examples span {
-  font-size: 12.5px; color: var(--ink-dim); font-family: var(--sans);
-  border: 1px solid var(--line); border-radius: 2px;
-  padding: 5px 14px; cursor: pointer; transition: color .3s, border-color .3s;
+.ask-note {
+  margin-top: 10px; font-size: 12.5px; color: var(--ink-faint);
+  font-family: var(--sans); letter-spacing: .04em;
 }
-.examples span:hover { color: var(--accent); border-color: var(--accent-dim); }
 
 .btn {
   font: inherit; font-size: 14.5px; letter-spacing: .22em; text-indent: .22em;

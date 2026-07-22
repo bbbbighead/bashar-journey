@@ -7,7 +7,7 @@
 ## 流程
 
 ```
-首頁：輸入「我想獲得什麼的靈感」（附範例：事業／創作／感情／人生方向）
+首頁：輸入「我想獲得什麼靈感？」（想探索的主題，或想覺察釐清的想法）
       ↓
 占卜一：雷諾曼——36 張牌全數列出（牌背朝上、順序洗亂），
         使用者親手憑直覺選出 9 張，依序落入九宮格
@@ -84,7 +84,10 @@ vercel dev                     # 含 AI 代理（需 OPENAI_API_KEY 或 ANTHROPI
 
 ```
 index.html               入口（首頁）＋全部畫面
-css/calm.css             沉靜主題（深夜墨色、暖紙感、牌池選牌）
+css/calm.css             天象檔案館主題（深海軍藍、舊黃銅髮絲線、博物館面板）
+assets/sky.svg           滿版天文版畫背景（星盤/渾儀/天球儀、雕版註記、紙紋；
+                         由 tools/gensky.mjs 以固定種子產生，可調參重生）
+tools/gensky.mjs         背景版畫產生器（node tools/gensky.mjs 重新輸出 assets/sky.svg）
 js/app.js                頂層流程控制（輸入 → 選牌 → 報數 → 靈感訊息）
 js/engine/session.js     狀態 + localStorage 續玩
 js/engine/inquiry.js     綜合引擎（AI/離線雙路徑、sanitize）
