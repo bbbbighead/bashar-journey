@@ -32,6 +32,9 @@
       <button class="btn ghost" id="btnLogout">登出</button>
     </header>
 
+    <!-- 容量警示 -->
+    <div class="cap-banner" id="capBanner" style="display:none"></div>
+
     <!-- 總覽 -->
     <div class="a-block">
       <h3>總覽</h3>
@@ -74,8 +77,12 @@
         </select>
         <span class="flt-count" id="fltCount"></span>
       </div>
+      <div class="bulk-bar" id="bulkBar" style="display:none">
+        <span id="bulkCount"></span>
+        <button class="btn small danger" id="btnBulkDel">刪除選取的紀錄</button>
+      </div>
       <table class="a-table sessions" id="sessTable">
-        <thead><tr><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th><th>標註</th></tr></thead>
+        <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th><th>標註</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>

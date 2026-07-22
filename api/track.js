@@ -2,20 +2,26 @@
 // 事件：start（來訪：來源/UTM/裝置）、dwell（頁面停留）、journey（題目與產出）。
 // 寫入 Upstash Redis；未設定儲存後端時回 204 靜默丟棄。永不回傳錯誤內容給前端。
 //
-// 資料模型（鍵一律 90 天過期，來訪清單保留最近 5000 筆）：
-//   pi:sessions            LIST  最近來訪（JSON：sid/vid/ts/src/device/os）
+// 保存策略：資料不設時間過期。以 pi:agg:bytes 估算目前用量（邏輯大小＋每鍵固定開銷），
+// 當用量超過容量上限（STORAGE_LIMIT_MB，預設 256MB＝Upstash 免費方案）的 95% 時，
+// 自動從最舊的來訪開始刪除（含其題目/停留/標註，並回扣統計），使用量維持在 95% 以下；
+// 汰舊次數與時間記錄於 pi:agg:pruned / pi:agg:pruned_at，供後台警示。
+//
+// 資料模型：
+//   pi:sessions            LIST  來訪（JSON：sid/vid/ts/src/device/os），新的在左、舊的在右
 //   pi:dwell:<sid>         HASH  各畫面停留毫秒累計
-//   pi:journey:<sid>       STRING JSON（opening/cards/numbers/title/offline/ts）
-//   pi:agg:src             HASH  來源 → 次數
-//   pi:agg:device          HASH  裝置 → 次數
-//   pi:agg:dwell_sum/_cnt  HASH  畫面 → 停留毫秒總和／次數（算平均用）
+//   pi:dwellcnt:<sid>      HASH  各畫面停留事件數（刪除時精準回扣平均值）
+//   pi:journey:<sid>       STRING JSON（opening/cards/numbers/title/message/closing/offline/ts）
+//   pi:agg:src / device    HASH  來源/裝置 → 次數
+//   pi:agg:dwell_sum/_cnt  HASH  畫面 → 停留毫秒總和／次數
+//   pi:agg:bytes           STRING 估算用量（bytes）
+//   pi:agg:pruned(_at)     STRING 自動汰舊累計筆數／最近一次時間
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
 
-// 保存天數：環境變數 DATA_RETENTION_DAYS 可調（預設 365 天）
-const RETENTION_DAYS = Math.max(1, Number(process.env.DATA_RETENTION_DAYS) || 365);
-const TTL = RETENTION_DAYS * 24 * 3600;
-const MAX_SESSIONS = 5000; // 來訪清單上限（超過自動汰舊）
+const KEY_OVERHEAD = 64; // 每鍵估算固定開銷（bytes）
+const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
+const PRUNE_TARGET = 0.95;
 
 // User-Agent → 裝置與作業系統（粗分類即可滿足分析需求）
 function parseDevice(ua) {
@@ -56,6 +62,76 @@ function rateLimited(ip) {
   return hits.length > 600;
 }
 
+function toObj(arr) {
+  const o = {}; const a = arr || [];
+  for (let i = 0; i < a.length; i += 2) o[a[i]] = a[i + 1];
+  return o;
+}
+
+// 停留資料的估算大小：與寫入時的增量（100/事件）完全對稱，避免記帳漂移
+export function dwellBytes(dwell, dcnt) {
+  const events = Object.values(dcnt).reduce((a, v) => a + (Number(v) || 0), 0)
+    || Object.keys(dwell).length; // 舊紀錄沒有事件數：以每畫面 1 次估計
+  return events * 100;
+}
+
+// 用量超過上限的 95% 時，自動從最舊的來訪開始刪除（每次事件最多清 3 輪 × 20 筆）
+async function maybePrune() {
+  const [bR] = await redisPipeline([['GET', 'pi:agg:bytes']]);
+  let bytes = Number(bR.result || 0);
+  const target = LIMIT_BYTES * PRUNE_TARGET;
+  if (bytes <= target) return;
+
+  for (let round = 0; round < 3 && bytes > target; round++) {
+    const [popR] = await redisPipeline([['RPOP', 'pi:sessions', '20']]);
+    const raws = popR.result || [];
+    if (!raws.length) break;
+
+    const entries = raws.map((r) => { try { return { raw: r, ...JSON.parse(r) }; } catch { return { raw: r }; } });
+    const reads = await redisPipeline(entries.flatMap((e) => [
+      ['STRLEN', `pi:journey:${e.sid}`],
+      ['HGETALL', `pi:dwell:${e.sid}`],
+      ['HGETALL', `pi:dwellcnt:${e.sid}`],
+      ['STRLEN', `pi:note:${e.sid}`],
+    ]));
+
+    const cmds = [];
+    let freed = 0;
+    entries.forEach((e, i) => {
+      freed += e.raw.length + 16;
+      const jLen = Number(reads[i * 4].result || 0);
+      if (jLen) freed += jLen + KEY_OVERHEAD;
+      const dwell = toObj(reads[i * 4 + 1].result);
+      const dcnt = toObj(reads[i * 4 + 2].result);
+      freed += dwellBytes(dwell, dcnt);
+      const nLen = Number(reads[i * 4 + 3].result || 0);
+      if (nLen) freed += nLen + KEY_OVERHEAD;
+
+      if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
+      if (e.device) cmds.push(['HINCRBY', 'pi:agg:device', e.device, '-1']);
+      for (const [screen, ms] of Object.entries(dwell)) {
+        cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(Number(ms) || 0))]);
+        cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(Number(dcnt[screen]) || 1))]);
+      }
+      if (e.sid) {
+        cmds.push(
+          ['DEL', `pi:journey:${e.sid}`],
+          ['DEL', `pi:dwell:${e.sid}`],
+          ['DEL', `pi:dwellcnt:${e.sid}`],
+          ['DEL', `pi:note:${e.sid}`],
+        );
+      }
+    });
+    cmds.push(
+      ['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))],
+      ['INCRBY', 'pi:agg:pruned', String(entries.length)],
+      ['SET', 'pi:agg:pruned_at', String(Date.now())],
+    );
+    await redisPipeline(cmds);
+    bytes -= freed;
+  }
+}
+
 export default async function handler(req, res) {
   res.status(204); // 埋點一律 204，無論成敗
 
@@ -74,6 +150,7 @@ export default async function handler(req, res) {
     if (!sid || !vid) { res.end(); return; }
 
     const cmds = [];
+    let checkPrune = false;
 
     if (body.type === 'start') {
       const { device, os } = parseDevice(req.headers['user-agent']);
@@ -84,22 +161,21 @@ export default async function handler(req, res) {
       });
       cmds.push(
         ['LPUSH', 'pi:sessions', entry],
-        ['LTRIM', 'pi:sessions', '0', String(MAX_SESSIONS - 1)],
         ['HINCRBY', 'pi:agg:src', src, '1'],
         ['HINCRBY', 'pi:agg:device', device, '1'],
+        ['INCRBY', 'pi:agg:bytes', String(entry.length + 16)],
       );
+      checkPrune = true; // 每次來訪檢查一次容量即可
     } else if (body.type === 'dwell') {
       const screen = String(body.screen || '');
       const ms = Math.min(Math.max(0, Number(body.ms) || 0), 3600_000);
       if (!SCREENS.includes(screen) || ms < 400) { res.end(); return; }
       cmds.push(
         ['HINCRBY', `pi:dwell:${sid}`, screen, String(Math.round(ms))],
-        ['EXPIRE', `pi:dwell:${sid}`, String(TTL)],
-        // 各畫面事件數（供後台刪除紀錄時精準回扣平均值統計）
         ['HINCRBY', `pi:dwellcnt:${sid}`, screen, '1'],
-        ['EXPIRE', `pi:dwellcnt:${sid}`, String(TTL)],
         ['HINCRBY', 'pi:agg:dwell_sum', screen, String(Math.round(ms))],
         ['HINCRBY', 'pi:agg:dwell_cnt', screen, '1'],
+        ['INCRBY', 'pi:agg:bytes', '100'], // 估算增量：兩個 hash 的欄位＋鍵開銷攤提
       );
     } else if (body.type === 'journey') {
       const journey = JSON.stringify({
@@ -113,13 +189,15 @@ export default async function handler(req, res) {
         offline: !!body.offline,
       });
       cmds.push(
-        ['SET', `pi:journey:${sid}`, journey, 'EX', String(TTL)],
+        ['SET', `pi:journey:${sid}`, journey],
+        ['INCRBY', 'pi:agg:bytes', String(journey.length + KEY_OVERHEAD)],
       );
     } else {
       res.end(); return;
     }
 
     await redisPipeline(cmds);
+    if (checkPrune) await maybePrune();
   } catch { /* 埋點失敗靜默 */ }
   res.end();
 }
