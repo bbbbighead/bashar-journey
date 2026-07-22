@@ -28,7 +28,21 @@ except ImportError:  # pragma: no cover
 
 import swisseph as swe
 
-EPHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ephe')
+# 星曆檔目錄：多候選解析（部署環境的打包根目錄不一定等於 repo 根目錄）。
+# 以 seas_18.se1（主小行星檔：凱龍/穀神/智神/婚神/灶神）驗證是否真的找得到——
+# 行星在檔案缺失時會退回內建 Moshier 理論、不會報錯，小行星則會整批計算失敗。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_EPHE_CANDIDATES = [
+    os.path.join(_HERE, 'ephe'),           # api/ephe（隨函式打包，部署主路徑）
+    os.path.join(_HERE, '..', 'ephe'),     # repo 根目錄 ephe/（本地/舊佈局）
+    os.path.join(os.getcwd(), 'api', 'ephe'),
+    os.path.join(os.getcwd(), 'ephe'),
+]
+EPHE_PATH = next(
+    (p for p in _EPHE_CANDIDATES if os.path.isfile(os.path.join(p, 'seas_18.se1'))),
+    _EPHE_CANDIDATES[0],
+)
+EPHE_OK = os.path.isfile(os.path.join(EPHE_PATH, 'seas_18.se1'))
 swe.set_ephe_path(EPHE_PATH)
 
 SIGNS = ['牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
@@ -97,14 +111,44 @@ def fmt_pos(lon):
     return sign_idx, f"{SIGNS[sign_idx]} {d}°{m:02d}′{s:02d}″"
 
 
-def geocode(city, country):
+def _fetch_geo(name, count):
     q = urllib.parse.urlencode({
-        'name': city, 'count': 5, 'language': 'zh', 'format': 'json',
+        'name': name, 'count': count, 'language': 'zh', 'format': 'json',
     })
     url = f'https://geocoding-api.open-meteo.com/v1/search?{q}'
-    with urllib.request.urlopen(url, timeout=8) as r:
-        data = json.loads(r.read().decode('utf-8'))
-    results = data.get('results') or []
+    try:
+        with urllib.request.urlopen(url, timeout=8) as r:
+            data = json.loads(r.read().decode('utf-8'))
+        return data.get('results') or []
+    except Exception:
+        return []
+
+
+def geo_search(query, count=8):
+    """城市搜尋：同時嘗試「臺↔台」異體字變體並合併去重，
+    讓「臺北」「台北」都能找到同一批合法城市。"""
+    query = str(query or '').strip()
+    if not query:
+        return []
+    variants = [query]
+    if '臺' in query:
+        variants.append(query.replace('臺', '台'))
+    elif '台' in query:
+        variants.append(query.replace('台', '臺'))
+    seen = set()
+    merged = []
+    for v in variants:
+        for item in _fetch_geo(v, count):
+            key = item.get('id') or (item.get('name'), item.get('admin1'), item.get('country_code'))
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged[:count]
+
+
+def geocode(city, country):
+    results = geo_search(city, count=8)
     if not results:
         return None
     if country:
@@ -153,10 +197,15 @@ def make_point(name, lon, speed, cusps, is_axis=False):
     return p
 
 
-def compute_chart(date_str, time_str, time_unknown, city, country):
+def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
     warnings = []
+    if not EPHE_OK:
+        warnings.append('星曆檔目錄未找到（seas_18.se1 不在任何候選路徑）——小行星與凱龍將無法計算，行星退回內建理論精度。')
 
-    place = geocode(city, country)
+    # 前端若已從搜尋清單選定城市（帶經緯度與時區），直接採用、不再 geocode
+    if not (place and place.get('latitude') is not None
+            and place.get('longitude') is not None and place.get('timezone')):
+        place = geocode(city, country)
     if not place:
         return None, 'geocode_failed'
     lat, lon_geo = float(place['latitude']), float(place['longitude'])
@@ -469,6 +518,28 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_GET(self):
+        # 城市即時搜尋：GET /api/astro?q=臺北 → 合法城市清單（含臺↔台變體合併）
+        try:
+            qs = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(qs)
+            query = (params.get('q') or [''])[0].strip()[:80]
+        except Exception:
+            query = ''
+        if not query:
+            self._send(400, {'ok': False, 'error': 'missing_query'})
+            return
+        results = geo_search(query, count=10)
+        self._send(200, {'ok': True, 'results': [{
+            'name': item.get('name'),
+            'admin1': item.get('admin1'),
+            'country': item.get('country'),
+            'countryCode': item.get('country_code'),
+            'latitude': item.get('latitude'),
+            'longitude': item.get('longitude'),
+            'timezone': item.get('timezone'),
+        } for item in results]})
+
     def do_POST(self):
         try:
             length = int(self.headers.get('Content-Length', 0))
@@ -481,11 +552,31 @@ class handler(BaseHTTPRequestHandler):
         time_unknown = bool(data.get('timeUnknown'))
         city = str(data.get('city', '')).strip()[:80]
         country = str(data.get('country', '')).strip()[:40]
-        if not date_str or not city:
+
+        # 前端搜尋清單選定的城市（含經緯度/時區）：直接使用
+        place = None
+        p = data.get('place')
+        if isinstance(p, dict):
+            try:
+                place = {
+                    'name': str(p.get('name', ''))[:80] or city,
+                    'country': str(p.get('country', ''))[:60],
+                    'latitude': float(p['latitude']),
+                    'longitude': float(p['longitude']),
+                    'timezone': str(p.get('timezone', ''))[:60],
+                }
+                if not place['timezone'] or not (-90 <= place['latitude'] <= 90) \
+                        or not (-180 <= place['longitude'] <= 180):
+                    place = None
+            except (KeyError, TypeError, ValueError):
+                place = None
+
+        if not date_str or not (city or place):
             self._send(400, {'ok': False, 'error': 'missing_fields'})
             return
         try:
-            chart, err = compute_chart(date_str, time_str, time_unknown, city, country)
+            chart, err = compute_chart(date_str, time_str, time_unknown,
+                                       city or (place or {}).get('name', ''), country, place)
         except Exception:
             self._send(200, {'ok': False, 'error': 'calc_failed'})
             return
