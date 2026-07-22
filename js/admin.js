@@ -330,9 +330,16 @@ async function toggleDetail(tr, s) {
       ${d.prompt ? `
       <div class="d-line d-message"><b>Prompt</b>
         <div class="prompt-wrap">
-          <div class="prompt-meta">送給模型的完整 user prompt｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
-            <button class="btn ghost small btn-copy-prompt">複製</button>
+          <div class="prompt-meta">送給模型的 prompt（可分段檢視）｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
+            <button class="btn ghost small btn-copy-prompt">複製此段</button>
             <button class="btn ghost small btn-sys-prompt">查看 system prompt</button>
+          </div>
+          <div class="seg-tabs">
+            <button class="seg-tab on" data-seg="full">完整 Prompt</button>
+            <button class="seg-tab" data-seg="opening">題目</button>
+            <button class="seg-tab" data-seg="lenormand">雷諾曼</button>
+            <button class="seg-tab" data-seg="meihua">梅花易數</button>
+            <button class="seg-tab" data-seg="astro">占星</button>
           </div>
           <div class="d-msg-text prompt-text">${esc(d.prompt.prompt || '')}</div>
           <div class="d-msg-text prompt-text sys-text" style="display:none"></div>
@@ -347,13 +354,32 @@ async function toggleDetail(tr, s) {
         <button class="btn small danger btn-del">刪除這筆紀錄</button>
       </div>`;
 
-    // Prompt 操作：複製 / 查看 system prompt
+    // Prompt 操作：分段檢視 / 複製目前段 / 查看 system prompt
     const copyPromptBtn = detail.querySelector('.btn-copy-prompt');
     if (copyPromptBtn) {
+      const promptBox = detail.querySelector('.prompt-text');
+      const segs = d.prompt.segments || {};
+      // 分段內容（JSON 段落盡量美化呈現）
+      const segText = (key) => {
+        if (key === 'full') return d.prompt.prompt || '';
+        if (key === 'opening') return segs.opening || '（此紀錄未含分段資料——舊版本）';
+        const raw = segs[key];
+        if (raw == null) return key === 'astro' ? '（使用者跳過占星）' : '（此紀錄未含分段資料——舊版本）';
+        try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
+      };
+      let curSeg = 'full';
+      detail.querySelectorAll('.seg-tab').forEach((tab) => {
+        tab.addEventListener('click', (e) => {
+          e.stopPropagation();
+          curSeg = tab.dataset.seg;
+          detail.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t === tab));
+          promptBox.textContent = segText(curSeg);
+        });
+      });
       copyPromptBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(d.prompt.prompt || '').then(
-          () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製'; }, 1800); },
+        navigator.clipboard.writeText(segText(curSeg)).then(
+          () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製此段'; }, 1800); },
           () => { copyPromptBtn.textContent = '失敗'; }
         );
       });

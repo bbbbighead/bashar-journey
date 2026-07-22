@@ -19,13 +19,14 @@ function djb2(s) {
 }
 const SYS_HASH = djb2(SYSTEM_PROMPT);
 
-// 把實際送給 LLM 的 prompt 記錄到該次來訪（供後台複盤；失敗靜默，不影響回應）
-async function recordPrompt(sid, provider, model, prompt) {
+// 把實際送給 LLM 的 prompt 記錄到該次來訪（含各階段資料段，供後台復盤；失敗靜默）
+async function recordPrompt(sid, provider, model, prompt, segments) {
   try {
     if (!sid || !redisConfigured()) return;
     const record = JSON.stringify({
       ts: Date.now(), provider, model, sysHash: SYS_HASH,
       prompt: prompt.slice(0, 20000),
+      segments: segments || null,
     });
     const results = await redisPipeline([
       ['SET', `pi:prompt:${sid}`, record],
@@ -62,19 +63,29 @@ const SCHEMAS = {
   }),
 };
 
-function buildPrompt(action, p) {
+// 各階段丟給模型前的資料段（分別記錄供後台復盤）
+function buildSegments(p) {
+  return {
+    opening: String(p.opening || '').slice(0, 600),
+    lenormand: JSON.stringify(p.lenormand || {}).slice(0, 3500),
+    meihua: JSON.stringify(p.meihua || {}).slice(0, 1500),
+    astro: p.astro ? JSON.stringify(p.astro).slice(0, 11000) : null,
+  };
+}
+
+function buildPrompt(action, p, seg) {
   switch (action) {
     case 'analyze':
-      return `使用者想獲得靈感的主題：「${String(p.opening || '').slice(0, 600)}」
+      return `使用者想獲得靈感的主題：「${seg.opening}」
 
 【系統一：雷諾曼九宮格讀數（使用者親手選牌；牌名與術語不得出現在輸出）】
-${JSON.stringify(p.lenormand || {}).slice(0, 3500)}
+${seg.lenormand}
 
 【系統二：梅花易數讀數（使用者報數起卦；卦名與術語不得出現在輸出）】
-${JSON.stringify(p.meihua || {}).slice(0, 1500)}
+${seg.meihua}
 
 【系統三：西洋占星本命盤（Swiss Ephemeris 實算；僅可依此詮釋，不得補造）】
-${p.astro ? JSON.stringify(p.astro).slice(0, 11000) : '（使用者選擇跳過占星——以兩源整合，不假裝有第三源）'}
+${seg.astro || '（使用者選擇跳過占星——以兩源整合，不假裝有第三源）'}
 
 請依系統提示中的跨系統整合方法：先各自萃取與主題最相關的重點並重新分群；辨認重複呼應（最高優先）、相互補充（占星＝為什麼、卦＝階段、牌＝現實表現，串成因果）、與表面矛盾（分層說明，不強行統一）；區分確定程度；聚焦主題。生成：
 - title：這則訊息的名字（≤16字，有畫面感）。
@@ -174,17 +185,19 @@ export default async function handler(req, res) {
     return;
   }
 
-  const prompt = buildPrompt(action, body);
+  const segments = buildSegments(body);
+  const prompt = buildPrompt(action, body, segments);
   const maxTokens = MAX_TOKENS[action];
   const schema = SCHEMAS[action];
 
-  // 記錄實際送出的 prompt（呼叫前寫入——即使模型呼叫失敗也留有紀錄可複盤）
+  // 記錄實際送出的 prompt 與各階段資料段（呼叫前寫入——模型失敗也留有紀錄可復盤）
   const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
   await recordPrompt(
     sid,
     openaiKey ? 'openai' : 'anthropic',
     openaiKey ? openaiModels()[action] : MODEL[action],
     prompt,
+    segments,
   );
 
   // 呼叫一次，失敗重試一次，再失敗回 fallback（兩者皆設時優先 OpenAI）
