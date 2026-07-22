@@ -42,6 +42,7 @@
   <section class="screen" id="screenSpread">
     <div class="spread">
       <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你想獲得靈感的主題，憑直覺選出九張——<br>它們會依序落入九宮格：由左至右是過去、現在、走向；由上至下是想法、現實、潛意識。</p>
+      <div class="rule-orn" aria-hidden="true"></div>
       <div class="pick-count" id="pickCount">已選 0 / 9</div>
       <div class="deck-grid" id="deckGrid"></div>
       <div class="spread-grid picked" id="spreadGrid"></div>
@@ -56,6 +57,7 @@
   <section class="screen" id="screenNumbers">
     <div class="numbers">
       <p class="divine-lede">現在，請不要思考——<br>憑直覺說出三個 1 到 9 之間的數字。</p>
+      <div class="rule-orn" aria-hidden="true"></div>
       <div class="num-row">
         <input type="number" min="1" max="9" inputmode="numeric" class="num" id="num1" placeholder="—">
         <input type="number" min="1" max="9" inputmode="numeric" class="num" id="num2" placeholder="—">
@@ -74,6 +76,7 @@
   <section class="screen" id="screenAstro">
     <div class="numbers astro">
       <p class="divine-lede">最後，讓星空也加入——<br>提供你的出生資料，將以 Swiss Ephemeris 天文曆精算你的本命星盤。<br><span class="astro-privacy">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</span></p>
+      <div class="rule-orn" aria-hidden="true"></div>
       <div class="astro-form">
         <div class="af-row">
           <label for="astroDate">出生日期</label>

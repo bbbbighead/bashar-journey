@@ -377,6 +377,7 @@ function renderResult(a) {
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
     <div class="r-sub">寫給此刻的你</div>
+    <div class="rule-orn" aria-hidden="true"></div>
     <div class="r-block core"><p>${esc(a.message)}</p></div>
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-index" aria-label="本次紀錄索引">
