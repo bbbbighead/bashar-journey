@@ -81,6 +81,9 @@ export function trackJourney(state) {
       message: state.analysis ? String(state.analysis.message || '').slice(0, 2000) : '',
       closing: state.analysis ? String(state.analysis.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
+      // 隱私：不記錄出生資料，只記錄是否使用占星與太陽星座
+      astroUsed: !!state.astro,
+      astroSun: state.astro ? String(((state.astro.points || []).find((p) => p.name === '太陽') || {}).sign || '') : '',
     });
   } catch { /* 靜默 */ }
 }

@@ -48,6 +48,42 @@ function ensureEngines(state) {
   if (!state.meihua) castMeihua(state, state.numbers);
 }
 
+// 西洋占星本命盤：呼叫 /api/astro（Swiss Ephemeris 實算；失敗 throw 附 code）
+export async function fetchAstroChart(payload) {
+  const res = await fetch('/api/astro', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw Object.assign(new Error('astro HTTP ' + res.status), { code: 'calc_failed' });
+  const json = await res.json();
+  if (!json || !json.ok || !json.chart) throw Object.assign(new Error(json && json.error), { code: (json && json.error) || 'calc_failed' });
+  return json.chart;
+}
+
+// 給 AI 的星盤摘要：保留完整結構、截取最緊密的相位以控制大小
+function astroForAI(chart) {
+  if (!chart) return null;
+  const aspects = chart.aspects || [];
+  return {
+    meta: chart.meta,
+    points: (chart.points || []).map((p) => ({
+      name: p.name, position: p.position, house: p.house, retrograde: p.retrograde,
+    })),
+    houses: chart.houses,
+    intercepted: chart.intercepted,
+    duplicatedCuspSigns: chart.duplicatedCuspSigns,
+    aspects: [
+      ...aspects.filter((a) => a.major).slice(0, 30),
+      ...aspects.filter((a) => !a.major).slice(0, 12),
+    ],
+    structure: chart.structure,
+    dispositors: chart.dispositors,
+    patterns: chart.patterns,
+    unaspected: chart.unaspected,
+  };
+}
+
 // ---- 2. 綜合靈感訊息（主題＋雷諾曼＋梅花易數 → 單一正式文字） ----
 export async function getAnalysis(state) {
   ensureEngines(state);
@@ -57,6 +93,7 @@ export async function getAnalysis(state) {
       opening: state.opening,
       lenormand: spreadForAI(state.lenormand),
       meihua: meihuaForAI(state.meihua),
+      astro: astroForAI(state.astro),
     });
     if (data && data.message) {
       state.analysis = {
@@ -87,6 +124,12 @@ function offlineAnalysis(state) {
     dynamics.join('\n'),
     OFFLINE_MESSAGE.invite,
   ];
+  if (state.astro) {
+    const pts = {};
+    for (const p of state.astro.points || []) pts[p.name] = p;
+    const bits = ['太陽', '月亮', '上升點'].filter((k) => pts[k]).map((k) => `${k.replace('點', '')}在${pts[k].sign}`);
+    if (bits.length) paras.push(`（你的本命星盤已完成精算——${bits.join('、')}。完整的三方交叉解讀需要連線模式，此刻的訊息以牌與卦為主。）`);
+  }
 
   return {
     title: '給你的靈感訊息',
