@@ -23,6 +23,9 @@ function visitorId() {
 const SID = (crypto.randomUUID ? crypto.randomUUID() : 'S' + Math.random().toString(36).slice(2)).slice(0, 12);
 const VID = visitorId();
 
+// 供其他模組（如 analyze 呼叫）帶上本次 session id，讓 server 端記錄可對上這筆來訪
+export function sessionId() { return SID; }
+
 function send(payload) {
   try {
     const body = JSON.stringify({ sid: SID, vid: VID, ...payload });
@@ -69,6 +72,31 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushDwell();
 });
 
+// 出生資料紀錄：輸入值 + 地點/時區解析 + 三要點星座
+function birthRecord(chart) {
+  try {
+    const meta = chart.meta || {};
+    const input = meta.input || {};
+    const pts = {};
+    for (const p of chart.points || []) pts[p.name] = p;
+    return {
+      date: input.date || '',
+      time: input.timeUnknown ? null : (input.time || ''),
+      timeUnknown: !!input.timeUnknown,
+      city: input.city || '',
+      country: input.country || null,
+      resolved: (meta.place && meta.place.resolved) || '',
+      tz: (meta.timezone && meta.timezone.iana) || '',
+      utc: meta.utc || '',
+      sun: pts['太陽'] ? pts['太陽'].sign : '',
+      moon: pts['月亮'] ? pts['月亮'].sign : '',
+      asc: pts['上升點'] ? pts['上升點'].sign : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---- 3. 題目與產出結果 ----
 export function trackJourney(state) {
   try {
@@ -81,9 +109,10 @@ export function trackJourney(state) {
       message: state.analysis ? String(state.analysis.message || '').slice(0, 2000) : '',
       closing: state.analysis ? String(state.analysis.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
-      // 隱私：不記錄出生資料，只記錄是否使用占星與太陽星座
       astroUsed: !!state.astro,
       astroSun: state.astro ? String(((state.astro.points || []).find((p) => p.name === '太陽') || {}).sign || '') : '',
+      // 出生資料與解析結果（供後台分析；前台已揭露會匿名記錄）
+      astroBirth: state.astro ? birthRecord(state.astro) : null,
     });
   } catch { /* 靜默 */ }
 }

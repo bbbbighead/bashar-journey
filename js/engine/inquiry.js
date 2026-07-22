@@ -10,6 +10,7 @@ import { logAiCall } from './session.js';
 import { drawSpread, spreadForAI, offlinePatterns } from './lenormand.js';
 import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics } from './meihua.js';
 import { OFFLINE_MESSAGE, OFFLINE_CLOSINGS } from '../content/templates.js';
+import { sessionId } from '../analytics.js';
 
 function aiOn(state) {
   return AI_CONFIG.enabled && state.aiAvailable;
@@ -90,6 +91,7 @@ export async function getAnalysis(state) {
 
   if (aiOn(state)) {
     const data = await tryAI(state, 'analyze', {
+      sid: sessionId(), // 供 server 端把實際送出的 prompt 記錄到這筆來訪
       opening: state.opening,
       lenormand: spreadForAI(state.lenormand),
       meihua: meihuaForAI(state.meihua),

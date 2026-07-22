@@ -321,12 +321,30 @@ async function toggleDetail(tr, s) {
         <div class="d-line"><b>題目</b>${esc(j.opening)}</div>
         <div class="d-line"><b>選牌</b>${(j.cards || []).map(esc).join('、') || '—'}</div>
         <div class="d-line"><b>報數</b>${j.numbers ? j.numbers.join('、') : '（時間起卦）'}</div>
-        <div class="d-line"><b>星盤</b>${j.astroUsed ? `已使用${j.astroSun ? `（太陽${esc(j.astroSun)}）` : ''}` : '未使用'}</div>
+        <div class="d-line"><b>星盤</b>${astroDetail(j)}</div>
         <div class="d-line"><b>產出</b>${esc(j.title || '—')}${j.offline ? '（離線模板）' : ''}</div>
         ${j.message ? `
         <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
       ` : '<div class="d-line"><b>題目</b>（此次來訪未完成體驗）</div>'}
       <div class="d-line"><b>停留</b>${dwell || '—'}</div>
+      ${d.prompt ? `
+      <div class="d-line d-message"><b>Prompt</b>
+        <div class="prompt-wrap">
+          <div class="prompt-meta">送給模型的 prompt（可分段檢視）｜${esc(d.prompt.provider || '?')} / ${esc(d.prompt.model || '?')}｜system prompt 版本 <code>${esc(d.prompt.sysHash || '?')}</code>
+            <button class="btn ghost small btn-copy-prompt">複製此段</button>
+            <button class="btn ghost small btn-sys-prompt">查看 system prompt</button>
+          </div>
+          <div class="seg-tabs">
+            <button class="seg-tab on" data-seg="full">完整 Prompt</button>
+            <button class="seg-tab" data-seg="opening">題目</button>
+            <button class="seg-tab" data-seg="lenormand">雷諾曼</button>
+            <button class="seg-tab" data-seg="meihua">梅花易數</button>
+            <button class="seg-tab" data-seg="astro">占星</button>
+          </div>
+          <div class="d-msg-text prompt-text">${esc(d.prompt.prompt || '')}</div>
+          <div class="d-msg-text prompt-text sys-text" style="display:none"></div>
+        </div>
+      </div>` : ''}
       <div class="d-line d-note"><b>標註</b>
         <input type="text" class="note-input" maxlength="300" placeholder="例如：我自己測試的訊息……" value="${esc(d.note || s.note || '')}">
         <button class="btn small btn-save-note">儲存標註</button>
@@ -335,6 +353,53 @@ async function toggleDetail(tr, s) {
       <div class="d-actions-row">
         <button class="btn small danger btn-del">刪除這筆紀錄</button>
       </div>`;
+
+    // Prompt 操作：分段檢視 / 複製目前段 / 查看 system prompt
+    const copyPromptBtn = detail.querySelector('.btn-copy-prompt');
+    if (copyPromptBtn) {
+      const promptBox = detail.querySelector('.prompt-text');
+      const segs = d.prompt.segments || {};
+      // 分段內容（JSON 段落盡量美化呈現）
+      const segText = (key) => {
+        if (key === 'full') return d.prompt.prompt || '';
+        if (key === 'opening') return segs.opening || '（此紀錄未含分段資料——舊版本）';
+        const raw = segs[key];
+        if (raw == null) return key === 'astro' ? '（使用者跳過占星）' : '（此紀錄未含分段資料——舊版本）';
+        try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
+      };
+      let curSeg = 'full';
+      detail.querySelectorAll('.seg-tab').forEach((tab) => {
+        tab.addEventListener('click', (e) => {
+          e.stopPropagation();
+          curSeg = tab.dataset.seg;
+          detail.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t === tab));
+          promptBox.textContent = segText(curSeg);
+        });
+      });
+      copyPromptBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(segText(curSeg)).then(
+          () => { copyPromptBtn.textContent = '已複製 ✓'; setTimeout(() => { copyPromptBtn.textContent = '複製此段'; }, 1800); },
+          () => { copyPromptBtn.textContent = '失敗'; }
+        );
+      });
+      const sysBtn = detail.querySelector('.btn-sys-prompt');
+      const sysBox = detail.querySelector('.sys-text');
+      sysBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (sysBox.style.display !== 'none') { sysBox.style.display = 'none'; sysBtn.textContent = '查看 system prompt'; return; }
+        if (!sysBox.textContent) {
+          sysBtn.disabled = true;
+          try {
+            const r = await api({ view: 'sysprompt', hash: d.prompt.sysHash || '' });
+            sysBox.textContent = r.content || '（此版本的 system prompt 未留存——可能是舊紀錄）';
+          } catch { sysBox.textContent = '（讀取失敗）'; }
+          sysBtn.disabled = false;
+        }
+        sysBox.style.display = 'block';
+        sysBtn.textContent = '收合 system prompt';
+      });
+    }
 
     // 儲存標註
     const noteInput = detail.querySelector('.note-input');
@@ -374,6 +439,17 @@ async function toggleDetail(tr, s) {
   } catch {
     detail.querySelector('td').textContent = '讀取失敗。';
   }
+}
+
+// 星盤紀錄的詳情呈現：出生輸入 + 解析結果 + 三要點
+function astroDetail(j) {
+  if (!j.astroUsed) return '未使用';
+  const b = j.astroBirth;
+  if (!b) return `已使用${j.astroSun ? `（太陽${esc(j.astroSun)}）` : ''}（此紀錄未含出生資料——舊版本）`;
+  const birth = `${esc(b.date)} ${b.timeUnknown ? '（時間不確定）' : esc(b.time || '')}．${esc(b.city)}${b.country ? `（${esc(b.country)}）` : ''}`;
+  const resolved = `${esc(b.resolved)}｜${esc(b.tz)}｜UTC ${esc(b.utc)}`;
+  const big3 = [b.sun && `太陽${esc(b.sun)}`, b.moon && `月亮${esc(b.moon)}`, b.asc && `上升${esc(b.asc)}`].filter(Boolean).join('、');
+  return `${birth}<br><span class="astro-sub">解析：${resolved}${big3 ? `｜${big3}` : ''}</span>`;
 }
 
 function truncate(s, n) {
