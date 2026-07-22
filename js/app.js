@@ -36,9 +36,6 @@ $('btnStart').addEventListener('click', start);
 $('question').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') start();
 });
-$('examples').addEventListener('click', (e) => {
-  if (e.target.tagName === 'SPAN') $('question').value = e.target.textContent;
-});
 $('btnCareBack').addEventListener('click', () => showScreen('screenIntake'));
 
 function start() {
