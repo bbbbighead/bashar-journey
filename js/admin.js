@@ -321,7 +321,7 @@ async function toggleDetail(tr, s) {
         <div class="d-line"><b>題目</b>${esc(j.opening)}</div>
         <div class="d-line"><b>選牌</b>${(j.cards || []).map(esc).join('、') || '—'}</div>
         <div class="d-line"><b>報數</b>${j.numbers ? j.numbers.join('、') : '（時間起卦）'}</div>
-        <div class="d-line"><b>星盤</b>${j.astroUsed ? `已使用${j.astroSun ? `（太陽${esc(j.astroSun)}）` : ''}` : '未使用'}</div>
+        <div class="d-line"><b>星盤</b>${astroDetail(j)}</div>
         <div class="d-line"><b>產出</b>${esc(j.title || '—')}${j.offline ? '（離線模板）' : ''}</div>
         ${j.message ? `
         <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
@@ -374,6 +374,17 @@ async function toggleDetail(tr, s) {
   } catch {
     detail.querySelector('td').textContent = '讀取失敗。';
   }
+}
+
+// 星盤紀錄的詳情呈現：出生輸入 + 解析結果 + 三要點
+function astroDetail(j) {
+  if (!j.astroUsed) return '未使用';
+  const b = j.astroBirth;
+  if (!b) return `已使用${j.astroSun ? `（太陽${esc(j.astroSun)}）` : ''}（此紀錄未含出生資料——舊版本）`;
+  const birth = `${esc(b.date)} ${b.timeUnknown ? '（時間不確定）' : esc(b.time || '')}．${esc(b.city)}${b.country ? `（${esc(b.country)}）` : ''}`;
+  const resolved = `${esc(b.resolved)}｜${esc(b.tz)}｜UTC ${esc(b.utc)}`;
+  const big3 = [b.sun && `太陽${esc(b.sun)}`, b.moon && `月亮${esc(b.moon)}`, b.asc && `上升${esc(b.asc)}`].filter(Boolean).join('、');
+  return `${birth}<br><span class="astro-sub">解析：${resolved}${big3 ? `｜${big3}` : ''}</span>`;
 }
 
 function truncate(s, n) {

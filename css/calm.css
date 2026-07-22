@@ -404,6 +404,7 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   padding: 14px 16px;
 }
 .d-line { margin-bottom: 6px; }
+.astro-sub { font-size: 12px; color: var(--ink-faint); }
 .note-cell { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font-size: 12.5px; }
 .dim-dash { color: var(--ink-faint); }
 .d-note { display: flex; align-items: center; gap: 10px; margin-top: 10px; }

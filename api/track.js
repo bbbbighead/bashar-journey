@@ -62,6 +62,24 @@ function rateLimited(ip) {
   return hits.length > 600;
 }
 
+// 出生資料紀錄（供後台分析）：逐欄清洗與截長
+function sanitizeBirth(b) {
+  if (!b || typeof b !== 'object') return null;
+  return {
+    date: String(b.date || '').slice(0, 10),
+    time: b.time == null ? null : String(b.time).slice(0, 5),
+    timeUnknown: !!b.timeUnknown,
+    city: String(b.city || '').slice(0, 80),
+    country: b.country ? String(b.country).slice(0, 40) : null,
+    resolved: String(b.resolved || '').slice(0, 120),
+    tz: String(b.tz || '').slice(0, 40),
+    utc: String(b.utc || '').slice(0, 16),
+    sun: String(b.sun || '').slice(0, 8),
+    moon: String(b.moon || '').slice(0, 8),
+    asc: String(b.asc || '').slice(0, 8),
+  };
+}
+
 function toObj(arr) {
   const o = {}; const a = arr || [];
   for (let i = 0; i < a.length; i += 2) o[a[i]] = a[i + 1];
@@ -212,6 +230,7 @@ export default async function handler(req, res) {
         offline: !!body.offline,
         astroUsed: !!body.astroUsed,
         astroSun: String(body.astroSun || '').slice(0, 8),
+        astroBirth: sanitizeBirth(body.astroBirth),
       });
       cmds.push(
         ['SET', `pi:journey:${sid}`, journey],
