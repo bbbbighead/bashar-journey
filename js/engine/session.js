@@ -18,7 +18,7 @@ export function createSession(opening) {
     version: 2, // v2：無問答互動（v1 存檔含 probes/confirmation，不相容，直接略過）
     createdAt: now,
     updatedAt: now,
-    status: 'spread', // spread | numbers | weaving | done
+    status: 'spread', // spread | numbers | astro | weaving | done
 
     opening: String(opening || '').trim().slice(0, 600), // 想獲得靈感的主題
 
@@ -26,6 +26,7 @@ export function createSession(opening) {
     lenormand: null,   // 九宮格 spread（玩家看得到牌面）
     numbers: null,     // 玩家報的三個數字 [n1,n2,n3]（跳過為 null）
     meihua: null,      // 起卦結果
+    astro: null,       // 西洋占星本命盤（Swiss Ephemeris 計算；跳過為 null）
 
     // 最後分析
     analysis: null,    // { meaning, coreBelief, direction, need, action, basis, closing }

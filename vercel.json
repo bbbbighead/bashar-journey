@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/insight.js": { "maxDuration": 60 }
+    "api/insight.js": { "maxDuration": 60 },
+    "api/astro.py": { "maxDuration": 30, "includeFiles": "ephe/**" }
   }
 }

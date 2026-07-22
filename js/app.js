@@ -6,7 +6,7 @@
 import {
   createSession, saveSession, loadSession, clearSession,
 } from './engine/session.js';
-import { castMeihua, getAnalysis } from './engine/inquiry.js';
+import { castMeihua, fetchAstroChart, getAnalysis } from './engine/inquiry.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney } from './analytics.js';
@@ -154,15 +154,70 @@ function runNumbers() {
 
   const proceed = (numbers) => {
     castMeihua(state, numbers);
-    state.status = 'weaving';
+    state.status = 'astro';
     saveSession(state);
-    runAnalysis();
+    runAstro();
   };
   doneBtn.onclick = () => { if (inputs.every(valid)) proceed(inputs.map((el) => Number(el.value))); };
   skipBtn.onclick = () => proceed(null);
 
   showScreen('screenNumbers');
   setTimeout(() => inputs[0].focus(), 200);
+}
+
+// ---- 占卜三：西洋占星本命盤（Swiss Ephemeris 精算） ----
+function runAstro() {
+  const dateEl = $('astroDate');
+  const timeEl = $('astroTime');
+  const unknownEl = $('astroTimeUnknown');
+  const cityEl = $('astroCity');
+  const countryEl = $('astroCountry');
+  const errEl = $('astroError');
+  const doneBtn = $('btnAstroDone');
+  const skipBtn = $('btnAstroSkip');
+
+  const refresh = () => {
+    timeEl.disabled = unknownEl.checked;
+    doneBtn.disabled = !(dateEl.value && cityEl.value.trim() && (unknownEl.checked || timeEl.value));
+  };
+  [dateEl, timeEl, cityEl].forEach((el) => { el.oninput = refresh; });
+  unknownEl.onchange = refresh;
+  errEl.textContent = '';
+  refresh();
+
+  const proceedTo = (chart) => {
+    state.astro = chart; // null＝跳過
+    state.status = 'weaving';
+    saveSession(state);
+    runAnalysis();
+  };
+
+  doneBtn.onclick = async () => {
+    errEl.textContent = '';
+    doneBtn.disabled = true;
+    doneBtn.textContent = '正在精算星盤……';
+    try {
+      const chart = await fetchAstroChart({
+        date: dateEl.value,
+        time: unknownEl.checked ? null : timeEl.value,
+        timeUnknown: unknownEl.checked,
+        city: cityEl.value.trim(),
+        country: countryEl.value.trim(),
+      });
+      proceedTo(chart);
+    } catch (e) {
+      errEl.textContent = ({
+        geocode_failed: '找不到這個城市——請確認拼字，或補上國家欄位再試一次。',
+        date_out_of_range: '出生年份需在 1800–2399 之間。',
+        tz_unavailable: '無法解析當地時區，請稍後再試。',
+      })[e.code] || '星盤計算暫時無法使用，可以稍後再試，或先跳過。';
+    }
+    doneBtn.textContent = '計算星盤，繼續';
+    refresh();
+  };
+  skipBtn.onclick = () => proceedTo(null);
+
+  showScreen('screenAstro');
 }
 
 // ---- 交叉整合 → 最後分析 ----
@@ -184,6 +239,7 @@ function renderResult(a) {
       <span class="draw-pos">${POS_LABELS[pos]}</span>
     </div>`).join('');
   const numsText = state.numbers ? state.numbers.join(' · ') : '由此刻的時間起卦';
+  const astroText = astroSummary(state.astro);
 
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
@@ -192,6 +248,7 @@ function renderResult(a) {
       <div class="r-draws-label">你選的九張牌</div>
       <div class="r-draws-grid">${drawCards}</div>
       <div class="r-draws-nums">你報的數——<b>${esc(numsText)}</b></div>
+      <div class="r-draws-nums">你的星盤——<b>${esc(astroText)}</b></div>
     </div>
     <div class="r-block core"><h3>靈感訊息</h3><p>${esc(a.message)}</p></div>
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
@@ -218,7 +275,20 @@ function renderResult(a) {
   showScreen('screenResult');
 }
 
-// 完整內容（複製與導流共用）：主題 + 牌 + 數 + 訊息
+// 星盤摘要（結果頁顯示與複製用；不含出生資料本身）
+function astroSummary(chart) {
+  if (!chart) return '未提供（略過占星）';
+  const pts = {};
+  for (const p of chart.points || []) pts[p.name] = p;
+  const parts = [];
+  if (pts['太陽']) parts.push(`太陽 ${pts['太陽'].sign}`);
+  if (pts['月亮']) parts.push(`月亮 ${pts['月亮'].sign}`);
+  if (pts['上升點']) parts.push(`上升 ${pts['上升點'].sign}`);
+  if (chart.meta && chart.meta.input && chart.meta.input.timeUnknown) parts.push('（出生時間不確定，未計宮位）');
+  return parts.join(' · ') || '已計算';
+}
+
+// 完整內容（複製與導流共用）：主題 + 牌 + 數 + 星盤 + 訊息
 function fullText(a) {
   const cards = (state.lenormand || [])
     .map(({ card }, pos) => `${POS_LABELS[pos]}：${card.name}`)
@@ -229,6 +299,7 @@ function fullText(a) {
     `我的主題:${state.opening}`,
     `我選的九張牌（九宮格）:${cards}`,
     `我報的三個數:${state.numbers ? state.numbers.join('、') : '（由當下時間起卦）'}`,
+    `我的星盤:${astroSummary(state.astro)}`,
     '',
     a.message,
     a.closing ? `\n${a.closing}` : '',
@@ -286,6 +357,7 @@ function restart() {
   if (state.status === 'done' && state.analysis) { renderResult(state.analysis); return; }
   if (state.status === 'spread') { runSpread(); return; }         // 選到一半：重新選
   if (state.status === 'numbers') { runNumbers(); return; }
+  if (state.status === 'astro') { runAstro(); return; }
   if (state.status === 'weaving') { runAnalysis(); }
 })();
 

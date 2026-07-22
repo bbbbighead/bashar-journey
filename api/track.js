@@ -75,60 +75,83 @@ export function dwellBytes(dwell, dcnt) {
   return events * 100;
 }
 
-// 用量超過上限的 95% 時，自動從最舊的來訪開始刪除（每次事件最多清 3 輪 × 20 筆）
+// 刪除一批來訪紀錄（清單項已由呼叫端移出或將以 LREM 移出），回傳估算釋放的 bytes
+async function removeEntries(entries, useLrem) {
+  if (!entries.length) return 0;
+  const reads = await redisPipeline(entries.flatMap((e) => [
+    ['STRLEN', `pi:journey:${e.sid}`],
+    ['HGETALL', `pi:dwell:${e.sid}`],
+    ['HGETALL', `pi:dwellcnt:${e.sid}`],
+    ['STRLEN', `pi:note:${e.sid}`],
+  ]));
+
+  const cmds = [];
+  let freed = 0;
+  entries.forEach((e, i) => {
+    freed += e.raw.length + 16;
+    const jLen = Number(reads[i * 4].result || 0);
+    if (jLen) freed += jLen + KEY_OVERHEAD;
+    const dwell = toObj(reads[i * 4 + 1].result);
+    const dcnt = toObj(reads[i * 4 + 2].result);
+    freed += dwellBytes(dwell, dcnt);
+    const nLen = Number(reads[i * 4 + 3].result || 0);
+    if (nLen) freed += nLen + KEY_OVERHEAD;
+
+    if (useLrem) cmds.push(['LREM', 'pi:sessions', '1', e.raw]);
+    if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
+    if (e.device) cmds.push(['HINCRBY', 'pi:agg:device', e.device, '-1']);
+    for (const [screen, ms] of Object.entries(dwell)) {
+      cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(Number(ms) || 0))]);
+      cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(Number(dcnt[screen]) || 1))]);
+    }
+    if (e.sid) {
+      cmds.push(
+        ['DEL', `pi:journey:${e.sid}`],
+        ['DEL', `pi:dwell:${e.sid}`],
+        ['DEL', `pi:dwellcnt:${e.sid}`],
+        ['DEL', `pi:note:${e.sid}`],
+      );
+    }
+  });
+  cmds.push(
+    ['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))],
+    ['INCRBY', 'pi:agg:pruned', String(entries.length)],
+    ['SET', 'pi:agg:pruned_at', String(Date.now())],
+  );
+  await redisPipeline(cmds);
+  return freed;
+}
+
+function parseEntry(r) {
+  try { return { raw: r, ...JSON.parse(r) }; } catch { return { raw: r }; }
+}
+
+// 用量超過上限的 95% 時自動汰舊。
+// 優先刪除「未完成（沒有留下題目）」的紀錄（由最舊往新掃描）；
+// 仍不足時，才從最舊的完成紀錄開始刪除。
 async function maybePrune() {
   const [bR] = await redisPipeline([['GET', 'pi:agg:bytes']]);
   let bytes = Number(bR.result || 0);
   const target = LIMIT_BYTES * PRUNE_TARGET;
   if (bytes <= target) return;
 
+  // 第一階段：未完成優先（掃描最舊的 300 筆，找出沒有 journey 的）
+  const [tailR] = await redisPipeline([['LRANGE', 'pi:sessions', '-300', '-1']]);
+  const tail = (tailR.result || []).map(parseEntry).reverse(); // 最舊在前
+  if (tail.length) {
+    const exists = await redisPipeline(tail.map((e) => ['EXISTS', `pi:journey:${e.sid}`]));
+    const incompletes = tail.filter((e, i) => exists[i].result !== 1);
+    for (let i = 0; i < incompletes.length && bytes > target; i += 20) {
+      bytes -= await removeEntries(incompletes.slice(i, i + 20), true);
+    }
+  }
+
+  // 第二階段：仍超標 → 從最舊的紀錄（含完成的）開始刪
   for (let round = 0; round < 3 && bytes > target; round++) {
     const [popR] = await redisPipeline([['RPOP', 'pi:sessions', '20']]);
     const raws = popR.result || [];
     if (!raws.length) break;
-
-    const entries = raws.map((r) => { try { return { raw: r, ...JSON.parse(r) }; } catch { return { raw: r }; } });
-    const reads = await redisPipeline(entries.flatMap((e) => [
-      ['STRLEN', `pi:journey:${e.sid}`],
-      ['HGETALL', `pi:dwell:${e.sid}`],
-      ['HGETALL', `pi:dwellcnt:${e.sid}`],
-      ['STRLEN', `pi:note:${e.sid}`],
-    ]));
-
-    const cmds = [];
-    let freed = 0;
-    entries.forEach((e, i) => {
-      freed += e.raw.length + 16;
-      const jLen = Number(reads[i * 4].result || 0);
-      if (jLen) freed += jLen + KEY_OVERHEAD;
-      const dwell = toObj(reads[i * 4 + 1].result);
-      const dcnt = toObj(reads[i * 4 + 2].result);
-      freed += dwellBytes(dwell, dcnt);
-      const nLen = Number(reads[i * 4 + 3].result || 0);
-      if (nLen) freed += nLen + KEY_OVERHEAD;
-
-      if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
-      if (e.device) cmds.push(['HINCRBY', 'pi:agg:device', e.device, '-1']);
-      for (const [screen, ms] of Object.entries(dwell)) {
-        cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(Number(ms) || 0))]);
-        cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(Number(dcnt[screen]) || 1))]);
-      }
-      if (e.sid) {
-        cmds.push(
-          ['DEL', `pi:journey:${e.sid}`],
-          ['DEL', `pi:dwell:${e.sid}`],
-          ['DEL', `pi:dwellcnt:${e.sid}`],
-          ['DEL', `pi:note:${e.sid}`],
-        );
-      }
-    });
-    cmds.push(
-      ['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))],
-      ['INCRBY', 'pi:agg:pruned', String(entries.length)],
-      ['SET', 'pi:agg:pruned_at', String(Date.now())],
-    );
-    await redisPipeline(cmds);
-    bytes -= freed;
+    bytes -= await removeEntries(raws.map(parseEntry), false);
   }
 }
 
@@ -187,6 +210,8 @@ export default async function handler(req, res) {
         message: String(body.message || '').slice(0, 2000), // 完整靈感訊息輸出
         closing: String(body.closing || '').slice(0, 100),
         offline: !!body.offline,
+        astroUsed: !!body.astroUsed,
+        astroSun: String(body.astroSun || '').slice(0, 8),
       });
       cmds.push(
         ['SET', `pi:journey:${sid}`, journey],
