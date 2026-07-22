@@ -42,19 +42,19 @@
       <!-- 來源 -->
       <div class="a-block">
         <h3>登入管道（來源）</h3>
-        <table class="a-table" id="srcTable"><tbody></tbody></table>
+        <div class="chart-host" id="srcChart"></div>
       </div>
       <!-- 裝置 -->
       <div class="a-block">
         <h3>裝置平台</h3>
-        <table class="a-table" id="devTable"><tbody></tbody></table>
+        <div class="chart-host" id="devChart"></div>
       </div>
     </div>
 
     <!-- 停留時間 -->
     <div class="a-block">
       <h3>各頁面平均停留時間</h3>
-      <div id="dwellBars"></div>
+      <div class="chart-host" id="dwellChart"></div>
     </div>
 
     <!-- 使用紀錄 -->
@@ -75,7 +75,7 @@
         <span class="flt-count" id="fltCount"></span>
       </div>
       <table class="a-table sessions" id="sessTable">
-        <thead><tr><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th></tr></thead>
+        <thead><tr><th>時間</th><th>訪客</th><th>來源</th><th>裝置</th><th>題目</th><th>標註</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>

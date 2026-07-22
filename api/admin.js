@@ -1,9 +1,12 @@
-// api/admin.js — Admin 後台查詢端點。
+// api/admin.js — Admin 後台查詢與管理端點。
 // 驗證：Authorization: Bearer <ADMIN_PASSWORD>（環境變數，未設定即整個後台停用）。
-// views：
+// GET views：
 //   overview            總覽（來訪數、來源分布、裝置分布、各畫面平均停留）
-//   sessions?offset=0   來訪清單（每頁 50 筆，含各 session 是否留有題目）
-//   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出標題/各畫面停留）
+//   sessions?offset=0   來訪清單（每頁 50 筆，含是否留有題目與標註）
+//   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註）
+// POST actions（body JSON）：
+//   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
+//   { action:'delete', sid }         刪除該筆紀錄（清單/題目/停留/標註），並回扣聚合統計
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
 
@@ -49,6 +52,71 @@ export default async function handler(req, res) {
   const view = url.searchParams.get('view') || 'overview';
 
   try {
+    // ---- 管理操作（POST）----
+    if (req.method === 'POST') {
+      let body = req.body;
+      if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+      const action = body && body.action;
+      const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
+      if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
+
+      if (action === 'note') {
+        const ttl = Math.max(1, Number(process.env.DATA_RETENTION_DAYS) || 365) * 24 * 3600;
+        const note = String(body.note || '').trim().slice(0, 300);
+        await redisPipeline(note
+          ? [['SET', `pi:note:${sid}`, note, 'EX', String(ttl)]]
+          : [['DEL', `pi:note:${sid}`]]);
+        res.status(200).json({ ok: true, note });
+        return;
+      }
+
+      if (action === 'delete') {
+        // 找出清單中該 sid 的原始字串（LREM 需要完整值）
+        const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '4999']]);
+        const raw = (listR.result || []).find((s) => {
+          const p = parseJSON(s, null);
+          return p && p.sid === sid;
+        });
+
+        // 讀取該筆的停留數據，供回扣平均值統計
+        const [dwellR, cntR] = await redisPipeline([
+          ['HGETALL', `pi:dwell:${sid}`],
+          ['HGETALL', `pi:dwellcnt:${sid}`],
+        ]);
+        const toObj = (arr) => {
+          const o = {}; const a = arr || [];
+          for (let i = 0; i < a.length; i += 2) o[a[i]] = Number(a[i + 1]);
+          return o;
+        };
+        const dwell = toObj(dwellR.result), dcnt = toObj(cntR.result);
+
+        const cmds = [];
+        if (raw) {
+          const entry = parseJSON(raw, {});
+          cmds.push(['LREM', 'pi:sessions', '1', raw]);
+          if (entry.src) cmds.push(['HINCRBY', 'pi:agg:src', entry.src, '-1']);
+          if (entry.device) cmds.push(['HINCRBY', 'pi:agg:device', entry.device, '-1']);
+        }
+        for (const [screen, ms] of Object.entries(dwell)) {
+          cmds.push(['HINCRBY', 'pi:agg:dwell_sum', screen, String(-Math.round(ms))]);
+          // 舊紀錄可能沒有事件數：以 1 估計，避免平均值分母永不下降
+          cmds.push(['HINCRBY', 'pi:agg:dwell_cnt', screen, String(-(dcnt[screen] || 1))]);
+        }
+        cmds.push(
+          ['DEL', `pi:journey:${sid}`],
+          ['DEL', `pi:dwell:${sid}`],
+          ['DEL', `pi:dwellcnt:${sid}`],
+          ['DEL', `pi:note:${sid}`],
+        );
+        await redisPipeline(cmds);
+        res.status(200).json({ ok: true, removed: !!raw });
+        return;
+      }
+
+      res.status(400).json({ ok: false, error: 'bad_action' });
+      return;
+    }
+
     if (view === 'overview') {
       const [srcR, devR, sumR, cntR, lenR] = await redisPipeline([
         ['HGETALL', 'pi:agg:src'],
@@ -82,10 +150,16 @@ export default async function handler(req, res) {
         ['LRANGE', 'pi:sessions', String(offset), String(offset + 49)],
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
-      // 附註每筆是否留有題目（journey）
+      // 附註每筆是否留有題目（journey）與標註內容
       if (sessions.length) {
-        const jr = await redisPipeline(sessions.map((s) => ['EXISTS', `pi:journey:${s.sid}`]));
-        sessions.forEach((s, i) => { s.hasJourney = jr[i].result === 1; });
+        const extras = await redisPipeline(sessions.flatMap((s) => [
+          ['EXISTS', `pi:journey:${s.sid}`],
+          ['GET', `pi:note:${s.sid}`],
+        ]));
+        sessions.forEach((s, i) => {
+          s.hasJourney = extras[i * 2].result === 1;
+          s.note = extras[i * 2 + 1].result || '';
+        });
       }
       res.status(200).json({ ok: true, offset, sessions });
       return;
@@ -94,9 +168,10 @@ export default async function handler(req, res) {
     if (view === 'session') {
       const sid = String(url.searchParams.get('sid') || '').slice(0, 16).replace(/[^\w-]/g, '');
       if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
-      const [jR, dR] = await redisPipeline([
+      const [jR, dR, nR] = await redisPipeline([
         ['GET', `pi:journey:${sid}`],
         ['HGETALL', `pi:dwell:${sid}`],
+        ['GET', `pi:note:${sid}`],
       ]);
       const dwell = {};
       const da = dR.result || [];
@@ -105,6 +180,7 @@ export default async function handler(req, res) {
         ok: true,
         journey: jR.result ? parseJSON(jR.result, null) : null,
         dwellMs: dwell,
+        note: nR.result || '',
       });
       return;
     }

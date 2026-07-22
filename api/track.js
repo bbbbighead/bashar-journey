@@ -12,8 +12,10 @@
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
 
-const TTL = 90 * 24 * 3600; // 90 天
-const MAX_SESSIONS = 5000;
+// 保存天數：環境變數 DATA_RETENTION_DAYS 可調（預設 365 天）
+const RETENTION_DAYS = Math.max(1, Number(process.env.DATA_RETENTION_DAYS) || 365);
+const TTL = RETENTION_DAYS * 24 * 3600;
+const MAX_SESSIONS = 5000; // 來訪清單上限（超過自動汰舊）
 
 // User-Agent → 裝置與作業系統（粗分類即可滿足分析需求）
 function parseDevice(ua) {
@@ -93,6 +95,9 @@ export default async function handler(req, res) {
       cmds.push(
         ['HINCRBY', `pi:dwell:${sid}`, screen, String(Math.round(ms))],
         ['EXPIRE', `pi:dwell:${sid}`, String(TTL)],
+        // 各畫面事件數（供後台刪除紀錄時精準回扣平均值統計）
+        ['HINCRBY', `pi:dwellcnt:${sid}`, screen, '1'],
+        ['EXPIRE', `pi:dwellcnt:${sid}`, String(TTL)],
         ['HINCRBY', 'pi:agg:dwell_sum', screen, String(Math.round(ms))],
         ['HINCRBY', 'pi:agg:dwell_cnt', screen, '1'],
       );
@@ -103,6 +108,8 @@ export default async function handler(req, res) {
         cards: Array.isArray(body.cards) ? body.cards.slice(0, 9).map((c) => String(c).slice(0, 8)) : [],
         numbers: Array.isArray(body.numbers) ? body.numbers.slice(0, 3).map(Number) : null,
         title: String(body.title || '').slice(0, 60),
+        message: String(body.message || '').slice(0, 2000), // 完整靈感訊息輸出
+        closing: String(body.closing || '').slice(0, 100),
         offline: !!body.offline,
       });
       cmds.push(
