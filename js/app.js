@@ -7,6 +7,7 @@ import {
   createSession, saveSession, loadSession, clearSession,
 } from './engine/session.js';
 import { castMeihua, fetchAstroChart, getAnalysis } from './engine/inquiry.js';
+import { countryList } from '../data/countries.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney } from './analytics.js';
@@ -194,18 +195,98 @@ function runAstro() {
   const timeEl = $('astroTime');
   const unknownEl = $('astroTimeUnknown');
   const cityEl = $('astroCity');
+  const cityListEl = $('cityList');
+  const cityPickedEl = $('cityPicked');
   const countryEl = $('astroCountry');
+  const countryListEl = $('countryList');
   const errEl = $('astroError');
   const doneBtn = $('btnAstroDone');
   const skipBtn = $('btnAstroSkip');
 
+  let pickedPlace = null;   // 從搜尋清單選定的城市（帶經緯度/時區，計算時免再 geocode）
+  let pickedCountry = null; // 從國家清單選定 {code, zh, en}
+  const COUNTRIES = countryList();
+
   const refresh = () => {
     timeEl.disabled = unknownEl.checked;
-    doneBtn.disabled = !(dateEl.value && cityEl.value.trim() && (unknownEl.checked || timeEl.value));
+    doneBtn.disabled = !(dateEl.value && (pickedPlace || cityEl.value.trim()) && (unknownEl.checked || timeEl.value));
   };
-  [dateEl, timeEl, cityEl].forEach((el) => { el.oninput = refresh; });
+  [dateEl, timeEl].forEach((el) => { el.oninput = refresh; });
   unknownEl.onchange = refresh;
+
+  // -- 城市：即時搜尋合法清單（含臺↔台變體），點選後鎖定經緯度與時區 --
+  let cityTimer = null;
+  let citySeq = 0;
+  const renderCityList = (items) => {
+    if (!items) { cityListEl.hidden = true; cityListEl.innerHTML = ''; return; }
+    cityListEl.innerHTML = items.length
+      ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(r.country || '')}</small></div>`).join('')
+      : '<div class="combo-empty">找不到符合的城市——試試別的寫法（可省略「市」「縣」）</div>';
+    cityListEl.hidden = false;
+    cityListEl.querySelectorAll('.combo-item').forEach((el) => {
+      // mousedown：先於 input blur 觸發，避免清單先被收起
+      el.addEventListener('mousedown', (ev) => { ev.preventDefault(); pickCity(items[Number(el.dataset.i)]); });
+    });
+  };
+  const pickCity = (r) => {
+    pickedPlace = r;
+    cityEl.value = r.name;
+    cityPickedEl.textContent = `已選：${r.name}${r.admin1 ? `，${r.admin1}` : ''}（${r.country || '？'}・${r.timezone || ''}）`;
+    if (r.country && !countryEl.value.trim()) countryEl.value = r.country;
+    renderCityList(null);
+    refresh();
+  };
+  cityEl.oninput = () => {
+    pickedPlace = null;
+    cityPickedEl.textContent = '';
+    refresh();
+    clearTimeout(cityTimer);
+    const q = cityEl.value.trim();
+    if (!q) { renderCityList(null); return; }
+    cityTimer = setTimeout(async () => {
+      const seq = ++citySeq;
+      try {
+        const res = await fetch('/api/astro?q=' + encodeURIComponent(q));
+        const json = await res.json();
+        if (seq !== citySeq) return; // 已有更新的搜尋在途
+        let items = (json && json.results) || [];
+        if (pickedCountry) items = items.filter((r) => String(r.countryCode || '').toUpperCase() === pickedCountry.code);
+        renderCityList(items.slice(0, 8));
+      } catch { if (seq === citySeq) renderCityList([]); }
+    }, 350);
+  };
+  cityEl.onblur = () => setTimeout(() => renderCityList(null), 150);
+
+  // -- 國家／地區：完整 ISO 清單（繁中＋英文皆可搜尋），輸入即過濾 --
+  const renderCountryList = (items) => {
+    if (!items) { countryListEl.hidden = true; countryListEl.innerHTML = ''; return; }
+    countryListEl.innerHTML = items.length
+      ? items.map((c, i) => `<div class="combo-item" data-i="${i}"><span>${esc(c.zh)}</span><small>${esc(c.en)}</small></div>`).join('')
+      : '<div class="combo-empty">找不到符合的國家／地區</div>';
+    countryListEl.hidden = false;
+    countryListEl.querySelectorAll('.combo-item').forEach((el) => {
+      el.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        const c = items[Number(el.dataset.i)];
+        pickedCountry = c;
+        countryEl.value = c.zh;
+        renderCountryList(null);
+      });
+    });
+  };
+  const filterCountries = () => {
+    const q = countryEl.value.trim().toLowerCase();
+    const items = q
+      ? COUNTRIES.filter((c) => c.zh.toLowerCase().includes(q) || c.en.toLowerCase().includes(q) || c.code.toLowerCase() === q)
+      : COUNTRIES;
+    renderCountryList(items.slice(0, 12));
+  };
+  countryEl.oninput = () => { pickedCountry = null; filterCountries(); };
+  countryEl.onfocus = filterCountries;
+  countryEl.onblur = () => setTimeout(() => renderCountryList(null), 150);
+
   errEl.textContent = '';
+  cityPickedEl.textContent = '';
   refresh();
 
   const proceedTo = (chart) => {
@@ -226,11 +307,18 @@ function runAstro() {
         timeUnknown: unknownEl.checked,
         city: cityEl.value.trim(),
         country: countryEl.value.trim(),
+        place: pickedPlace ? {
+          name: pickedPlace.name,
+          country: pickedPlace.country,
+          latitude: pickedPlace.latitude,
+          longitude: pickedPlace.longitude,
+          timezone: pickedPlace.timezone,
+        } : undefined,
       });
       proceedTo(chart);
     } catch (e) {
       errEl.textContent = ({
-        geocode_failed: '找不到這個城市——請確認拼字，或補上國家欄位再試一次。',
+        geocode_failed: '找不到這個城市——請輸入後從跳出的清單中選擇一個城市。',
         date_out_of_range: '出生年份需在 1800–2399 之間。',
         tz_unavailable: '無法解析當地時區，請稍後再試。',
       })[e.code] || '星盤計算暫時無法使用，可以稍後再試，或先跳過。';
@@ -254,6 +342,35 @@ async function runAnalysis() {
   setTimeout(() => renderResult(analysis), waitMs);
 }
 
+// 三系統匯聚圖：把雷諾曼／梅花／星盤畫成觀測同一份圖樣的三個測點，
+// 髮絲線緩緩收束到中心——視覺化「整合的訊息」而非三份孤立解讀。
+function convergeSVG(hasAstro) {
+  const nodes = hasAstro
+    ? [
+      { x: 110, label: '雷諾曼', sub: '現實如何表現' },
+      { x: 300, label: '梅花易數', sub: '正處哪個階段' },
+      { x: 490, label: '本命星盤', sub: '為什麼會這樣' },
+    ]
+    : [
+      { x: 170, label: '雷諾曼', sub: '現實如何表現' },
+      { x: 430, label: '梅花易數', sub: '正處哪個階段' },
+    ];
+  const parts = nodes.map((n) => `
+    <text x="${n.x}" y="26" text-anchor="middle" font-size="12.5" fill="#a89f8a" letter-spacing="2">${n.label}</text>
+    <text x="${n.x}" y="43" text-anchor="middle" font-size="9.5" fill="#6e6957" letter-spacing="1">${n.sub}</text>
+    <circle cx="${n.x}" cy="58" r="2.6" fill="#c2a869"/>
+    <path class="cv-line" pathLength="1" d="M ${n.x} 64 C ${n.x} 96, 300 100, 300 124" stroke="rgba(194,168,105,.55)" stroke-width="0.8" fill="none"/>`).join('');
+  return `
+    <div class="r-converge" aria-hidden="true">
+      <svg viewBox="0 0 600 178" fill="none" xmlns="http://www.w3.org/2000/svg">
+        ${parts}
+        <circle class="cv-halo" cx="300" cy="132" r="8.5" stroke="rgba(194,168,105,.45)" stroke-width=".8"/>
+        <circle cx="300" cy="132" r="3.2" fill="#c2a869"/>
+        <text x="300" y="165" text-anchor="middle" font-size="11" fill="#8a774d" letter-spacing="3">同一份底層圖樣</text>
+      </svg>
+    </div>`;
+}
+
 function renderResult(a) {
   // 頂部：這一局抽出的九張牌（文字列表，依九宮格順序）與報的數
   const drawList = (state.lenormand || [])
@@ -264,7 +381,8 @@ function renderResult(a) {
 
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
-    <div class="r-sub">來自你親手選的牌，與你報出的數</div>
+    <div class="r-sub">${state.astro ? '三個觀測角度' : '兩個觀測角度'}・交會於同一則訊息</div>
+    ${convergeSVG(!!state.astro)}
     <div class="r-draws">
       <div class="r-draws-label">你選的九張牌</div>
       <ul class="draw-list">${drawList}</ul>

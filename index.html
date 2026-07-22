@@ -8,6 +8,56 @@
 <link rel="stylesheet" href="css/calm.css">
 </head>
 <body>
+<!-- 星圖背景：雕刻線稿式天球圖（純裝飾、極淡、緩慢自轉） -->
+<div class="sky" aria-hidden="true">
+<svg viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#c2a869">
+    <circle cx="600" cy="600" r="548" stroke-width="9" pathLength="720" stroke-dasharray="0.35 5.65" opacity=".13"/>
+    <circle cx="600" cy="600" r="560" stroke-width="1" opacity=".2"/>
+    <circle cx="600" cy="600" r="536" stroke-width=".6" opacity=".15"/>
+    <circle cx="600" cy="600" r="430" stroke-width=".6" opacity=".12" stroke-dasharray="1 7"/>
+    <circle cx="600" cy="600" r="300" stroke-width=".5" opacity=".11"/>
+    <circle cx="600" cy="600" r="170" stroke-width=".5" opacity=".11"/>
+    <line x1="40" y1="600" x2="1160" y2="600" stroke-width=".5" opacity=".09"/>
+    <line x1="600" y1="40" x2="600" y2="1160" stroke-width=".5" opacity=".09"/>
+    <line x1="204" y1="204" x2="996" y2="996" stroke-width=".4" opacity=".06"/>
+    <line x1="996" y1="204" x2="204" y2="996" stroke-width=".4" opacity=".06"/>
+    <polygon points="600,64 1136,600 600,1136 64,600" stroke-width=".4" opacity=".07"/>
+    <polyline points="285,330 350,300 415,338 470,296 540,320" stroke-width=".5" opacity=".16"/>
+    <polyline points="760,830 830,868 902,842 948,894" stroke-width=".5" opacity=".14"/>
+  </g>
+  <g class="sky-rot" stroke="#c2a869">
+    <circle cx="600" cy="600" r="500" stroke-width=".6" opacity=".15" stroke-dasharray="2 10"/>
+    <ellipse cx="600" cy="600" rx="500" ry="200" stroke-width=".5" opacity=".13" transform="rotate(-23.4 600 600)"/>
+    <circle cx="1100" cy="600" r="2.6" fill="#c2a869" stroke="none" opacity=".45"/>
+    <circle cx="600" cy="100" r="1.8" fill="#c2a869" stroke="none" opacity=".35"/>
+  </g>
+  <g fill="#d8c79a" stroke="none">
+    <circle class="tw" cx="285" cy="330" r="1.6" opacity=".5"/>
+    <circle cx="350" cy="300" r="1.1" opacity=".4"/>
+    <circle class="tw" cx="415" cy="338" r="1.3" opacity=".45"/>
+    <circle cx="470" cy="296" r="1" opacity=".35"/>
+    <circle class="tw" cx="540" cy="320" r="1.7" opacity=".5"/>
+    <circle class="tw" cx="760" cy="830" r="1.3" opacity=".4"/>
+    <circle cx="830" cy="868" r="1.6" opacity=".45"/>
+    <circle class="tw" cx="902" cy="842" r="1.1" opacity=".4"/>
+    <circle cx="948" cy="894" r="1.4" opacity=".4"/>
+    <circle class="tw" cx="180" cy="720" r="1.2" opacity=".35"/>
+    <circle cx="240" cy="905" r="1" opacity=".3"/>
+    <circle class="tw" cx="985" cy="315" r="1.4" opacity=".4"/>
+    <circle cx="1060" cy="450" r="1" opacity=".3"/>
+    <circle class="tw" cx="660" cy="215" r="1.2" opacity=".35"/>
+    <circle cx="450" cy="1010" r="1.3" opacity=".35"/>
+    <circle class="tw" cx="720" cy="1060" r="1" opacity=".3"/>
+    <circle cx="130" cy="470" r="1.1" opacity=".3"/>
+    <circle class="tw" cx="880" cy="140" r="1" opacity=".3"/>
+  </g>
+  <g fill="#8a774d" font-family="Georgia, serif" font-size="11" letter-spacing="3" opacity=".38">
+    <text x="600" y="26" text-anchor="middle">ASCENSIO RECTA</text>
+    <text x="600" y="1188" text-anchor="middle">DECLINATIO &#183; XXIII&#176; XXVI&#8242;</text>
+  </g>
+</svg>
+</div>
 <div class="app" id="app">
 
   <!-- 首頁：輸入想獲得靈感的主題 -->
@@ -15,6 +65,7 @@
     <div class="intake">
       <div class="eyebrow">AI 靈感訊息</div>
       <h1 class="h1-long">今天想獲得什麼靈感訊息？</h1>
+      <div class="rule-orn" aria-hidden="true"></div>
       <p class="lede">帶著一個你想被啟發的主題坐下來。<br>親手選牌、憑直覺報數——<br>讓兩套古老的視角，為你交織出一則此刻的靈感訊息。</p>
       <div class="ask-box">
         <label for="question">我想獲得什麼的靈感</label>
@@ -88,13 +139,16 @@
         <div class="af-row af-check">
           <label class="flt-chk"><input type="checkbox" id="astroTimeUnknown">時間不確定（將略過上升點與宮位，僅計算行星星座）</label>
         </div>
-        <div class="af-row">
-          <label for="astroCity">出生城市</label>
-          <input type="text" id="astroCity" maxlength="80" placeholder="例如：台北">
+        <div class="af-row combo">
+          <label for="astroCity">出生城市（輸入後從清單選擇）</label>
+          <input type="text" id="astroCity" maxlength="80" placeholder="輸入城市名搜尋，例如：台北" autocomplete="off">
+          <div class="combo-list" id="cityList" hidden></div>
+          <div class="combo-picked" id="cityPicked"></div>
         </div>
-        <div class="af-row">
-          <label for="astroCountry">國家（選填，同名城市時使用）</label>
-          <input type="text" id="astroCountry" maxlength="40" placeholder="例如：台灣">
+        <div class="af-row combo">
+          <label for="astroCountry">國家／地區（選填，可縮小城市搜尋範圍）</label>
+          <input type="text" id="astroCountry" maxlength="40" placeholder="輸入以搜尋國家清單，例如：台灣" autocomplete="off">
+          <div class="combo-list" id="countryList" hidden></div>
         </div>
         <div class="admin-error" id="astroError"></div>
       </div>
