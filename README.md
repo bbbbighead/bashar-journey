@@ -84,10 +84,9 @@ vercel dev                     # 含 AI 代理（需 OPENAI_API_KEY 或 ANTHROPI
 
 ```
 index.html               入口（首頁）＋全部畫面
-css/calm.css             天象檔案館主題（深海軍藍、舊黃銅髮絲線、博物館面板）
-assets/sky.svg           滿版天文版畫背景（星盤/渾儀/天球儀、雕版註記、紙紋；
-                         由 tools/gensky.mjs 以固定種子產生，可調參重生）
-tools/gensky.mjs         背景版畫產生器（node tools/gensky.mjs 重新輸出 assets/sky.svg）
+css/calm.css             星圖攝影主題（照片背景＋可讀性暗色塗層、柔光金線元件）
+assets/bg-square.jpg     背景攝影（橫向視窗；站主提供的星圖影像素材）
+assets/bg-portrait.jpg   背景攝影（直向視窗與後台）
 js/app.js                頂層流程控制（輸入 → 選牌 → 報數 → 靈感訊息）
 js/engine/session.js     狀態 + localStorage 續玩
 js/engine/inquiry.js     綜合引擎（AI/離線雙路徑、sanitize）
