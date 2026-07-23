@@ -15,7 +15,7 @@
   <!-- 首頁：輸入想獲得靈感的主題 -->
   <section class="screen active" id="screenIntake">
     <div class="intake">
-      <div class="eyebrow">AI 靈感訊息</div>
+      <div class="eyebrow">Intuitive Notes</div>
       <h1 class="h1-long">今天想獲得什麼靈感訊息？</h1>
       <div class="rule-orn" aria-hidden="true"></div>
       <p class="lede">讓古老的視角，為你交織出一則關於此刻的靈感訊息。</p>
@@ -25,7 +25,7 @@
         <div class="ask-note">請提供想探索的主題，或想覺察釐清的想法等。</div>
       </div>
       <button class="btn primary" id="btnStart">開始</button>
-      <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。為了改善體驗，過程會以匿名方式記錄（主題、選牌、出生資料與停留時間）。</div>
+      <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。為了改善體驗，過程會以匿名方式記錄（主題、選牌與停留時間）。</div>
     </div>
   </section>
 
@@ -41,11 +41,10 @@
   <!-- 占卜一：雷諾曼——使用者親手從 36 張牌中選 9 張 -->
   <section class="screen" id="screenSpread">
     <div class="spread">
-      <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你想獲得靈感的主題，憑直覺選出九張——<br>它們會依序落入九宮格：由左至右是過去、現在、走向；由上至下是想法、現實、潛意識。</p>
+      <p class="divine-lede">這是全部三十六張牌，牌背朝上。<br>想著你的主題，憑直覺選出九張。<br>點一張選取它；再點一次可以取消重選。</p>
       <div class="rule-orn" aria-hidden="true"></div>
       <div class="pick-count" id="pickCount">已選 0 / 9</div>
       <div class="deck-grid" id="deckGrid"></div>
-      <div class="spread-grid picked" id="spreadGrid"></div>
       <div class="divine-actions">
         <button class="btn primary" id="btnSpreadDone" disabled>就是這九張，繼續</button>
         <button class="btn ghost" id="btnSpreadReset">重選</button>
@@ -72,48 +71,11 @@
     </div>
   </section>
 
-  <!-- 占卜三：西洋占星本命盤（Swiss Ephemeris 精算） -->
-  <section class="screen" id="screenAstro">
-    <div class="numbers astro">
-      <p class="divine-lede">最後，讓星空也加入——<br>提供你的出生資料，將以 Swiss Ephemeris 天文曆精算你的本命星盤。<br><span class="astro-privacy">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</span></p>
-      <div class="rule-orn" aria-hidden="true"></div>
-      <div class="astro-form">
-        <div class="af-row">
-          <label for="astroDate">出生日期</label>
-          <input type="date" id="astroDate" min="1800-01-01" max="2399-12-31">
-        </div>
-        <div class="af-row">
-          <label for="astroTime">出生時間</label>
-          <input type="time" id="astroTime">
-        </div>
-        <div class="af-row af-check">
-          <label class="flt-chk"><input type="checkbox" id="astroTimeUnknown">時間不確定（將略過上升點與宮位，僅計算行星星座）</label>
-        </div>
-        <div class="af-row combo">
-          <label for="astroCity">出生城市（輸入後從清單選擇）</label>
-          <input type="text" id="astroCity" maxlength="80" placeholder="輸入城市名搜尋，例如：台北" autocomplete="off">
-          <div class="combo-list" id="cityList" hidden></div>
-          <div class="combo-picked" id="cityPicked"></div>
-        </div>
-        <div class="af-row combo">
-          <label for="astroCountry">國家／地區（選填，可縮小城市搜尋範圍）</label>
-          <input type="text" id="astroCountry" maxlength="40" placeholder="輸入以搜尋國家清單，例如：台灣" autocomplete="off">
-          <div class="combo-list" id="countryList" hidden></div>
-        </div>
-        <div class="admin-error" id="astroError"></div>
-      </div>
-      <div class="divine-actions">
-        <button class="btn primary" id="btnAstroDone" disabled>計算星盤，繼續</button>
-        <button class="btn ghost" id="btnAstroSkip">跳過（不使用占星）</button>
-      </div>
-    </div>
-  </section>
-
   <!-- 整合中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
       <div class="orb"></div>
-      <p id="weavingText">正在把你選的九張牌、你報的數、與你的星盤，<br>交叉比對、交織成給你的靈感訊息……</p>
+      <p id="weavingText">正在把你選的九張牌與你報的數，<br>交織成給你的靈感訊息……</p>
     </div>
   </section>
 
