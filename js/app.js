@@ -173,32 +173,31 @@ async function runAnalysis() {
   setTimeout(() => renderResult(analysis), waitMs);
 }
 
-// 匯聚圖：兩個觀測角度的髮絲線緩緩收束到中心——
-// 視覺化「整合的訊息」而非兩份孤立解讀。字級放大以照顧手機縮放。
+// 匯聚圖：兩個來源的髮絲線收束到中心的「靈感訊息」
 function convergeSVG() {
   const nodes = [
-    { x: 170, label: '雷諾曼', sub: '現實如何表現' },
-    { x: 430, label: '梅花易數', sub: '正處哪個階段' },
+    { x: 170, label: '九張牌卡' },
+    { x: 430, label: '梅花易數' },
   ];
   const parts = nodes.map((n) => `
-    <text x="${n.x}" y="28" text-anchor="middle" font-size="17" fill="#cabfa4" letter-spacing="2">${n.label}</text>
-    <text x="${n.x}" y="50" text-anchor="middle" font-size="12.5" fill="#948a72" letter-spacing="1">${n.sub}</text>
-    <circle cx="${n.x}" cy="66" r="3" fill="#d6b77a"/>
-    <path class="cv-line" pathLength="1" d="M ${n.x} 72 C ${n.x} 100, 300 104, 300 126" stroke="rgba(214,183,122,.6)" stroke-width="1" fill="none"/>`).join('');
+    <text x="${n.x}" y="30" text-anchor="middle" font-size="17" fill="#d8cfb4" letter-spacing="2">${n.label}</text>
+    <circle cx="${n.x}" cy="48" r="3" fill="#e0c286"/>
+    <path class="cv-line" pathLength="1" d="M ${n.x} 54 C ${n.x} 82, 300 86, 300 106" stroke="rgba(224,194,134,.6)" stroke-width="1" fill="none"/>`).join('');
   return `
     <div class="r-converge" aria-hidden="true">
-      <svg viewBox="0 0 600 182" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 600 156" fill="none" xmlns="http://www.w3.org/2000/svg">
         ${parts}
-        <circle class="cv-halo" cx="300" cy="134" r="9" stroke="rgba(214,183,122,.5)" stroke-width="1"/>
-        <circle cx="300" cy="134" r="3.4" fill="#d6b77a"/>
-        <text x="300" y="170" text-anchor="middle" font-size="13.5" fill="#a89466" letter-spacing="3">同一份底層圖樣</text>
+        <circle class="cv-halo" cx="300" cy="114" r="9" stroke="rgba(224,194,134,.5)" stroke-width="1"/>
+        <circle cx="300" cy="114" r="3.4" fill="#e0c286"/>
+        <text x="300" y="148" text-anchor="middle" font-size="14" fill="#c2ab74" letter-spacing="3">靈感訊息</text>
       </svg>
     </div>`;
 }
 
 function renderResult(a) {
-  // 訊息本體直接開場、不揭示出處；不顯示抽到的牌（僅保留報數作為索引）
-  const numsText = state.numbers ? state.numbers.join('・') : '由此刻的時間起卦';
+  // 訊息本體直接開場、不揭示出處；索引列出九宮格 1–9 的牌卡與三個數字
+  const cards = (state.lenormand || []).map(({ card }) => card.name);
+  const numsText = state.numbers ? state.numbers.join('・') : '由當下時間起卦';
 
   $('resultHost').innerHTML = `
     <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
@@ -209,7 +208,8 @@ function renderResult(a) {
     <div class="r-index" aria-label="本次紀錄索引">
       <div class="r-index-label">本次紀錄・索引</div>
       ${convergeSVG()}
-      <div class="r-index-line"><span>數</span>${esc(numsText)}</div>
+      <div class="idx-grid">${cards.map((n, i) => `<span class="idx-cell"><i>${i + 1}</i>${esc(n)}</span>`).join('')}</div>
+      <div class="r-index-line"><span>梅花易數</span>${esc(numsText)}</div>
     </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">複製完整內容</button>
@@ -245,12 +245,16 @@ function renderResult(a) {
   showScreen('screenResult');
 }
 
-// 完整內容（複製與導流共用）：主題 + 數 + 訊息（不揭示抽到的牌）
+// 完整內容（複製與導流共用）：主題 + 九宮格牌卡 + 數 + 訊息（與結果頁索引一致）
 function fullText(a) {
+  const cards = (state.lenormand || [])
+    .map(({ card }, i) => `${i + 1} ${card.name}`)
+    .join('、');
   return [
     a.title || '給你的靈感訊息',
     '',
     `我的主題:${state.opening}`,
+    `我選的九張牌卡（九宮格1–9）:${cards}`,
     `我報的三個數:${state.numbers ? state.numbers.join('、') : '（由當下時間起卦）'}`,
     '',
     a.message,
