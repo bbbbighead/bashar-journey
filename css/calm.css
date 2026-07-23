@@ -66,9 +66,11 @@ body {
 /* ---- 入口 ---- */
 .intake { text-align: center; padding-top: 11vh; }
 .eyebrow {
-  font-size: 11.5px; letter-spacing: .6em; text-indent: .6em;
-  color: var(--accent-dim); margin-bottom: 30px;
-  font-family: var(--sans);
+  font-size: 13px; letter-spacing: .5em; text-indent: .5em;
+  text-transform: uppercase;
+  color: #cbb075; margin-bottom: 30px;
+  font-family: Georgia, 'Times New Roman', serif;
+  text-shadow: 0 0 14px rgba(203, 176, 117, .35), 0 1px 3px rgba(3, 7, 13, .8);
 }
 .intake h1 {
   font-family: var(--serif); font-weight: 500;
@@ -78,7 +80,19 @@ body {
 .intake h1.h1-long {
   font-size: clamp(24px, 5.4vw, 32px); letter-spacing: .14em; text-indent: .14em;
 }
-.lede { color: var(--ink-dim); font-size: 15px; margin-bottom: 44px; }
+.lede { color: var(--ink-dim); font-size: 15px; margin: 0 auto 44px; }
+
+/* UI 文案排版：置中、提早換行、上下行長度接近（text-wrap: balance），
+   並收窄文字欄寬避免「第一行滿、第二行只剩幾個字」 */
+.h1-long, .lede, .divine-lede, .ask-note, .fineprint, .r-sub, .r-closing,
+.r-continue-title, .r-continue-hint, .r-advanced-hint, .num-picked, .copy-toast {
+  text-wrap: balance;
+}
+.lede, .divine-lede { max-width: 30em; margin-left: auto; margin-right: auto; }
+.fineprint, .r-continue-hint, .r-advanced-hint { max-width: 26em; margin-left: auto; margin-right: auto; }
+.ask-note { text-align: center; }
+/* 按鈕文字永不斷行 */
+.btn { white-space: nowrap; }
 
 /* 分隔飾線：兩端淡出的金線 + 中央發光星點（呼應照片裡的星節點） */
 .rule-orn {
@@ -107,15 +121,16 @@ body {
   font-family: var(--sans); letter-spacing: .3em;
 }
 .ask-box label::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+/* 面板內的輸入區：極淡邊框（避免「框中框」的重複感） */
 textarea {
   width: 100%; resize: vertical;
-  background: linear-gradient(180deg, rgba(17, 24, 38, .9), rgba(12, 18, 28, .9));
+  background: rgba(0, 0, 0, .28);
   color: var(--ink);
-  border: 1px solid var(--line-strong); border-radius: 0;
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, .35);
+  border: 1px solid rgba(214, 183, 122, .14); border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .3);
   padding: 14px 16px; font: inherit; font-size: 15px; line-height: 1.8;
 }
-textarea:focus { outline: 1px solid var(--line); outline-offset: 3px; border-color: var(--accent-dim); }
+textarea:focus { outline: none; border-color: rgba(226, 198, 138, .5); }
 textarea::placeholder { color: var(--ink-faint); }
 
 .ask-note {
@@ -188,18 +203,13 @@ textarea::placeholder { color: var(--ink-faint); }
   display: flex; align-items: center; justify-content: center;
   color: var(--accent-dim); font-size: 11px; opacity: .7;
 }
-.deck-card:hover:not(.taken) { transform: translateY(-3px); border-color: var(--accent-dim); }
-.deck-card.taken { opacity: .1; cursor: default; pointer-events: none; }
-
-.spread-grid.picked { margin-top: 6px; }
-.slot-empty .slot-box {
-  aspect-ratio: 5 / 7; border-radius: 0;
-  border: 1px dashed var(--line);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; color: var(--ink-faint); letter-spacing: .15em; text-indent: .15em;
-  font-family: var(--sans);
+.deck-card:hover:not(.sel) { transform: translateY(-3px); border-color: var(--accent-dim); }
+.deck-card.sel {
+  border-color: #e3c98d; transform: translateY(-3px);
+  box-shadow: 0 0 0 1px rgba(227, 201, 141, .75), 0 0 16px rgba(224, 195, 132, .4),
+    inset 0 0 12px rgba(224, 195, 132, .16);
 }
-.slot-empty.next .slot-box { border-color: var(--accent-dim); color: var(--accent-dim); }
+.deck-card.sel::after { color: #f0dca6; opacity: 1; text-shadow: 0 0 8px rgba(240, 220, 166, .8); }
 
 /* ---- 占卜 ---- */
 .spread, .numbers { text-align: center; padding-top: 7vh; }
@@ -208,50 +218,6 @@ textarea::placeholder { color: var(--ink-faint); }
   margin-bottom: 40px;
 }
 .divine-actions { margin-top: 40px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
-
-.spread-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
-  max-width: 480px; margin: 0 auto;
-}
-.scard { perspective: 800px; cursor: pointer; }
-.scard-inner {
-  position: relative; width: 100%; aspect-ratio: 5 / 7;
-  transform-style: preserve-3d; transition: transform .7s cubic-bezier(.4, .1, .2, 1);
-}
-.scard.flipped .scard-inner { transform: rotateY(180deg); }
-.scard.flipped { cursor: default; }
-.scard-face {
-  position: absolute; inset: 0; backface-visibility: hidden;
-  border-radius: 0; border: 1px solid var(--line-strong);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-.scard-back {
-  background:
-    radial-gradient(circle at 50% 42%, rgba(194, 168, 105, .14), transparent 58%),
-    var(--bg-soft);
-}
-.scard-back::after {
-  content: '✶'; color: var(--accent-dim); font-size: 20px; opacity: .8;
-}
-.scard:not(.flipped):hover .scard-back { border-color: var(--accent-dim); }
-.scard-front {
-  transform: rotateY(180deg);
-  background: linear-gradient(160deg, #17202f, var(--bg-soft));
-  border-color: var(--accent-dim);
-}
-.scard-no {
-  position: absolute; top: 7px; left: 10px;
-  font-size: 10px; color: var(--ink-faint); letter-spacing: .1em;
-}
-.scard-name {
-  font-family: var(--serif); font-size: clamp(15px, 3.6vw, 19px);
-  color: var(--ink); letter-spacing: .22em; text-indent: .22em;
-  text-align: center; line-height: 1.4; padding: 0 4px;
-}
-.scard-pos {
-  margin-top: 8px; font-size: 10px; color: var(--ink-faint); letter-spacing: .05em;
-  padding: 0 4px; text-align: center;
-}
 
 /* ---- 占星出生資料：毛玻璃登錄卡 ---- */
 .astro-privacy { font-size: 12.5px; color: var(--ink-faint); }
@@ -384,23 +350,25 @@ input.num::placeholder { color: var(--ink-faint); }
   .cv-halo { animation: none; }
 }
 
-/* ---- 結果頁：原始素材索引（弱化為文末備註） ---- */
+/* ---- 結果頁：原始素材索引（弱化為文末備註；自帶毛玻璃底保住可讀性） ---- */
 .r-index {
-  margin: 46px auto 8px; padding-top: 22px;
-  border-top: 1px dashed var(--line);
+  margin: 46px auto 8px; padding: 18px 16px 14px;
+  border: 1px solid rgba(214, 183, 122, .2); border-radius: 3px;
+  background: rgba(6, 10, 17, .58);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   text-align: center; font-family: var(--sans); font-weight: 300;
 }
 .r-index-label {
-  font-size: 10.5px; color: var(--ink-faint);
+  font-size: 11px; color: #a89466;
   letter-spacing: .38em; text-indent: .38em; margin-bottom: 8px;
 }
-.r-index .r-converge { max-width: 340px; margin: 0 auto 10px; opacity: .5; }
+.r-index .r-converge { max-width: 340px; margin: 0 auto 10px; opacity: .9; }
 .r-index-line {
-  font-size: 12px; color: var(--ink-faint); line-height: 2;
+  font-size: 13px; color: #b3a98f; line-height: 2;
   letter-spacing: .04em;
 }
 .r-index-line span {
-  color: var(--accent-dim); opacity: .8; font-size: 11px;
+  color: var(--accent); font-size: 11.5px;
   letter-spacing: .18em; margin-right: 10px;
 }
 
@@ -449,7 +417,14 @@ input.num::placeholder { color: var(--ink-faint); }
   padding-bottom: 10px; border-bottom: 1px solid var(--line);
 }
 .r-block p { font-family: var(--serif); font-size: 16px; color: var(--ink); white-space: pre-wrap; }
-.r-block.core p { font-size: 16.5px; }
+/* 訊息本體自帶暗色底：長頁面滾過照片亮區時仍清晰 */
+.r-block.core p {
+  font-size: 16.5px;
+  background: rgba(6, 10, 17, .5);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
+  padding: 22px 20px;
+}
 .r-questions { list-style: none; }
 .r-questions li {
   font-family: var(--serif); font-size: 16px; color: var(--ink);
@@ -670,7 +645,16 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   background: rgba(194, 168, 105, .28);
 }
 
+/* ---- 手機版：邊距加寬、按鈕改堆疊整寬、字距收斂避免斷行 ---- */
 @media (max-width: 560px) {
   .intake h1 { font-size: 34px; }
-  .screen { padding: 0 16px 40px; }
+  .screen { padding: 0 26px 48px; }
+  .btn { letter-spacing: .16em; text-indent: .16em; padding: 13px 22px; }
+  .divine-actions, .r-actions {
+    flex-direction: column; align-items: center; gap: 12px;
+  }
+  .divine-actions .btn, .r-actions .btn { width: 100%; max-width: 320px; }
+  .ai-row { gap: 10px; }
+  .ai-row .btn { padding: 11px 18px; }
+  .deck-grid { gap: 6px; }
 }
