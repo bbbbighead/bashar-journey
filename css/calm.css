@@ -2,17 +2,19 @@
    設計語言：古典天文圖誌／銅版雕刻線稿／博物館展示面板——
    精確、節制、緩慢；不炫技、不奇幻、不像 SaaS。 */
 
+/* 亮度基準：一般手機「中等亮度」即可輕鬆閱讀——
+   整體明度上調（背景、文字、線條同步），保留深藍＋舊金色系與柔和感 */
 :root {
-  --bg: #0b1017;            /* 深海軍藍黑 */
-  --bg-soft: #111826;       /* 石板藍面板 */
-  --panel: rgba(17, 24, 38, .72);
-  --ink: #e7e0cd;           /* 暖象牙 */
-  --ink-dim: #a89f8a;
-  --ink-faint: #6e6957;
-  --accent: #c2a869;        /* 舊黃銅 */
-  --accent-dim: #8a774d;    /* 燒褐青銅 */
-  --line: rgba(194, 168, 105, .18);        /* 金色髮絲線 */
-  --line-strong: rgba(194, 168, 105, .34);
+  --bg: #101823;            /* 深海軍藍（調亮） */
+  --bg-soft: #182233;       /* 石板藍面板 */
+  --panel: rgba(24, 34, 51, .72);
+  --ink: #f3eddd;           /* 暖象牙（調亮） */
+  --ink-dim: #c5bba3;
+  --ink-faint: #948a72;
+  --accent: #d3b578;        /* 舊黃銅（調亮） */
+  --accent-dim: #a8905c;
+  --line: rgba(211, 181, 120, .24);        /* 金色髮絲線 */
+  --line-strong: rgba(211, 181, 120, .42);
   --serif: 'Songti TC', 'Noto Serif TC', 'PMingLiU', Georgia, 'Times New Roman', serif;
   --sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, sans-serif;
 }
@@ -34,24 +36,25 @@ body {
    橫向視窗用方形圖（bg-square）、直向視窗用縱向圖（bg-portrait）。 */
 .sky {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background: url('../assets/bg-square.jpg') center / cover no-repeat #0a0f16;
+  background: url('../assets/bg-square.jpg') center / cover no-repeat #0e141d;
+  filter: brightness(1.18) saturate(1.02); /* 照片整體提亮 */
 }
 @media (orientation: portrait) {
   .sky { background-image: url('../assets/bg-portrait.jpg'); }
 }
-/* 可讀性塗層：中央（內容欄）較深、四周保留照片氛圍，上下再壓一層 */
+/* 可讀性塗層：中央（內容欄）較深、四周保留照片氛圍；整體較先前輕 */
 .sky::after {
   content: ''; position: absolute; inset: 0;
   background:
     radial-gradient(closest-side at 50% 42%,
-      rgba(5, 9, 16, .78), rgba(5, 9, 16, .52) 55%, rgba(5, 9, 16, .22) 82%, rgba(5, 9, 16, .16)),
-    linear-gradient(180deg, rgba(5, 9, 16, .38), rgba(5, 9, 16, .08) 32%, rgba(5, 9, 16, .08) 68%, rgba(5, 9, 16, .46));
+      rgba(8, 13, 21, .6), rgba(8, 13, 21, .38) 55%, rgba(8, 13, 21, .16) 82%, rgba(8, 13, 21, .1)),
+    linear-gradient(180deg, rgba(8, 13, 21, .28), rgba(8, 13, 21, .05) 32%, rgba(8, 13, 21, .05) 68%, rgba(8, 13, 21, .34));
 }
-/* 後台：縱向星圖＋更深的塗層（資料密度高，可讀性優先） */
+/* 後台：縱向星圖＋較深的塗層（資料密度高，可讀性優先） */
 .sky-admin { background-image: url('../assets/bg-portrait.jpg'); }
 .sky-admin::after {
   background:
-    linear-gradient(180deg, rgba(5, 9, 16, .78), rgba(5, 9, 16, .68) 40%, rgba(5, 9, 16, .78));
+    linear-gradient(180deg, rgba(8, 13, 21, .68), rgba(8, 13, 21, .58) 40%, rgba(8, 13, 21, .68));
 }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
@@ -111,7 +114,7 @@ body {
   text-align: left; margin-bottom: 30px; position: relative;
   padding: 20px 20px 18px; border: 1px solid rgba(214, 183, 122, .28);
   border-radius: 3px;
-  background: rgba(6, 10, 17, .58);
+  background: rgba(13, 20, 31, .55);
   backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
   box-shadow: 0 0 22px rgba(214, 183, 122, .08), 0 10px 34px rgba(0, 0, 0, .4);
 }
@@ -124,7 +127,7 @@ body {
 /* 面板內的輸入區：極淡邊框（避免「框中框」的重複感） */
 textarea {
   width: 100%; resize: vertical;
-  background: rgba(0, 0, 0, .28);
+  background: rgba(0, 0, 0, .22);
   color: var(--ink);
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 2px;
   box-shadow: inset 0 0 18px rgba(0, 0, 0, .3);
@@ -142,7 +145,7 @@ textarea::placeholder { color: var(--ink-faint); }
 .btn {
   font: inherit; font-size: 14px; letter-spacing: .24em; text-indent: .24em;
   color: var(--ink-dim);
-  background: rgba(6, 10, 17, .45);
+  background: rgba(13, 20, 31, .42);
   border: 1px solid rgba(214, 183, 122, .34); border-radius: 3px;
   padding: 12px 34px; cursor: pointer;
   box-shadow: 0 0 12px rgba(214, 183, 122, .07);
@@ -225,7 +228,7 @@ textarea::placeholder { color: var(--ink-faint); }
   max-width: 400px; margin: 0 auto; text-align: left; position: relative;
   padding: 22px 20px 8px; border: 1px solid rgba(214, 183, 122, .28);
   border-radius: 3px;
-  background: rgba(6, 10, 17, .58);
+  background: rgba(13, 20, 31, .55);
   backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
   box-shadow: 0 0 22px rgba(214, 183, 122, .08), 0 10px 34px rgba(0, 0, 0, .4);
 }
@@ -354,17 +357,26 @@ input.num::placeholder { color: var(--ink-faint); }
 .r-index {
   margin: 46px auto 8px; padding: 18px 16px 14px;
   border: 1px solid rgba(214, 183, 122, .2); border-radius: 3px;
-  background: rgba(6, 10, 17, .58);
+  background: rgba(13, 20, 31, .55);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   text-align: center; font-family: var(--sans); font-weight: 300;
 }
 .r-index-label {
-  font-size: 11px; color: #a89466;
+  font-size: 11px; color: #bfa76f;
   letter-spacing: .38em; text-indent: .38em; margin-bottom: 8px;
 }
 .r-index .r-converge { max-width: 340px; margin: 0 auto 10px; opacity: .9; }
+.idx-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px;
+  max-width: 320px; margin: 2px auto 10px;
+}
+.idx-cell { font-size: 13.5px; color: #cdc3a9; white-space: nowrap; }
+.idx-cell i {
+  font-style: normal; color: var(--accent); font-size: 11px;
+  margin-right: 6px; font-family: Georgia, serif;
+}
 .r-index-line {
-  font-size: 13px; color: #b3a98f; line-height: 2;
+  font-size: 13.5px; color: #cdc3a9; line-height: 2;
   letter-spacing: .04em;
 }
 .r-index-line span {
@@ -420,7 +432,7 @@ input.num::placeholder { color: var(--ink-faint); }
 /* 訊息本體自帶暗色底：長頁面滾過照片亮區時仍清晰 */
 .r-block.core p {
   font-size: 16.5px;
-  background: rgba(6, 10, 17, .5);
+  background: rgba(13, 20, 31, .48);
   backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
   padding: 22px 20px;
@@ -478,7 +490,7 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .stat {
   flex: 1; min-width: 140px; text-align: center;
   border: 1px solid rgba(214, 183, 122, .24); border-radius: 3px; padding: 16px 10px;
-  background: rgba(6, 10, 17, .6);
+  background: rgba(13, 20, 31, .58);
   box-shadow: 0 0 14px rgba(214, 183, 122, .06);
 }
 .stat b { display: block; font-family: var(--serif); font-size: 30px; color: var(--accent); }
@@ -532,7 +544,7 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   margin-bottom: 14px; padding: 10px 12px;
   border: 1px solid rgba(214, 183, 122, .24); border-radius: 3px;
-  background: rgba(6, 10, 17, .6);
+  background: rgba(13, 20, 31, .58);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .scope-bar { margin: 18px 0 26px; }
