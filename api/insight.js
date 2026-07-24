@@ -51,7 +51,7 @@ function openaiModels() {
   return { analyze: strong };
 }
 
-const MAX_TOKENS = { analyze: 3000 };
+const MAX_TOKENS = { analyze: 6000 }; // 單工具＝完整報告；多工具＝各節＋綜合，需要較大額度
 
 const S = (extra) => ({ type: 'string', ...extra });
 const ARR = (items) => ({ type: 'array', items });
@@ -175,6 +175,26 @@ function buildSegments(p) {
   };
 }
 
+// 每個工具「必須逐項走完」的結構——直接寫進 prompt，模型須依此展開每一段
+const TOOL_STRUCT = {
+  lenormand: `雷諾曼牌陣（九宮格 3×3）——content 內請依下列小標題依序展開，每一段都要具體、有內容，以「牌組組合」而非逐張牌義解讀：
+① 先用一兩句列出這九張牌（位置 1–9）。
+② 時間軸：分別解讀「過去（1、4、7）」「現在（2、5、8）」「未來（3、6、9）」三組，各成一段。
+③ 三層意識：分別解讀「意識層（1、2、3）」「現實層（4、5、6）」「潛意識層（7、8、9）」三組，各成一段。
+④ 十字法：解讀「核心（5）」「十字（2、4、6、8）」「四角（1、3、7、9）」。
+⑤ 最後整理這九張牌共同描述的生命故事、核心主題與發展方向。
+每個小標題都要出現、都要有實質敘述，不可略過或只寫一句帶過。`,
+  meihua: `梅花易數——content 內請依下列小標題依序完整展開，把整個卦象整理成一個完整的故事，而非零碎解釋：
+① 本卦：卦名與卦象含義。
+② 變卦：卦名與其代表的走向變化。
+③ 動爻：哪一爻動、它的意義。
+④ 卦象含義：本卦、互卦、變卦與體用生剋合起來說明。
+⑤ 對應本次問題的解讀：把卦象扣回使用者的主題。
+⑥ 行動建議。
+每個小標題都要出現、都要有實質敘述。`,
+  astro: `西洋占星——不固定分析整張盤，依主題主動挑選所有高度相關的配置（宮位、宮主星、飛星、相位、Vesta 等），逐項說明後整理成一條完整的生命脈絡。所有數據只能依提供的星盤，不得補造。`,
+};
+
 function buildPrompt(action, p, seg) {
   if (action !== 'analyze') return '';
   const tools = seg.tools && seg.tools.length ? seg.tools : ['lenormand'];
@@ -185,9 +205,10 @@ function buildPrompt(action, p, seg) {
 
   const multi = tools.length > 1;
   const order = tools.map((t) => TOOL_LABEL[t]).join('、');
+  const structs = tools.map((t) => `〔${TOOL_LABEL[t]}〕\n${TOOL_STRUCT[t]}`).join('\n\n');
   const secRule = multi
     ? `sections 依序輸出這些工具的完整解析：${order}（tool 欄位用代碼 ${tools.join('、')}），最後再加一節 tool="synthesis" 的「交叉比對綜合分析」。不得用綜合分析取代任何工具的完整解析。`
-    : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}）。這是使用者當次唯一的分析，必須詳盡完整——把該工具標準流程的每個環節都走完、每個面向都談到，圍繞主題讀完整，不要簡短、不要只給重點。不要加 synthesis 節。`;
+    : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}）。這是使用者當次唯一的分析。`;
 
   return `使用者想探索的主題：「${seg.opening}」
 
@@ -195,11 +216,13 @@ function buildPrompt(action, p, seg) {
 
 ${blocks.join('\n\n')}
 
-請依系統提示，為每一個所選工具產出一節完整、圍繞主題的解析（雷諾曼用九宮格牌組組合、梅花依本卦→變卦→動爻→解讀→行動建議、占星主動挑選所有與主題高度相關的配置）。${multi ? '完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。' : ''}
+請為每個所選工具產出一節解析，並**嚴格依照下列每個工具的結構逐項展開**——每個小標題都必須出現、都要有具體且充分的敘述。這是使用者當次唯一的分析，務必詳盡完整，寧可長而完整，絕不簡短、不可只給重點、不可省略任何一項。每節 content 至少 700 字。
 
+${structs}
+${multi ? '\n完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。\n' : ''}
 輸出 JSON：
 - title：一句自然、日常、一看就懂的話（≤16字）。
-- sections：${secRule} 每節 content 為完整段落敘事，追求洞察感而非文學感。
+- sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題可用「時間軸」「三層意識」「本卦」等自然標示，但不要用 markdown 符號。
 - closing：一句臨別祝福（≤40字）。`;
 }
 
