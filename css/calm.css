@@ -175,6 +175,28 @@ textarea::placeholder { color: var(--ink-faint); }
   .tool-opt { font-size: 13px; padding: 14px 6px; }
 }
 
+/* ---- 結果頁：贊助創作者 ---- */
+.r-sponsor {
+  margin-top: 10px; padding: 28px 20px 40px; text-align: center;
+  border-top: 1px solid var(--line);
+}
+.r-sponsor-line {
+  font-size: 14px; color: var(--ink-dim); font-family: var(--serif);
+  margin-bottom: 18px; line-height: 1.9;
+}
+.bmc-btn {
+  color: #241a06; text-shadow: none;
+  background: linear-gradient(180deg, #ffdd66 0%, #f5c542 100%);
+  border-color: #ffdd66; text-indent: 0; letter-spacing: .08em;
+  box-shadow: 0 0 22px rgba(245, 197, 66, .3), inset 0 1px 0 rgba(255, 250, 220, .5);
+}
+.bmc-btn:hover:not(:disabled) {
+  color: #241a06;
+  background: linear-gradient(180deg, #ffe480 0%, #f9cf52 100%);
+  box-shadow: 0 0 30px rgba(245, 197, 66, .45), inset 0 1px 0 rgba(255, 250, 220, .55);
+}
+.bmc-btn::before { content: '☕ '; }
+
 /* ---- 結果頁：分節解析 ---- */
 .r-section { margin-bottom: 30px; }
 .r-sec-head {

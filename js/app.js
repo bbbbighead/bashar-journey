@@ -15,6 +15,9 @@ import { trackVisit, trackScreen, trackJourney } from './analytics.js';
 const $ = (id) => document.getElementById(id);
 let state = null;
 
+// Buy Me a Coffee 贊助連結——之後填入正式網址即成為真實連結；留空則點擊顯示「即將開放」
+const BMC_URL = '';
+
 trackVisit();
 trackScreen('screenIntake');
 
@@ -31,17 +34,24 @@ function showWeaving(text) {
   showScreen('screenWeaving');
 }
 
-// ---- 入口：主題 + 選擇分析工具 ----
+// ---- 入口：主題 + 選擇分析工具（單選：一次只能選一個） ----
 const selectedTools = new Set();
+const toolButtons = [...$('toolGrid').querySelectorAll('.tool-opt:not(.soon)')];
 
 function refreshStart() {
   $('btnStart').disabled = !($('question').value.trim() && selectedTools.size);
 }
-$('toolGrid').querySelectorAll('.tool-opt:not(.soon)').forEach((btn) => {
+toolButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     const t = btn.dataset.tool;
-    if (selectedTools.has(t)) { selectedTools.delete(t); btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); }
-    else { selectedTools.add(t); btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); }
+    const already = selectedTools.has(t);
+    selectedTools.clear();
+    toolButtons.forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+    if (!already) { // 再點同一個＝取消選取
+      selectedTools.add(t);
+      btn.classList.add('on');
+      btn.setAttribute('aria-pressed', 'true');
+    }
     refreshStart();
   });
 });
@@ -386,12 +396,24 @@ function renderResult(a) {
       <button class="btn" id="btnAdvanced">直覺對話</button>
       <div class="r-advanced-hint">一對一語音諮詢</div>
       <div class="copy-toast" id="advToast"></div>
+    </div>
+    <div class="r-sponsor">
+      <p class="r-sponsor-line">喜歡這則分析報告嗎？<br>請創作者喝一杯咖啡 ☕</p>
+      <button class="btn bmc-btn" id="btnCoffee">Buy Me a Coffee</button>
+      <div class="copy-toast" id="coffeeToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnAdvanced').addEventListener('click', () => {
     const t = $('advToast');
     t.textContent = '一對一語音諮詢正在建構中——此服務即將開放，敬請期待。';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3200);
+  });
+  $('btnCoffee').addEventListener('click', () => {
+    if (BMC_URL) { window.open(BMC_URL, '_blank', 'noopener,noreferrer'); return; }
+    const t = $('coffeeToast');
+    t.textContent = '贊助連結即將開放，感謝你的支持 ☕';
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3200);
   });
