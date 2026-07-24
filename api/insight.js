@@ -187,7 +187,7 @@ function buildPrompt(action, p, seg) {
   const order = tools.map((t) => TOOL_LABEL[t]).join('、');
   const secRule = multi
     ? `sections 依序輸出這些工具的完整解析：${order}（tool 欄位用代碼 ${tools.join('、')}），最後再加一節 tool="synthesis" 的「交叉比對綜合分析」。不得用綜合分析取代任何工具的完整解析。`
-    : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}），完整呈現該工具的分析，不要省略。不要加 synthesis 節。`;
+    : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}）。這是使用者當次唯一的分析，必須詳盡完整——把該工具標準流程的每個環節都走完、每個面向都談到，圍繞主題讀完整，不要簡短、不要只給重點。不要加 synthesis 節。`;
 
   return `使用者想探索的主題：「${seg.opening}」
 
