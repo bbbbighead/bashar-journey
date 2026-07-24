@@ -1,13 +1,14 @@
-// app.js — 「靈感訊息」頂層流程控制。
-// 節奏：輸入想獲得靈感的主題 → 雷諾曼（使用者親手從 36 張選 9 張入九宮格）
-// → 梅花易數報數起卦 → 交叉整合 → 綜合靈感訊息。
+// app.js — Intuitive Notes 頂層流程控制（MVP）。
+// 節奏：首頁輸入主題＋勾選工具 → 依所選工具依序蒐集資料
+// （雷諾曼選牌／梅花報數／占星出生資料）→ 分析 → 分節結果。
 // 每一步都 saveSession，支援重整續玩。
 
 import {
-  createSession, saveSession, loadSession, clearSession,
+  createSession, saveSession, loadSession, clearSession, TOOL_LABELS,
 } from './engine/session.js';
-import { castMeihua, getAnalysis } from './engine/inquiry.js';
+import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
+import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney } from './analytics.js';
 
@@ -30,7 +31,21 @@ function showWeaving(text) {
   showScreen('screenWeaving');
 }
 
-// ---- 入口 ----
+// ---- 入口：主題 + 選擇分析工具 ----
+const selectedTools = new Set();
+
+function refreshStart() {
+  $('btnStart').disabled = !($('question').value.trim() && selectedTools.size);
+}
+$('toolGrid').querySelectorAll('.tool-opt:not(.soon)').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.tool;
+    if (selectedTools.has(t)) { selectedTools.delete(t); btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); }
+    else { selectedTools.add(t); btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); }
+    refreshStart();
+  });
+});
+$('question').addEventListener('input', refreshStart);
 $('btnStart').addEventListener('click', start);
 $('question').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') start();
@@ -39,12 +54,39 @@ $('btnCareBack').addEventListener('click', () => showScreen('screenIntake'));
 
 function start() {
   const q = $('question').value.trim();
-  if (!q) { $('question').focus(); return; }
+  if (!q || !selectedTools.size) return;
   if (detectCrisis(q)) { showScreen('screenCare'); return; }
 
-  state = createSession(q);
+  state = createSession(q, [...selectedTools]);
   saveSession(state);
-  runSpread();
+  collectNext();
+}
+
+// ---- 蒐集流程：依 state.tools 順序，逐一蒐集尚未取得的工具資料 ----
+const TOOL_STEP = { lenormand: runSpread, meihua: runNumbers, astro: runAstro };
+
+function collected(tool) {
+  if (tool === 'lenormand') return !!state.lenormand;
+  if (tool === 'meihua') return !!state.meihua;
+  if (tool === 'astro') return !!state.astro;
+  return false;
+}
+function collectedCount() {
+  return state.tools.filter(collected).length;
+}
+// 步驟引言前綴：第一個蒐集步驟用「首先，」，之後用「接著，」
+function stepPrefix() {
+  return collectedCount() === 0 ? '首先，' : '接著，';
+}
+function collectNext() {
+  const next = state.tools.find((t) => !collected(t));
+  if (!next) {
+    state.status = 'weaving';
+    saveSession(state);
+    runAnalysis();
+    return;
+  }
+  TOOL_STEP[next]();
 }
 
 // ---- 占卜一：使用者親手選牌（36 選 9；選取順序對應內部九宮格，不對外揭示牌面） ----
@@ -53,6 +95,7 @@ function runSpread() {
   const count = $('pickCount');
   const doneBtn = $('btnSpreadDone');
   const resetBtn = $('btnSpreadReset');
+  deck.closest('.spread').querySelector('.divine-lede').textContent = `${stepPrefix()}請憑直覺選出 9 張牌卡。`;
 
   const order = shuffledDeckOrder(); // 牌池顯示順序（牌背朝上，位置不代表任何牌）
   let picks = []; // 已選牌的索引（0..35），選取順序即內部九宮格位置；不對使用者揭示牌面
@@ -100,9 +143,8 @@ function runSpread() {
   doneBtn.onclick = () => {
     if (picks.length !== 9) return;
     state.lenormand = spreadFromPicks(picks);
-    state.status = 'numbers';
     saveSession(state);
-    runNumbers();
+    collectNext();
   };
 
   renderCount();
@@ -115,6 +157,7 @@ function runNumbers() {
   const doneBtn = $('btnNumbersDone');
   const randomBtn = $('btnNumbersRandom');
   const picked = $('numPicked');
+  $('screenNumbers').querySelector('.divine-lede').textContent = `${stepPrefix()}請憑直覺輸入 3 個個位數（1–9）。`;
 
   const valid = (el) => {
     const v = Number(el.value);
@@ -134,12 +177,10 @@ function runNumbers() {
   picked.textContent = '';
   refresh();
 
-  // 第一階段只用雷諾曼＋梅花易數；西洋占星保留給進階版
   const proceed = (numbers) => {
     castMeihua(state, numbers);
-    state.status = 'weaving';
     saveSession(state);
-    runAnalysis();
+    collectNext();
   };
   doneBtn.onclick = () => { if (inputs.every(valid)) proceed(inputs.map((el) => Number(el.value))); };
 
@@ -160,9 +201,142 @@ function runNumbers() {
   setTimeout(() => inputs[0].focus(), 200);
 }
 
-// （西洋占星流程已移至進階版——第一階段僅雷諾曼＋梅花易數）
+// ---- 占卜三：西洋占星本命盤（Swiss Ephemeris 精算） ----
+function runAstro() {
+  const dateEl = $('astroDate');
+  const timeEl = $('astroTime');
+  const unknownEl = $('astroTimeUnknown');
+  const cityEl = $('astroCity');
+  const cityListEl = $('cityList');
+  const cityPickedEl = $('cityPicked');
+  const countryEl = $('astroCountry');
+  const countryListEl = $('countryList');
+  const errEl = $('astroError');
+  const doneBtn = $('btnAstroDone');
+  $('astroLede').textContent = `${stepPrefix()}請提供你的出生資料，將以天文曆精算你的本命星盤。`;
 
-// ---- 交叉整合 → 最後分析 ----
+  let pickedPlace = null;   // 從搜尋清單選定的城市（帶經緯度/時區，計算時免再 geocode）
+  let pickedCountry = null; // 從國家清單選定 {code, zh, en}
+  const COUNTRIES = countryList();
+
+  const refresh = () => {
+    timeEl.disabled = unknownEl.checked;
+    doneBtn.disabled = !(dateEl.value && (pickedPlace || cityEl.value.trim()) && (unknownEl.checked || timeEl.value));
+  };
+  [dateEl, timeEl].forEach((el) => { el.oninput = refresh; });
+  unknownEl.onchange = refresh;
+
+  // -- 城市：即時搜尋合法清單（含臺↔台變體），點選後鎖定經緯度與時區 --
+  let cityTimer = null;
+  let citySeq = 0;
+  const renderCityList = (items) => {
+    if (!items) { cityListEl.hidden = true; cityListEl.innerHTML = ''; return; }
+    cityListEl.innerHTML = items.length
+      ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(r.country || '')}</small></div>`).join('')
+      : '<div class="combo-empty">找不到符合的城市——試試別的寫法（可省略「市」「縣」）</div>';
+    cityListEl.hidden = false;
+    cityListEl.querySelectorAll('.combo-item').forEach((el) => {
+      el.addEventListener('mousedown', (ev) => { ev.preventDefault(); pickCity(items[Number(el.dataset.i)]); });
+    });
+  };
+  const pickCity = (r) => {
+    pickedPlace = r;
+    cityEl.value = r.name;
+    cityPickedEl.textContent = `已選：${r.name}${r.admin1 ? `，${r.admin1}` : ''}（${r.country || '？'}・${r.timezone || ''}）`;
+    if (r.country && !countryEl.value.trim()) countryEl.value = r.country;
+    renderCityList(null);
+    refresh();
+  };
+  cityEl.oninput = () => {
+    pickedPlace = null;
+    cityPickedEl.textContent = '';
+    refresh();
+    clearTimeout(cityTimer);
+    const q = cityEl.value.trim();
+    if (!q) { renderCityList(null); return; }
+    cityTimer = setTimeout(async () => {
+      const seq = ++citySeq;
+      try {
+        const res = await fetch('/api/astro?q=' + encodeURIComponent(q));
+        const json = await res.json();
+        if (seq !== citySeq) return;
+        let items = (json && json.results) || [];
+        if (pickedCountry) items = items.filter((r) => String(r.countryCode || '').toUpperCase() === pickedCountry.code);
+        renderCityList(items.slice(0, 8));
+      } catch { if (seq === citySeq) renderCityList([]); }
+    }, 350);
+  };
+  cityEl.onblur = () => setTimeout(() => renderCityList(null), 150);
+
+  // -- 國家／地區：完整 ISO 清單（繁中＋英文皆可搜尋），輸入即過濾 --
+  const renderCountryList = (items) => {
+    if (!items) { countryListEl.hidden = true; countryListEl.innerHTML = ''; return; }
+    countryListEl.innerHTML = items.length
+      ? items.map((c, i) => `<div class="combo-item" data-i="${i}"><span>${esc(c.zh)}</span><small>${esc(c.en)}</small></div>`).join('')
+      : '<div class="combo-empty">找不到符合的國家／地區</div>';
+    countryListEl.hidden = false;
+    countryListEl.querySelectorAll('.combo-item').forEach((el) => {
+      el.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        const c = items[Number(el.dataset.i)];
+        pickedCountry = c;
+        countryEl.value = c.zh;
+        renderCountryList(null);
+      });
+    });
+  };
+  const filterCountries = () => {
+    const q = countryEl.value.trim().toLowerCase();
+    const items = q
+      ? COUNTRIES.filter((c) => c.zh.toLowerCase().includes(q) || c.en.toLowerCase().includes(q) || c.code.toLowerCase() === q)
+      : COUNTRIES;
+    renderCountryList(items.slice(0, 12));
+  };
+  countryEl.oninput = () => { pickedCountry = null; filterCountries(); };
+  countryEl.onfocus = filterCountries;
+  countryEl.onblur = () => setTimeout(() => renderCountryList(null), 150);
+
+  errEl.textContent = '';
+  cityPickedEl.textContent = '';
+  refresh();
+
+  doneBtn.onclick = async () => {
+    errEl.textContent = '';
+    doneBtn.disabled = true;
+    doneBtn.textContent = '正在精算星盤……';
+    try {
+      const chart = await fetchAstroChart({
+        date: dateEl.value,
+        time: unknownEl.checked ? null : timeEl.value,
+        timeUnknown: unknownEl.checked,
+        city: cityEl.value.trim(),
+        country: countryEl.value.trim(),
+        place: pickedPlace ? {
+          name: pickedPlace.name,
+          country: pickedPlace.country,
+          latitude: pickedPlace.latitude,
+          longitude: pickedPlace.longitude,
+          timezone: pickedPlace.timezone,
+        } : undefined,
+      });
+      state.astro = chart;
+      saveSession(state);
+      collectNext();
+    } catch (e) {
+      errEl.textContent = ({
+        geocode_failed: '找不到這個城市——請輸入後從跳出的清單中選擇一個城市。',
+        date_out_of_range: '出生年份需在 1800–2399 之間。',
+        tz_unavailable: '無法解析當地時區，請稍後再試。',
+      })[e.code] || '星盤計算暫時無法使用，請稍後再試。';
+      doneBtn.textContent = '計算星盤，繼續';
+      refresh();
+    }
+  };
+
+  showScreen('screenAstro');
+}
+
+// ---- 分析 → 分節結果 ----
 async function runAnalysis() {
   showWeaving();
   const t0 = Date.now();
@@ -173,50 +347,33 @@ async function runAnalysis() {
   setTimeout(() => renderResult(analysis), waitMs);
 }
 
-// 匯聚圖：兩個來源的髮絲線收束到中心的「靈感訊息」
-function convergeSVG() {
-  const nodes = [
-    { x: 170, label: '九張牌卡' },
-    { x: 430, label: '梅花易數' },
-  ];
-  const parts = nodes.map((n) => `
-    <text x="${n.x}" y="30" text-anchor="middle" font-size="17" fill="#d8cfb4" letter-spacing="2">${n.label}</text>
-    <circle cx="${n.x}" cy="48" r="3" fill="#e0c286"/>
-    <path class="cv-line" pathLength="1" d="M ${n.x} 54 C ${n.x} 82, 300 86, 300 106" stroke="rgba(224,194,134,.6)" stroke-width="1" fill="none"/>`).join('');
-  return `
-    <div class="r-converge" aria-hidden="true">
-      <svg viewBox="0 0 600 156" fill="none" xmlns="http://www.w3.org/2000/svg">
-        ${parts}
-        <circle class="cv-halo" cx="300" cy="114" r="9" stroke="rgba(224,194,134,.5)" stroke-width="1"/>
-        <circle cx="300" cy="114" r="3.4" fill="#e0c286"/>
-        <text x="300" y="148" text-anchor="middle" font-size="14" fill="#c2ab74" letter-spacing="3">靈感訊息</text>
-      </svg>
-    </div>`;
+// 舊格式（.message）相容：包成單一 section
+function sectionsOf(a) {
+  if (Array.isArray(a.sections) && a.sections.length) return a.sections;
+  const only = (state && state.tools && state.tools.length === 1) ? state.tools[0] : 'synthesis';
+  return [{ tool: only, content: String(a.message || '') }];
 }
 
 function renderResult(a) {
-  // 訊息本體直接開場、不揭示出處；索引列出九宮格 1–9 的牌卡與三個數字
-  const cards = (state.lenormand || []).map(({ card }) => card.name);
-  const numsText = state.numbers ? state.numbers.join('・') : '由當下時間起卦';
+  const sections = sectionsOf(a);
+  const secHtml = sections.map((s) => `
+    <div class="r-section">
+      <h3 class="r-sec-head">${esc(TOOL_LABELS[s.tool] || s.tool || '')}</h3>
+      <div class="r-block"><p>${esc(String(s.content || ''))}</p></div>
+    </div>`).join('');
 
   $('resultHost').innerHTML = `
-    <div class="r-title">${esc(a.title || '給你的靈感訊息')}</div>
-    <div class="r-sub">寫給此刻的你</div>
+    <div class="r-title">${esc(a.title || '分析結果')}</div>
+    <div class="r-sub">關於「${esc(state.opening)}」</div>
     <div class="rule-orn" aria-hidden="true"></div>
-    <div class="r-block core"><p>${esc(a.message)}</p></div>
+    ${secHtml}
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
-    <div class="r-index" aria-label="本次紀錄索引">
-      <div class="r-index-label">本次紀錄・索引</div>
-      ${convergeSVG()}
-      <div class="idx-grid">${cards.map((n, i) => `<span class="idx-cell"><i>${i + 1}</i>${esc(n)}</span>`).join('')}</div>
-      <div class="r-index-line"><span>梅花易數</span>${esc(numsText)}</div>
-    </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">複製完整內容</button>
-      <button class="btn" id="btnRestart">再求一則靈感</button>
+      <button class="btn" id="btnRestart">回到首頁</button>
     </div>
     <div class="r-continue">
-      <div class="r-continue-title">想針對這則訊息，繼續往下聊？</div>
+      <div class="r-continue-title">想針對這份分析，繼續往下聊？</div>
       <p class="r-continue-hint">選一個你慣用的 AI——完整內容會自動複製，開啟後直接貼上，就能接著深入提問。</p>
       <div class="ai-row">
         <a class="btn ai-btn" data-ai="chatgpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
@@ -226,41 +383,36 @@ function renderResult(a) {
       <div class="copy-toast" id="copyToast"></div>
     </div>
     <div class="r-advanced">
-      <button class="btn" id="btnAdvanced">查看詳細進階報告</button>
-      <div class="r-advanced-hint">結合牌卡、卦象與星盤的詳細報告解說</div>
+      <button class="btn" id="btnAdvanced">直覺對話</button>
+      <div class="r-advanced-hint">一對一語音諮詢</div>
       <div class="copy-toast" id="advToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnAdvanced').addEventListener('click', () => {
     const t = $('advToast');
-    t.textContent = '詳細進階報告正在打磨中——此功能即將開放，敬請期待。';
+    t.textContent = '一對一語音諮詢正在建構中——此服務即將開放，敬請期待。';
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3200);
   });
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
-    // 連結本身負責開新分頁（不會被彈窗攔截）；點擊當下同步把 handoff 寫入剪貼簿
     b.addEventListener('click', () => continueWithAI(a));
   });
   showScreen('screenResult');
 }
 
-// 完整內容（複製與導流共用）：主題 + 九宮格牌卡 + 數 + 訊息（與結果頁索引一致）
+// 完整內容（複製與導流共用）：主題 + 各節解析 + 結語
 function fullText(a) {
-  const cards = (state.lenormand || [])
-    .map(({ card }, i) => `${i + 1} ${card.name}`)
-    .join('、');
+  const sections = sectionsOf(a);
   return [
-    a.title || '給你的靈感訊息',
+    a.title || '分析結果',
     '',
-    `我的主題:${state.opening}`,
-    `我選的九張牌卡（九宮格1–9）:${cards}`,
-    `我報的三個數:${state.numbers ? state.numbers.join('、') : '（由當下時間起卦）'}`,
+    `我的主題：${state.opening}`,
     '',
-    a.message,
+    ...sections.map((s) => `【${TOOL_LABELS[s.tool] || s.tool}】\n${String(s.content || '')}`),
     a.closing ? `\n${a.closing}` : '',
-    '\n— 靈感訊息',
-  ].filter((s) => s !== '').join('\n');
+    '\n— Intuitive Notes',
+  ].filter((s) => s !== '').join('\n\n');
 }
 
 function copyAnalysis(a) {
@@ -274,11 +426,11 @@ function copyAnalysis(a) {
 // 導流：連結開啟所選 AI 的新分頁；此函式在點擊當下把「內容＋接續提問引導」寫入剪貼簿
 function continueWithAI(a) {
   const handoff = [
-    '以下是我剛在「靈感訊息」完成的一次抽引結果，請你先讀完：',
+    '以下是我剛在「Intuitive Notes」完成的一次分析，請你先讀完：',
     '',
     fullText(a),
     '',
-    '請你扮演一位溫暖而誠實的引導者，基於以上的主題與訊息，陪我繼續深入探討——我接下來會針對其中的內容提問。',
+    '請你扮演一位溫暖而誠實的引導者，基於以上的主題與分析，陪我繼續深入探討——我接下來會針對其中的內容提問。',
   ].join('\n');
 
   navigator.clipboard.writeText(handoff).then(
@@ -307,14 +459,13 @@ function restart() {
 // ---- 續玩 ----
 (function resume() {
   const saved = loadSession();
-  if (!saved || !saved.opening) return;
+  if (!saved || !saved.opening || !Array.isArray(saved.tools)) return;
   state = saved;
 
   if (state.status === 'done' && state.analysis) { renderResult(state.analysis); return; }
-  if (state.status === 'spread') { runSpread(); return; }         // 選到一半：重新選
-  if (state.status === 'numbers') { runNumbers(); return; }
-  if (state.status === 'astro') { state.status = 'weaving'; runAnalysis(); return; } // 舊版流程遺留
-  if (state.status === 'weaving') { runAnalysis(); }
+  if (state.status === 'weaving') { runAnalysis(); return; }
+  // collect：從尚未蒐集的工具接續（已蒐集的保留）
+  collectNext();
 })();
 
 // ---- utils ----

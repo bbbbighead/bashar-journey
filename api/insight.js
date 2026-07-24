@@ -58,10 +58,17 @@ const ARR = (items) => ({ type: 'array', items });
 const OBJ = (required, properties) => ({ type: 'object', additionalProperties: false, required, properties });
 
 const SCHEMAS = {
-  analyze: OBJ(['title', 'message', 'closing'], {
-    title: S(), message: S(), closing: S(),
+  analyze: OBJ(['title', 'sections', 'closing'], {
+    title: S(),
+    sections: ARR(OBJ(['tool', 'content'], {
+      tool: S({ enum: ['lenormand', 'meihua', 'astro', 'synthesis'] }),
+      content: S(),
+    })),
+    closing: S(),
   }),
 };
+
+const TOOL_LABEL = { lenormand: '雷諾曼牌陣', meihua: '梅花易數', astro: '西洋占星' };
 
 // ---- 各階段資料段：排版成可讀文字（送給模型與記錄的就是這串文字，非 JSON 結構） ----
 
@@ -155,38 +162,45 @@ function fmtAstro(A) {
   return out.join('\n');
 }
 
-// 各階段丟給模型前的資料段（可讀文字；分別記錄供後台復盤）
+// 各階段丟給模型前的資料段（可讀文字；只納入使用者所選工具，分別記錄供後台復盤）
 function buildSegments(p) {
+  const tools = Array.isArray(p.tools) && p.tools.length ? p.tools : ['lenormand'];
   const astroText = fmtAstro(p.astro);
   return {
     opening: String(p.opening || '').slice(0, 600),
-    lenormand: fmtLenormand(p.lenormand).slice(0, 4000),
-    meihua: fmtMeihua(p.meihua).slice(0, 1500),
-    astro: astroText ? astroText.slice(0, 11000) : null,
+    tools,
+    lenormand: tools.includes('lenormand') ? fmtLenormand(p.lenormand).slice(0, 4000) : null,
+    meihua: tools.includes('meihua') ? fmtMeihua(p.meihua).slice(0, 1500) : null,
+    astro: tools.includes('astro') ? (astroText ? astroText.slice(0, 11000) : '（星盤資料缺漏）') : null,
   };
 }
 
 function buildPrompt(action, p, seg) {
-  switch (action) {
-    case 'analyze':
-      return `使用者想獲得靈感的主題：「${seg.opening}」
+  if (action !== 'analyze') return '';
+  const tools = seg.tools && seg.tools.length ? seg.tools : ['lenormand'];
+  const blocks = [];
+  if (tools.includes('lenormand')) blocks.push(`【雷諾曼牌陣（使用者親手選九張，位置 1–9）】\n${seg.lenormand}`);
+  if (tools.includes('meihua')) blocks.push(`【梅花易數（使用者報數起卦）】\n${seg.meihua}`);
+  if (tools.includes('astro')) blocks.push(`【西洋占星本命盤（Swiss Ephemeris 實算；僅可依此詮釋，不得補造）】\n${seg.astro}`);
 
-【系統一：雷諾曼九宮格讀數（使用者親手選牌；牌名與術語不得出現在輸出）】
-${seg.lenormand}
+  const multi = tools.length > 1;
+  const order = tools.map((t) => TOOL_LABEL[t]).join('、');
+  const secRule = multi
+    ? `sections 依序輸出這些工具的完整解析：${order}（tool 欄位用代碼 ${tools.join('、')}），最後再加一節 tool="synthesis" 的「交叉比對綜合分析」。不得用綜合分析取代任何工具的完整解析。`
+    : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}），完整呈現該工具的分析，不要省略。不要加 synthesis 節。`;
 
-【系統二：梅花易數讀數（使用者報數起卦；卦名與術語不得出現在輸出）】
-${seg.meihua}
+  return `使用者想探索的主題：「${seg.opening}」
 
-【系統三：西洋占星本命盤（Swiss Ephemeris 實算；僅可依此詮釋，不得補造）】
-${seg.astro || '（使用者選擇跳過占星——以兩源整合，不假裝有第三源）'}
+使用者選用的分析工具：${order}
 
-請依系統提示：不逐張解牌、不逐一列出各工具的分析——優先整理重複出現的模式、共同指向的主題、與生命正在醞釀的方向，再從整理框架中挑選對這個提問最有價值的三至五個面向，寫成一篇有結構、有脈絡的生命敘事。生成：
-- title：一句自然、日常、一看就懂的話（≤16字），像人會說出口的標題；不要詩意標題、不要創造新詞組。
-- message：450–800字、4–6 個完整段落的整合敘事，依核心脈絡推進（核心 → 為什麼 → 階段 → 現實表現與阻礙資源 → 共同指向的轉折與方向 → 一致與待觀察之處）。追求洞察感而非文學感：每一句都要有清楚的意思，刪掉只營造氣氛的句子。結尾啟發停留在視角、心境或策略層次，**嚴禁開立具體生活行動處方**。不逐牌、逐卦、逐星解釋。
+${blocks.join('\n\n')}
+
+請依系統提示，為每一個所選工具產出一節完整、圍繞主題的解析（雷諾曼用九宮格牌組組合、梅花依本卦→變卦→動爻→解讀→行動建議、占星主動挑選所有與主題高度相關的配置）。${multi ? '完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。' : ''}
+
+輸出 JSON：
+- title：一句自然、日常、一看就懂的話（≤16字）。
+- sections：${secRule} 每節 content 為完整段落敘事，追求洞察感而非文學感。
 - closing：一句臨別祝福（≤40字）。`;
-    default:
-      return '';
-  }
 }
 
 async function callOpenAI(apiKey, model, maxTokens, userPrompt, schema, schemaName) {

@@ -44,11 +44,6 @@ export function castMeihua(state, numbers) {
   return state.meihua;
 }
 
-function ensureEngines(state) {
-  ensureSpread(state);
-  if (!state.meihua) castMeihua(state, state.numbers);
-}
-
 // 西洋占星本命盤：呼叫 /api/astro（Swiss Ephemeris 實算；失敗 throw 附 code）
 export async function fetchAstroChart(payload) {
   const res = await fetch('/api/astro', {
@@ -85,25 +80,32 @@ function astroForAI(chart) {
   };
 }
 
-// ---- 2. 綜合靈感訊息（主題＋雷諾曼＋梅花易數 → 單一正式文字） ----
+// 只保留使用者所選工具需要的引擎資料
+function ensureSelected(state) {
+  if (state.tools.includes('lenormand')) ensureSpread(state);
+  if (state.tools.includes('meihua') && !state.meihua) castMeihua(state, state.numbers);
+}
+
+// ---- 2. 分析（主題＋所選工具 → 分節結果；兩個以上工具加交叉綜合） ----
 export async function getAnalysis(state) {
-  ensureEngines(state);
+  ensureSelected(state);
 
   if (aiOn(state)) {
     const payload = {
       sid: sessionId(), // 供 server 端把實際送出的 prompt 記錄到這筆來訪
+      tools: state.tools,
       opening: state.opening,
-      lenormand: spreadForAI(state.lenormand),
-      meihua: meihuaForAI(state.meihua),
-      astro: astroForAI(state.astro),
+      lenormand: state.tools.includes('lenormand') ? spreadForAI(state.lenormand) : null,
+      meihua: state.tools.includes('meihua') ? meihuaForAI(state.meihua) : null,
+      astro: state.tools.includes('astro') ? astroForAI(state.astro) : null,
     };
     let data = await tryAI(state, 'analyze', payload);
-    if (!data) data = await tryAI(state, 'analyze', payload); // 暫時性失敗（逾時/限流）重試一次再降級
-    if (data && data.message) {
+    if (!data) data = await tryAI(state, 'analyze', payload); // 暫時性失敗重試一次再降級
+    if (data && Array.isArray(data.sections) && data.sections.length) {
       state.analysis = {
-        title: sanitize(String(data.title || '給你的靈感訊息')),
-        message: sanitize(String(data.message)),
-        closing: sanitize(String(data.closing || '')),
+        title: String(data.title || '分析結果'),
+        sections: data.sections.map((s) => ({ tool: String(s.tool || ''), content: String(s.content || '') })),
+        closing: String(data.closing || ''),
       };
       state.usedOffline = false;
       state.status = 'done';
@@ -117,22 +119,31 @@ export async function getAnalysis(state) {
   return state.analysis;
 }
 
-// ---- 離線綜合（從簡：兩個引擎的讀數 + 固定段落拼成一則訊息） ----
+// ---- 離線後備（從簡：各所選工具的引擎讀數 + 固定段落拼成分節） ----
 function offlineAnalysis(state) {
-  const patterns = offlinePatterns(state.lenormand);   // 牌陣的模式觀察（無術語）
-  const dynamics = offlineDynamics(state.meihua);      // 時機與節奏的讀數（無術語）
-
-  // 訊息不揭示資訊出處（不提牌/卦/星盤）——原始素材由結果頁的索引區呈現
-  const paras = [
-    `關於「${stripEnd(state.opening)}」——${OFFLINE_MESSAGE.opening}`,
-    [OFFLINE_MESSAGE.bridge, ...patterns.slice(0, 2).map(ensurePeriod)].join('\n'),
-    dynamics.join('\n'),
-    OFFLINE_MESSAGE.invite,
-  ];
-
+  const sections = [];
+  if (state.tools.includes('lenormand')) {
+    const patterns = offlinePatterns(state.lenormand);
+    sections.push({
+      tool: 'lenormand',
+      content: [
+        `關於「${stripEnd(state.opening)}」，這一組牌共同指向幾件事：`,
+        ...patterns.slice(0, 3).map(ensurePeriod),
+      ].join('\n'),
+    });
+  }
+  if (state.tools.includes('meihua')) {
+    sections.push({ tool: 'meihua', content: offlineDynamics(state.meihua).join('\n') });
+  }
+  if (state.tools.includes('astro')) {
+    sections.push({ tool: 'astro', content: '完整的星盤解讀需要連線模式（AI）。此刻先以其他工具為你整理。' });
+  }
+  if (state.tools.length > 1) {
+    sections.push({ tool: 'synthesis', content: [OFFLINE_MESSAGE.bridge, OFFLINE_MESSAGE.invite].join('\n\n') });
+  }
   return {
-    title: '給你的靈感訊息',
-    message: paras.join('\n\n'),
+    title: '分析結果',
+    sections,
     closing: OFFLINE_CLOSINGS[hashCode(state.runId) % OFFLINE_CLOSINGS.length],
   };
 }
@@ -150,18 +161,4 @@ function ensurePeriod(s) {
 // 引號內文字去尾句號，避免「……。」。的重複標點
 function stripEnd(s) {
   return String(s || '').replace(/[。．\s]+$/, '');
-}
-
-// ---- 去識別：抹去可能外洩的占卜術語與資訊出處（最後防線；主要靠 prompt 約束） ----
-const TERM_REPLACEMENTS = [
-  [/雷諾曼|塔羅|占卜|算命|牌卡|九宮格/g, '內在探索'],
-  [/梅花易數|易經|六爻|動爻|體用|本卦|互卦|變卦|卦象|起卦|卦辭/g, '時機的觀察'],
-  [/牌陣|抽牌|翻牌|這張牌|牌面/g, '這個視角'],
-  [/本命星盤|本命盤|星盤|占星|星象/g, '長期的內在結構'],
-];
-
-export function sanitize(text) {
-  let t = String(text || '');
-  for (const [re, rep] of TERM_REPLACEMENTS) t = t.replace(re, rep);
-  return t;
 }

@@ -100,14 +100,22 @@ function birthRecord(chart) {
 // ---- 3. 題目與產出結果 ----
 export function trackJourney(state) {
   try {
+    // 產出訊息：新版為分節（sections），合併成純文字記錄；相容舊 .message
+    const a = state.analysis;
+    const messageText = a
+      ? (Array.isArray(a.sections)
+        ? a.sections.map((s) => `【${s.tool}】\n${s.content || ''}`).join('\n\n')
+        : String(a.message || ''))
+      : '';
     send({
       type: 'journey',
       opening: String(state.opening || '').slice(0, 300),
+      tools: state.tools || null,
       cards: (state.lenormand || []).map((x) => x.card.name),
       numbers: state.numbers || null,
-      title: state.analysis ? String(state.analysis.title || '').slice(0, 60) : '',
-      message: state.analysis ? String(state.analysis.message || '').slice(0, 2000) : '',
-      closing: state.analysis ? String(state.analysis.closing || '').slice(0, 100) : '',
+      title: a ? String(a.title || '').slice(0, 60) : '',
+      message: messageText.slice(0, 4000),
+      closing: a ? String(a.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
       astroUsed: !!state.astro,
       astroSun: state.astro ? String(((state.astro.points || []).find((p) => p.name === '太陽') || {}).sign || '') : '',

@@ -12,20 +12,31 @@
 <div class="sky" aria-hidden="true"></div>
 <div class="app" id="app">
 
-  <!-- 首頁：輸入想獲得靈感的主題 -->
+  <!-- 首頁：輸入主題 + 選擇分析工具 -->
   <section class="screen active" id="screenIntake">
     <div class="intake">
       <div class="eyebrow">Intuitive Notes</div>
-      <h1 class="h1-long">今天想獲得什麼靈感訊息？</h1>
       <div class="rule-orn" aria-hidden="true"></div>
-      <p class="lede">讓古老的視角，為你交織出一則關於此刻的靈感訊息。</p>
       <div class="ask-box">
-        <label for="question">我想獲得什麼靈感？</label>
+        <label for="question">你今天想探索什麼主題？</label>
         <textarea id="question" placeholder="例如：事業方向" maxlength="600" rows="3"></textarea>
-        <div class="ask-note">請提供想探索的主題，或想覺察釐清的想法等。</div>
+        <div class="ask-note">請提供想探索的問題或主題。</div>
       </div>
-      <button class="btn primary" id="btnStart">開始</button>
-      <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。為了改善體驗，過程會以匿名方式記錄（主題、選牌與停留時間）。</div>
+
+      <div class="tool-pick">
+        <div class="tool-pick-label">選擇分析工具（可複選）</div>
+        <div class="tool-grid" id="toolGrid">
+          <button type="button" class="tool-opt" data-tool="lenormand" aria-pressed="false">雷諾曼牌陣</button>
+          <button type="button" class="tool-opt" data-tool="meihua" aria-pressed="false">梅花易數</button>
+          <button type="button" class="tool-opt" data-tool="astro" aria-pressed="false">西洋占星</button>
+          <button type="button" class="tool-opt soon" disabled>八字<span class="soon-tag">Coming Soon</span></button>
+          <button type="button" class="tool-opt soon" disabled>紫微斗數<span class="soon-tag">Coming Soon</span></button>
+          <button type="button" class="tool-opt soon" disabled>塔羅牌<span class="soon-tag">Coming Soon</span></button>
+        </div>
+      </div>
+
+      <button class="btn primary" id="btnStart" disabled>開始分析</button>
+      <div class="fineprint">這是一場自我探索的體驗，不是醫療、法律或財務建議，也不是心理治療。為了改善體驗，過程會以匿名方式記錄（主題、選用工具與停留時間）。</div>
     </div>
   </section>
 
@@ -71,11 +82,48 @@
     </div>
   </section>
 
+  <!-- 占卜三：西洋占星本命盤（Swiss Ephemeris 精算） -->
+  <section class="screen" id="screenAstro">
+    <div class="numbers astro">
+      <p class="divine-lede" id="astroLede">請提供你的出生資料，將以天文曆精算你的本命星盤。</p>
+      <p class="astro-privacy">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</p>
+      <div class="rule-orn" aria-hidden="true"></div>
+      <div class="astro-form">
+        <div class="af-row">
+          <label for="astroDate">出生日期</label>
+          <input type="date" id="astroDate" min="1800-01-01" max="2399-12-31">
+        </div>
+        <div class="af-row">
+          <label for="astroTime">出生時間</label>
+          <input type="time" id="astroTime">
+        </div>
+        <div class="af-row af-check">
+          <label class="flt-chk"><input type="checkbox" id="astroTimeUnknown">時間不確定（將略過上升點與宮位，僅計算行星星座）</label>
+        </div>
+        <div class="af-row combo">
+          <label for="astroCity">出生城市（輸入後從清單選擇）</label>
+          <input type="text" id="astroCity" maxlength="80" placeholder="輸入城市名搜尋，例如：台北" autocomplete="off">
+          <div class="combo-list" id="cityList" hidden></div>
+          <div class="combo-picked" id="cityPicked"></div>
+        </div>
+        <div class="af-row combo">
+          <label for="astroCountry">國家／地區（選填，可縮小城市搜尋範圍）</label>
+          <input type="text" id="astroCountry" maxlength="40" placeholder="輸入以搜尋國家清單，例如：台灣" autocomplete="off">
+          <div class="combo-list" id="countryList" hidden></div>
+        </div>
+        <div class="admin-error" id="astroError"></div>
+      </div>
+      <div class="divine-actions">
+        <button class="btn primary" id="btnAstroDone" disabled>計算星盤，繼續</button>
+      </div>
+    </div>
+  </section>
+
   <!-- 整合中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
       <div class="orb"></div>
-      <p id="weavingText">正在生成你的靈感訊息……</p>
+      <p id="weavingText">正在為你分析……</p>
     </div>
   </section>
 
