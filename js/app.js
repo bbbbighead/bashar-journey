@@ -378,8 +378,13 @@ function renderResult(a) {
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
+    <div class="r-sponsor">
+      <p class="r-sponsor-line">這則分析對你有幫助嗎？<br>請創作者喝一杯咖啡 ☕</p>
+      <button class="btn bmc-btn" id="btnCoffee">Buy Me a Coffee</button>
+      <div class="copy-toast" id="coffeeToast"></div>
+    </div>
     <div class="r-actions">
-      <button class="btn" id="btnCopy">複製完整內容</button>
+      <button class="btn" id="btnCopy">複製這則內容</button>
       <button class="btn" id="btnRestart">回到首頁</button>
     </div>
     <div class="r-continue">
@@ -396,11 +401,6 @@ function renderResult(a) {
       <button class="btn" id="btnAdvanced">直覺對話</button>
       <div class="r-advanced-hint">一對一語音諮詢</div>
       <div class="copy-toast" id="advToast"></div>
-    </div>
-    <div class="r-sponsor">
-      <p class="r-sponsor-line">喜歡這則分析報告嗎？<br>請創作者喝一杯咖啡 ☕</p>
-      <button class="btn bmc-btn" id="btnCoffee">Buy Me a Coffee</button>
-      <div class="copy-toast" id="coffeeToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));

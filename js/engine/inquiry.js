@@ -127,7 +127,7 @@ function offlineAnalysis(state) {
     sections.push({
       tool: 'lenormand',
       content: [
-        `關於「${stripEnd(state.opening)}」，這一組牌共同指向幾件事：`,
+        '這一組牌共同指向幾件事：',
         ...patterns.slice(0, 3).map(ensurePeriod),
       ].join('\n'),
     });
@@ -158,7 +158,3 @@ function ensurePeriod(s) {
   return /[。！？…]$/.test(s) ? s : s + '。';
 }
 
-// 引號內文字去尾句號，避免「……。」。的重複標點
-function stripEnd(s) {
-  return String(s || '').replace(/[。．\s]+$/, '');
-}
