@@ -379,7 +379,7 @@ function renderResult(a) {
     ${secHtml}
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-sponsor">
-      <p class="r-sponsor-line">這則分析對你有幫助嗎？<br>請創作者喝一杯咖啡 ☕</p>
+      <p class="r-sponsor-line">這則分析對你有幫助嗎？<br>贊助一杯咖啡 ☕</p>
       <button class="btn bmc-btn" id="btnCoffee">Buy Me a Coffee</button>
       <div class="copy-toast" id="coffeeToast"></div>
     </div>
