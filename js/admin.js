@@ -178,14 +178,19 @@ function renderOverview(o) {
       <span>容量使用（估算 ${fmtBytes(u.bytes)}／${fmtBytes(u.limitBytes)}）</span>
       <div class="cap-bar"><div class="cap-fill ${capCls}" style="width:${Math.min(100, u.pct)}%"></div></div>
       <button class="btn ghost small" id="btnRecalc">重算容量</button>
+      <span class="recalc-note" id="recalcNote"></span>
     </div>`;
 
   $('btnRecalc').addEventListener('click', async () => {
     const b = $('btnRecalc');
     b.disabled = true; b.textContent = '重算中……';
     try {
-      await api({}, { action: 'recalc' });
-      await refreshOverview();
+      const r = await api({}, { action: 'recalc' });
+      await refreshOverview(); // 會重繪 statRow，按鈕連同狀態一起重建
+      if (r.orphansRemoved) {
+        const note = $('recalcNote');
+        if (note) note.textContent = `已順手清掉 ${r.orphansRemoved} 筆沒有主人的殘留資料`;
+      }
     } catch { b.textContent = '重算失敗'; }
   });
 
