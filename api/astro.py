@@ -419,14 +419,91 @@ def to_traditional(text):
     return ''.join(_S2T.get(ch, ch) for ch in str(text))
 
 
+# ── 各語系的顯示名 ──
+# 站內顯示的地名要跟著使用者的語言走：中文→繁體、英文→英文、日文→日本語、韓文→한국어。
+# 表中 disp 欄本身已是「該地當地語言」（臺灣＝繁中、日本＝日本語、韓國＝한국어），
+# 因此只需補上跨語系的對照；缺漏時依「所求語言 → 英文 → 原顯示名」退回。
+
+# 日本新字體 → 繁體中文（產生日本地名的中文寫法：神奈川県→神奈川縣）
+_JP2ZH = {
+    '県': '縣', '静': '靜', '広': '廣', '児': '兒', '縄': '繩', '徳': '德',
+    '沢': '澤', '崎': '崎', '阪': '阪', '茨': '茨', '栃': '栃', '梨': '梨',
+}
+
+
+def _jp_to_zh(name):
+    return ''.join(_JP2ZH.get(ch, ch) for ch in name)
+
+
+# 韓國行政區的中文與日文寫法
+_KR_NAMES = {
+    'Seoul': ('首爾', 'ソウル'), 'Busan': ('釜山', '釜山'), 'Daegu': ('大邱', '大邱'),
+    'Incheon': ('仁川', '仁川'), 'Gwangju': ('光州', '光州'), 'Daejeon': ('大田', '大田'),
+    'Ulsan': ('蔚山', '蔚山'), 'Sejong': ('世宗', 'セジョン'),
+    'Gyeonggi': ('京畿道', '京畿道'), 'Gangwon': ('江原道', '江原道'),
+    'Chungbuk': ('忠清北道', '忠清北道'), 'Chungnam': ('忠清南道', '忠清南道'),
+    'Jeonbuk': ('全羅北道', '全羅北道'), 'Jeonnam': ('全羅南道', '全羅南道'),
+    'Gyeongbuk': ('慶尚北道', '慶尚北道'), 'Gyeongnam': ('慶尚南道', '慶尚南道'),
+    'Jeju': ('濟州', '済州'),
+}
+
+# 國名（本表 12 個國家／地區）——依語系顯示
+COUNTRY_NAMES = {
+    'TW': {'zh-Hant': '臺灣', 'en': 'Taiwan', 'ja': '台湾', 'ko': '대만'},
+    'JP': {'zh-Hant': '日本', 'en': 'Japan', 'ja': '日本', 'ko': '일본'},
+    'KR': {'zh-Hant': '韓國', 'en': 'South Korea', 'ja': '韓国', 'ko': '대한민국'},
+    'US': {'zh-Hant': '美國', 'en': 'United States', 'ja': 'アメリカ', 'ko': '미국'},
+    'GB': {'zh-Hant': '英國', 'en': 'United Kingdom', 'ja': 'イギリス', 'ko': '영국'},
+    'CA': {'zh-Hant': '加拿大', 'en': 'Canada', 'ja': 'カナダ', 'ko': '캐나다'},
+    'AU': {'zh-Hant': '澳洲', 'en': 'Australia', 'ja': 'オーストラリア', 'ko': '호주'},
+    'NZ': {'zh-Hant': '紐西蘭', 'en': 'New Zealand', 'ja': 'ニュージーランド', 'ko': '뉴질랜드'},
+    'IE': {'zh-Hant': '愛爾蘭', 'en': 'Ireland', 'ja': 'アイルランド', 'ko': '아일랜드'},
+    'SG': {'zh-Hant': '新加坡', 'en': 'Singapore', 'ja': 'シンガポール', 'ko': '싱가포르'},
+    'HK': {'zh-Hant': '香港', 'en': 'Hong Kong', 'ja': '香港', 'ko': '홍콩'},
+    'MO': {'zh-Hant': '澳門', 'en': 'Macau', 'ja': 'マカオ', 'ko': '마카오'},
+}
+
+# 上游 geocoder 的語言代碼
+_UPSTREAM_LANG = {'zh-Hant': 'zh', 'en': 'en', 'ja': 'ja', 'ko': 'ko'}
+
+
+def _display_name(disp, en, cc, lang):
+    """依語系挑選地名顯示字樣。"""
+    if lang == 'en':
+        return en or disp
+    if cc == 'JP':
+        if lang == 'ja':
+            return disp                      # 表中已是日本語
+        if lang == 'zh-Hant':
+            return _jp_to_zh(disp)           # 神奈川県 → 神奈川縣
+        return en or disp                    # 韓文無對照 → 英文
+    if cc == 'KR':
+        if lang == 'ko':
+            return disp                      # 表中已是한국어
+        zh, ja = _KR_NAMES.get(en, (None, None))
+        if lang == 'zh-Hant' and zh:
+            return zh
+        if lang == 'ja' and ja:
+            return ja
+        return en or disp
+    # 其餘（臺灣／英語系／港澳新）：disp 為繁中
+    if lang == 'zh-Hant':
+        return disp
+    return en or disp                        # 日／韓無逐筆對照 → 英文（當地慣例可接受）
+
+
+def _country_name(cc, cname, lang):
+    return (COUNTRY_NAMES.get(cc) or {}).get(lang) or cname
+
+
 def _norm(s):
     """比對用正規化：統一異體字、去空白、轉小寫。"""
     return str(s or '').strip().lower().replace('臺', '台')
 
 
-def local_search(query):
-    """先查本地對照表（不需連外、不受上游索引缺漏影響，且一律繁體顯示）。
-    完全相符優先，其次前綴相符（打「桃」也能帶出桃園市）。"""
+def local_search(query, lang='zh-Hant'):
+    """先查本地對照表（不需連外、不受上游索引缺漏影響）。
+    顯示字樣依語系挑選；完全相符優先，其次前綴相符（打「桃」也能帶出桃園市）。"""
     q = _norm(query)
     if not q:
         return []
@@ -446,9 +523,9 @@ def local_search(query):
             continue
         hits.append((rank, {
             'id': f'loc:{cc}:{en}',
-            'name': disp,
+            'name': _display_name(disp, en, cc, lang),
             'admin1': None,
-            'country': cname,
+            'country': _country_name(cc, cname, lang),
             'country_code': cc,
             'latitude': lat,
             'longitude': lon,
@@ -478,10 +555,12 @@ def _fetch_geo(name, count, timeout=8, language='zh'):
         with urllib.request.urlopen(url, timeout=timeout) as r:
             data = json.loads(r.read().decode('utf-8'))
         results = data.get('results') or []
-        for item in results:  # 上游以簡體回傳，站內一律顯示繁體
-            for key in ('name', 'admin1', 'admin2', 'country'):
-                if item.get(key):
-                    item[key] = to_traditional(item[key])
+        if language == 'zh':
+            # 上游中文索引以簡體回傳；僅中文語系需要轉成繁體
+            for item in results:
+                for key in ('name', 'admin1', 'admin2', 'country'):
+                    if item.get(key):
+                        item[key] = to_traditional(item[key])
         return results, True
     except Exception:
         return [], False
@@ -519,7 +598,7 @@ def _query_variants(query):
     return out
 
 
-def geo_search(query, count=8):
+def geo_search(query, count=8, lang='zh-Hant'):
     """城市搜尋。回傳 (results, upstream_ok)。
     本地臺灣對照表優先（權威、即時、不需連外）；命中完全相符時直接回傳，
     不再等上游，避免多次外部查詢把回應時間拖到十幾秒而看起來像「沒反應」。"""
@@ -538,7 +617,7 @@ def geo_search(query, count=8):
             seen.add(key)
             merged.append(item)
 
-    add(local_search(query))
+    add(local_search(query, lang))
 
     # 本地已有「完全相符」的地名 → 立刻回傳，不打上游
     if _exact_local(query):
@@ -551,7 +630,7 @@ def geo_search(query, count=8):
         if len(merged) >= count:
             break
         upstream_tried = True
-        items, ok = _fetch_geo(v, count, timeout=5)
+        items, ok = _fetch_geo(v, count, timeout=5, language=_UPSTREAM_LANG.get(lang, 'zh'))
         upstream_any_ok = upstream_any_ok or ok
         add(items)
 
@@ -947,12 +1026,16 @@ class handler(BaseHTTPRequestHandler):
             qs = urllib.parse.urlparse(self.path).query
             params = urllib.parse.parse_qs(qs)
             query = (params.get('q') or [''])[0].strip()[:80]
+            lang = (params.get('lang') or ['zh-Hant'])[0].strip()[:10]
+            if lang not in _UPSTREAM_LANG:
+                lang = 'zh-Hant'
         except Exception:
             query = ''
+            lang = 'zh-Hant'
         if not query:
             self._send(400, {'ok': False, 'error': 'missing_query'})
             return
-        results, upstream_ok = geo_search(query, count=10)
+        results, upstream_ok = geo_search(query, count=10, lang=lang)
         self._send(200, {'ok': True, 'searchOk': upstream_ok, 'results': [{
             'name': item.get('name'),
             'admin1': item.get('admin1'),
