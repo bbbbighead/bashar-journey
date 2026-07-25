@@ -7,6 +7,7 @@ import {
   createSession, saveSession, loadSession, clearSession, TOOL_LABELS,
 } from './engine/session.js';
 import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
+import { saveAnalysisToHistory } from './engine/history.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
@@ -353,6 +354,7 @@ async function runAnalysis() {
   const t0 = Date.now();
   const analysis = await getAnalysis(state);
   saveSession(state);
+  saveAnalysisToHistory(state); // 存進瀏覽器歷史（localStorage，供日後回顧頁讀取）
   trackJourney(state);
   const waitMs = Math.max(0, 2400 - (Date.now() - t0));
   setTimeout(() => renderResult(analysis), waitMs);
@@ -394,6 +396,34 @@ function posGroupsInText(text) {
   return groups;
 }
 
+// 九宮格標準閱讀組別 → 固定位置。長名在前（「潛意識層」要先於「意識層」比對）。
+const GROUP_LABELS = [
+  { label: '潛意識層', pos: [7, 8, 9] },
+  { label: '意識層', pos: [1, 2, 3] },
+  { label: '現實層', pos: [4, 5, 6] },
+  { label: '過去', pos: [1, 4, 7] },
+  { label: '現在', pos: [2, 5, 8] },
+  { label: '未來', pos: [3, 6, 9] },
+  { label: '核心', pos: [5] },
+  { label: '十字', pos: [2, 4, 6, 8] },
+  { label: '四角', pos: [1, 3, 7, 9] },
+];
+
+// 決定某段落前方要顯示哪些對照牌卡（回傳位置群組陣列）。
+// 主：內文若明寫「（1、4、7）」這類位置，全部採用；
+// 備：AI 常以自然語言寫成「過去那一排」，故段落開頭若是已知組別名稱，用該組固定位置。
+function posGroupsForBlock(text) {
+  const explicit = posGroupsInText(text);
+  if (explicit.length) return explicit;
+  const t = String(text).trim();
+  if (t.length < 10) return []; // 太短多半是小標題本身（如「時間軸」「十字法」），不放牌卡
+  const head = t.slice(0, 6);   // 只看開頭，避免內文中偶然出現「現在」等常用詞誤判
+  for (const g of GROUP_LABELS) {
+    if (head.includes(g.label)) return [g.pos.slice()];
+  }
+  return [];
+}
+
 // 依位置陣列列出對應的小張牌卡（供各章節前方對照）
 function cardStripHtml(spread, positions) {
   const cells = positions.map((pos) => {
@@ -417,7 +447,7 @@ function lenormandContentHtml(content, spread) {
   if (!blocks.length) return `<p>${esc(String(content || ''))}</p>`;
   return blocks.map((b) => {
     const strip = hasSpread
-      ? posGroupsInText(b).map((g) => cardStripHtml(spread, g)).join('')
+      ? posGroupsForBlock(b).map((g) => cardStripHtml(spread, g)).join('')
       : '';
     return `${strip}<p>${esc(b)}</p>`;
   }).join('');
@@ -537,6 +567,10 @@ function restart() {
   clearSession();
   state = null;
   $('question').value = '';
+  // 重置工具選取，避免回首頁後殘留上一場的選取狀態（顯示為已選、再點卻變成取消）
+  selectedTools.clear();
+  toolButtons.forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+  refreshStart();
   showScreen('screenIntake');
 }
 
