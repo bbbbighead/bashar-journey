@@ -68,7 +68,21 @@ const SCHEMAS = {
   }),
 };
 
-const TOOL_LABEL = { lenormand: '雷諾曼牌陣', meihua: '梅花易數', astro: '西洋占星' };
+const LANGS = ['zh-Hant', 'en', 'ja', 'ko'];
+const TOOL_LABEL = {
+  'zh-Hant': { lenormand: '雷諾曼牌陣', meihua: '梅花易數', astro: '西洋占星' },
+  en: { lenormand: 'Lenormand Nine-Card Grid', meihua: 'Plum Blossom I Ching', astro: 'Natal Astrology' },
+  ja: { lenormand: 'ルノルマン9枚グリッド', meihua: '梅花心易', astro: '西洋占星術' },
+  ko: { lenormand: '르노르망 9카드', meihua: '매화역수', astro: '서양 점성술' },
+};
+// 九宮格組別小標題的預設字（前端也會把自己語系的標籤一併送上，以其為準）
+const GROUP_FALLBACK = {
+  'zh-Hant': { past: '過去', present: '現在', future: '未來', conscious: '意識層', material: '現實層', subconscious: '潛意識層', heart: '核心', cross: '十字', corners: '四角' },
+  en: { past: 'Past', present: 'Present', future: 'Emerging', conscious: 'Conscious', material: 'Material', subconscious: 'Subconscious', heart: 'Heart', cross: 'Cross', corners: 'Corners' },
+  ja: { past: '過去', present: '現在', future: 'これから', conscious: '意識', material: '現実', subconscious: '潜在意識', heart: '中心', cross: '十字', corners: '四隅' },
+  ko: { past: '과거', present: '현재', future: '앞으로', conscious: '의식', material: '현실', subconscious: '무의식', heart: '중심', cross: '십자', corners: '네 모서리' },
+};
+function pickLang(v) { return LANGS.includes(v) ? v : 'zh-Hant'; }
 
 // ---- 各階段資料段：排版成可讀文字（送給模型與記錄的就是這串文字，非 JSON 結構） ----
 
@@ -166,8 +180,13 @@ function fmtAstro(A) {
 function buildSegments(p) {
   const tools = Array.isArray(p.tools) && p.tools.length ? p.tools : ['lenormand'];
   const astroText = fmtAstro(p.astro);
+  const lang = pickLang(p.lang);
+  const gl = (p.groupLabels && typeof p.groupLabels === 'object') ? p.groupLabels : {};
+  const groups = { ...GROUP_FALLBACK[lang], ...gl };
   return {
     opening: String(p.opening || '').slice(0, 600),
+    lang,
+    groups,
     tools,
     lenormand: tools.includes('lenormand') ? fmtLenormand(p.lenormand).slice(0, 4000) : null,
     meihua: tools.includes('meihua') ? fmtMeihua(p.meihua).slice(0, 1500) : null,
@@ -175,27 +194,37 @@ function buildSegments(p) {
   };
 }
 
+// 各語言的篇幅上限（CJK 以字計；英文以 word 計，約當同等資訊量）
+const LEN_RULE = {
+  'zh-Hant': '整節總字數**硬性上限 2000 字、下限 1700 字**（含標點）',
+  ja: '整節總字數**硬性上限 2000 字、下限 1700 字**（含標點）',
+  ko: '整節總字數**硬性上限 1800 字、下限 1500 字**（韓文字，含標點）',
+  en: '整節總長度**硬性上限 1100 words、下限 900 words**',
+};
+
 // 每個工具「必須逐項走完」的結構——直接寫進 prompt，模型須依此展開每一段
 const TOOL_STRUCT = {
-  lenormand: `雷諾曼牌陣（九宮格 3×3）——content 內請依下列小標題依序展開，每一段都要具體、有內容，以「牌組組合」而非逐張牌義解讀：
+  lenormand: (g, len) => `雷諾曼牌陣（九宮格 3×3）——content 內請依下列小標題依序展開，每一段都要具體、有內容，以「牌組組合」而非逐張牌義解讀：
 ① 九張牌已以九宮格圖示呈現給使用者，**不要在文字中逐一列出牌名**；直接從整體印象進入解讀。
-② 時間軸：分別解讀「過去」「現在」「未來」三組，各成一段。
-③ 三層意識：分別解讀「意識層」「現實層」「潛意識層」三組，各成一段。
-④ 十字法：解讀「核心」「十字」「四角」。
+② 時間軸：分別解讀「${g.past}」「${g.present}」「${g.future}」三組，各成一段。
+③ 三層意識：分別解讀「${g.conscious}」「${g.material}」「${g.subconscious}」三組，各成一段。
+④ 十字法：解讀「${g.heart}」「${g.cross}」「${g.corners}」。
 ⑤ 最後整理這九張牌共同描述的生命故事、核心主題與發展方向。
 
-【小標題格式（務必遵守）】每一組都以**簡短標題單獨成行**，標題就是組名本身，後面不加任何說明或位置編號——只寫「過去」「現在」「未來」「意識層」「現實層」「潛意識層」「核心」「十字」「四角」，然後換行寫該組的解讀內容。
-⚠ 正文中**絕對不要**出現「那一排」「這一排」「那三張」「這三張」「這一組牌」「左邊那排」等指涉牌卡位置或數量的說法，也不要寫出位置編號（如「1、4、7」）——牌面已用圖示呈現，讀者看得到。直接談內容本身，例如寫「過去」標題後，內文就從「長期的流失與消耗，來自……」直接開始，而不是「過去那一排講的是……」。
-每個小標題都要出現、有實質敘述、不可略過，但每段都要精簡。⚠ 整節總字數**硬性上限 2000 字、下限 1700 字**（含標點），為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
-  meihua: `梅花易數——content 內請依下列小標題依序完整展開，把整個卦象整理成一個完整的故事，而非零碎解釋：
+【小標題格式（務必遵守）】每一組都以**簡短標題單獨成行**，標題必須**逐字使用**下列字樣（不可改寫、不可翻譯成別的說法、後面不加說明或位置編號）：
+${g.past}／${g.present}／${g.future}／${g.conscious}／${g.material}／${g.subconscious}／${g.heart}／${g.cross}／${g.corners}
+標題單獨一行，換行後才寫該組的解讀內容。前端會依這些標題把對應牌卡顯示在該段上方，字樣不符就對不上。
+⚠ 正文中**絕對不要**出現「那一排」「這一排」「那三張」「這一組牌」（及其他語言的同義說法，如 "that row"／"those three cards"／「あの列」／'그 줄'）等指涉牌卡位置或數量的說法，也不要寫出位置編號（如 1、4、7）——牌面已用圖示呈現，讀者看得到。直接談內容本身。
+每個小標題都要出現、有實質敘述、不可略過，但每段都要精簡。⚠ ${len}，為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
+  meihua: (g, len) => `梅花易數——content 內請依下列小標題依序完整展開，把整個卦象整理成一個完整的故事，而非零碎解釋：
 ① 本卦：卦名與卦象含義。
 ② 變卦：卦名與其代表的走向變化。
 ③ 動爻：哪一爻動、它的意義。
 ④ 卦象含義：本卦、互卦、變卦與體用生剋合起來說明。
 ⑤ 對應本次問題的解讀：把卦象扣回使用者的主題。
 ⑥ 行動建議。
-每個小標題都要出現、有實質敘述，但每段都要精簡。⚠ 整節總字數**硬性上限 2000 字、下限 1700 字**（含標點），為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
-  astro: `西洋占星——不固定分析整張盤，依主題主動挑選所有高度相關的配置（宮位、宮主星、飛星、相位、Vesta 等），逐項說明後整理成一條完整的生命脈絡。所有數據只能依提供的星盤，不得補造。`,
+每個小標題都要出現、有實質敘述，但每段都要精簡。⚠ ${len}，為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
+  astro: () => `西洋占星——不固定分析整張盤，依主題主動挑選所有高度相關的配置（宮位、宮主星、飛星、相位、Vesta 等），逐項說明後整理成一條完整的生命脈絡。所有數據只能依提供的星盤，不得補造。`,
 };
 
 function buildPrompt(action, p, seg) {
@@ -207,8 +236,11 @@ function buildPrompt(action, p, seg) {
   if (tools.includes('astro')) blocks.push(`【西洋占星本命盤（Swiss Ephemeris 實算；僅可依此詮釋，不得補造）】\n${seg.astro}`);
 
   const multi = tools.length > 1;
-  const order = tools.map((t) => TOOL_LABEL[t]).join('、');
-  const structs = tools.map((t) => `〔${TOOL_LABEL[t]}〕\n${TOOL_STRUCT[t]}`).join('\n\n');
+  const lang = seg.lang || 'zh-Hant';
+  const label = (x) => (TOOL_LABEL[lang] || TOOL_LABEL['zh-Hant'])[x] || x;
+  const len = LEN_RULE[lang] || LEN_RULE['zh-Hant'];
+  const order = tools.map(label).join('、');
+  const structs = tools.map((x) => `〔${label(x)}〕\n${TOOL_STRUCT[x](seg.groups || {}, len)}`).join('\n\n');
   const secRule = multi
     ? `sections 依序輸出這些工具的完整解析：${order}（tool 欄位用代碼 ${tools.join('、')}），最後再加一節 tool="synthesis" 的「交叉比對綜合分析」。不得用綜合分析取代任何工具的完整解析。`
     : `sections 只有一節：${order}（tool 欄位用代碼 ${tools[0]}）。這是使用者當次唯一的分析。`;
@@ -227,9 +259,9 @@ ${blocks.join('\n\n')}
 ${structs}
 ${multi ? '\n完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。\n' : ''}
 輸出 JSON：
-- title：一句自然、日常、一看就懂的話（≤16字）。
+- title：一句自然、日常、一看就懂的話（以輸出語言書寫；中日韓 ≤16 字，英文 ≤10 words）。
 - sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題可用「時間軸」「三層意識」「本卦」等自然標示，但不要用 markdown 符號。
-- closing：一句臨別祝福（≤40字）。`;
+- closing：一句臨別祝福（以輸出語言書寫；中日韓 ≤40 字，英文 ≤25 words）。`;
 }
 
 async function callOpenAI(apiKey, model, maxTokens, systemPrompt, userPrompt, schema, schemaName) {
@@ -327,7 +359,7 @@ export default async function handler(req, res) {
   const schema = SCHEMAS[action];
 
   // system prompt 依所選工具動態組裝（只納入被選到的章節；兩個以上工具才加「交叉比對綜合分析」）
-  const systemPrompt = buildSystemPrompt(segments.tools);
+  const systemPrompt = buildSystemPrompt(segments.tools, segments.lang);
   const sysHash = djb2(systemPrompt);
 
   // 記錄實際送出的 prompt 與各階段資料段（呼叫前寫入——模型失敗也留有紀錄可復盤）

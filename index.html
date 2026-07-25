@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>靈感訊息 · 今天想獲得什麼靈感</title>
+<title>Intuitive Notes · 直覺筆記</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/calm.css">
 </head>
@@ -12,22 +12,26 @@
 <div class="sky" aria-hidden="true"></div>
 
 <!-- 左上角選單：金色三線 → 展開側邊選單 -->
-<button class="menu-toggle" id="menuToggle" aria-label="開啟選單" aria-expanded="false" aria-controls="sideMenu">
+<button class="menu-toggle" id="menuToggle" aria-label="開啟選單" data-i18n-aria="menu.open" aria-expanded="false" aria-controls="sideMenu">
   <span></span><span></span><span></span>
 </button>
 <nav class="side-menu" id="sideMenu" aria-hidden="true">
   <div class="menu-backdrop" data-act="close"></div>
   <aside class="menu-panel" role="menu" aria-label="主選單">
-    <button type="button" class="menu-close" data-act="close" aria-label="關閉選單"></button>
+    <button type="button" class="menu-close" data-act="close" aria-label="關閉選單" data-i18n-aria="menu.close"></button>
     <div class="menu-brand">
       <img class="menu-logo" src="assets/logo-mark.png" alt="" aria-hidden="true">
       <span>Intuitive Notes</span>
     </div>
-    <button type="button" class="menu-item" data-act="home" role="menuitem">首頁</button>
-    <button type="button" class="menu-item" data-act="history" role="menuitem">我的靈感訊息</button>
-    <button type="button" class="menu-item is-disabled" disabled role="menuitem">直覺對話（1 對 1 諮詢）</button>
-    <button type="button" class="menu-item is-disabled" disabled role="menuitem">專屬靈感牌卡</button>
-    <a class="menu-item menu-item-coffee" data-act="coffee" href="https://buymeacoffee.com/intuitivenotes" target="_blank" rel="noopener noreferrer" role="menuitem">支持開發者🍰</a>
+    <button type="button" class="menu-item" data-act="home" role="menuitem" data-i18n="menu.home">首頁</button>
+    <button type="button" class="menu-item" data-act="history" role="menuitem" data-i18n="menu.history">我的靈感訊息</button>
+    <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-i18n="menu.dialogue">直覺對話（1 對 1 諮詢）</button>
+    <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-i18n="menu.cards">專屬靈感牌卡</button>
+    <div class="menu-lang">
+      <div class="menu-lang-label" data-i18n="menu.lang">語言</div>
+      <div class="menu-lang-row" id="langRow"></div>
+    </div>
+    <a class="menu-item menu-item-coffee" data-act="coffee" href="https://buymeacoffee.com/intuitivenotes" target="_blank" rel="noopener noreferrer" role="menuitem" data-i18n="menu.support">支持開發者🍰</a>
   </aside>
 </nav>
 
@@ -39,33 +43,35 @@
       <div class="eyebrow">Intuitive Notes</div>
       <div class="rule-orn" aria-hidden="true"></div>
       <div class="ask-box">
-        <label for="question">你今天想探索什麼主題？</label>
-        <textarea id="question" placeholder="例如：事業方向" maxlength="600" rows="3"></textarea>
+        <label for="question" data-i18n="intake.label">你今天想探索什麼主題？</label>
+        <textarea id="question" placeholder="例如：事業方向" data-i18n-ph="intake.placeholder" maxlength="600" rows="3"></textarea>
       </div>
 
       <div class="tool-pick">
-        <div class="tool-pick-label">選擇一項分析工具</div>
+        <div class="tool-pick-label" data-i18n="intake.toolPick">選擇一項分析工具</div>
         <div class="tool-grid" id="toolGrid">
-          <button type="button" class="tool-opt" data-tool="lenormand" aria-pressed="false">雷諾曼牌陣</button>
-          <button type="button" class="tool-opt" data-tool="meihua" aria-pressed="false">梅花易數</button>
-          <button type="button" class="tool-opt" data-tool="astro" aria-pressed="false">西洋占星</button>
-          <button type="button" class="tool-opt soon" disabled>八字<span class="soon-tag">Coming Soon</span></button>
-          <button type="button" class="tool-opt soon" disabled>紫微斗數<span class="soon-tag">Coming Soon</span></button>
-          <button type="button" class="tool-opt soon" disabled>塔羅牌<span class="soon-tag">Coming Soon</span></button>
+          <button type="button" class="tool-opt" data-tool="lenormand" aria-pressed="false" data-i18n="tools.lenormand">雷諾曼牌陣</button>
+          <button type="button" class="tool-opt" data-tool="meihua" aria-pressed="false" data-i18n="tools.meihua">梅花易數</button>
+          <button type="button" class="tool-opt" data-tool="astro" aria-pressed="false" data-i18n="tools.astro">西洋占星</button>
+          <button type="button" class="tool-opt soon" disabled><span data-i18n="tools.bazi">八字</span><span class="soon-tag" data-i18n="intake.soon">Coming Soon</span></button>
+          <button type="button" class="tool-opt soon" disabled><span data-i18n="tools.ziwei">紫微斗數</span><span class="soon-tag" data-i18n="intake.soon">Coming Soon</span></button>
+          <button type="button" class="tool-opt soon" disabled><span data-i18n="tools.tarot">塔羅牌</span><span class="soon-tag" data-i18n="intake.soon">Coming Soon</span></button>
         </div>
       </div>
 
-      <button class="btn primary" id="btnStart" disabled>開始分析</button>
-      <div class="fineprint">這是自我探索的體驗，不是醫療、法律或財務建議。過程會匿名記錄，用於改善體驗。</div>
+      <button class="btn primary" id="btnStart" disabled data-i18n="intake.start">開始分析</button>
+      <div class="fineprint" data-i18n="intake.fineprint">這是自我探索的體驗，不是醫療、法律或財務建議。過程會匿名記錄，用於改善體驗。</div>
     </div>
   </section>
 
   <!-- 危機關懷（固定模板，不進體驗） -->
   <section class="screen" id="screenCare">
     <div class="intake care">
-      <h1 class="care-title">先停一停，這裡有人在乎你</h1>
-      <p class="lede">謝謝你願意把這麼重的心情說出來。這個體驗無法承接此刻的你，但你值得真實的陪伴與支持。<br><br>台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b><br>若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
-      <button class="btn" id="btnCareBack">回到入口</button>
+      <h1 class="care-title" data-i18n="care.title">先停一停，這裡有人在乎你</h1>
+      <p class="lede" data-i18n="care.body">謝謝你願意把這麼重的心情說出來。這個體驗無法承接此刻的你，但你值得真實的陪伴與支持。</p>
+      <p class="lede care-lines" data-i18n-html="care.lines">台灣 24 小時安心專線：<b>1925</b>｜生命線：<b>1995</b>｜張老師：<b>1980</b></p>
+      <p class="lede" data-i18n="care.other">若你在其他地區，請聯繫當地的心理支持專線，或找一位你信任的人說說話。</p>
+      <button class="btn" id="btnCareBack" data-i18n="care.back">回到入口</button>
     </div>
   </section>
 
@@ -77,8 +83,8 @@
       <div class="pick-count" id="pickCount">已選 0 / 9</div>
       <div class="deck-grid" id="deckGrid"></div>
       <div class="divine-actions">
-        <button class="btn primary" id="btnSpreadDone" disabled>就是這九張，繼續</button>
-        <button class="btn ghost" id="btnSpreadReset">重選</button>
+        <button class="btn primary" id="btnSpreadDone" disabled data-i18n="spread.done">就是這九張，繼續</button>
+        <button class="btn ghost" id="btnSpreadReset" data-i18n="spread.reset">重選</button>
       </div>
     </div>
   </section>
@@ -95,9 +101,9 @@
       </div>
       <div class="num-picked" id="numPicked"></div>
       <div class="divine-actions">
-        <button class="btn primary" id="btnNumbersDone" disabled>就是這三個數</button>
-        <button class="btn ghost" id="btnNumbersRandom">請幫我隨機選</button>
-        <button class="btn ghost" id="btnNumbersSkip">讓此刻的時間替我決定</button>
+        <button class="btn primary" id="btnNumbersDone" disabled data-i18n="numbers.done">就是這三個數</button>
+        <button class="btn ghost" id="btnNumbersRandom" data-i18n="numbers.random">請幫我隨機選</button>
+        <button class="btn ghost" id="btnNumbersSkip" data-i18n="numbers.byTime">讓此刻的時間替我決定</button>
       </div>
     </div>
   </section>
@@ -106,35 +112,35 @@
   <section class="screen" id="screenAstro">
     <div class="numbers astro">
       <p class="divine-lede" id="astroLede">請提供你的出生資料，將以天文曆精算你的本命星盤。</p>
-      <p class="astro-privacy">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</p>
+      <p class="astro-privacy" data-i18n="astro.note">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</p>
       <div class="rule-orn" aria-hidden="true"></div>
       <div class="astro-form">
         <div class="af-row">
-          <label for="astroDate">出生日期</label>
+          <label for="astroDate" data-i18n="astro.date">出生日期</label>
           <input type="date" id="astroDate" min="1800-01-01" max="2399-12-31">
         </div>
         <div class="af-row">
-          <label for="astroTime">出生時間</label>
+          <label for="astroTime" data-i18n="astro.time">出生時間</label>
           <input type="time" id="astroTime">
         </div>
         <div class="af-row af-check">
-          <label class="flt-chk"><input type="checkbox" id="astroTimeUnknown">時間不確定（將略過上升點與宮位，僅計算行星星座）</label>
+          <label class="flt-chk"><input type="checkbox" id="astroTimeUnknown"><span data-i18n="astro.unknown">時間不確定（將略過上升點與宮位，僅計算行星星座）</span></label>
         </div>
         <div class="af-row combo">
-          <label for="astroCity">出生城市（輸入後從清單選擇）</label>
-          <input type="text" id="astroCity" maxlength="80" placeholder="輸入城市名搜尋，例如：台北" autocomplete="off">
+          <label for="astroCity" data-i18n="astro.city">出生城市（輸入後從清單選擇）</label>
+          <input type="text" id="astroCity" maxlength="80" placeholder="輸入城市名搜尋，例如：台北" data-i18n-ph="astro.cityPh" autocomplete="off">
           <div class="combo-list" id="cityList" hidden></div>
           <div class="combo-picked" id="cityPicked"></div>
         </div>
         <div class="af-row combo">
-          <label for="astroCountry">國家／地區（選填，可縮小城市搜尋範圍）</label>
-          <input type="text" id="astroCountry" maxlength="40" placeholder="輸入以搜尋國家清單，例如：台灣" autocomplete="off">
+          <label for="astroCountry" data-i18n="astro.country">國家／地區（選填，可縮小城市搜尋範圍）</label>
+          <input type="text" id="astroCountry" maxlength="40" placeholder="輸入以搜尋國家清單，例如：台灣" data-i18n-ph="astro.countryPh" autocomplete="off">
           <div class="combo-list" id="countryList" hidden></div>
         </div>
         <div class="admin-error" id="astroError"></div>
       </div>
       <div class="divine-actions">
-        <button class="btn primary" id="btnAstroDone" disabled>計算星盤，繼續</button>
+        <button class="btn primary" id="btnAstroDone" disabled data-i18n="astro.submit">計算星盤，繼續</button>
       </div>
     </div>
   </section>
@@ -152,7 +158,7 @@
           <div class="orb-planet op2"><i></i></div>
           <div class="orb-planet op3"><i></i></div>
         </div>
-        <p id="weavingText" class="orbit-label">分析中</p>
+        <p id="weavingText" class="orbit-label" data-i18n="weaving.label">分析中</p>
       </div>
     </div>
   </section>
@@ -165,8 +171,8 @@
   <!-- 我的靈感訊息（本機歷史回顧） -->
   <section class="screen" id="screenHistory">
     <div class="reading-wrap history-wrap">
-      <div class="r-title">我的靈感訊息</div>
-      <div class="r-sub">過去在這裡留下的占卜紀錄</div>
+      <div class="r-title" data-i18n="history.title">我的靈感訊息</div>
+      <div class="r-sub" data-i18n="history.sub">過去在這裡留下的占卜紀錄</div>
       <div class="rule-orn" aria-hidden="true"></div>
       <div id="historyHost"></div>
     </div>

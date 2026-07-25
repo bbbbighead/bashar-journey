@@ -905,7 +905,26 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 }
 .menu-item:hover:not(.is-disabled) { background: rgba(211, 181, 120, .1); color: var(--accent); }
 .menu-item.is-disabled { color: rgba(197, 187, 163, .32); cursor: not-allowed; }
-.menu-item-coffee { margin-top: auto; color: var(--accent); }
+/* 語言切換 */
+.menu-lang { margin-top: auto; padding: 18px 12px 6px; border-top: 1px solid var(--line); }
+.menu-lang-label {
+  font-family: var(--sans); font-size: 10.5px; letter-spacing: .26em;
+  color: var(--accent-dim); margin-bottom: 10px;
+}
+.menu-lang-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.lang-opt {
+  font-family: var(--sans); font-size: 12.5px; letter-spacing: .04em;
+  color: var(--ink-dim); background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 6px 10px; cursor: pointer; transition: all .2s ease;
+}
+.lang-opt:hover { color: var(--ink); border-color: var(--accent-dim); }
+.lang-opt.on {
+  color: #241a06; background: linear-gradient(180deg, #ffdd66, #f5c542);
+  border-color: #ffdd66; text-shadow: none;
+}
+
+.menu-item-coffee { color: var(--accent); }
 .menu-item-coffee:hover { background: rgba(211, 181, 120, .12); }
 
 /* ---- 我的靈感訊息（歷史列表） ---- */

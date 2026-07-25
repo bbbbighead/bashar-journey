@@ -15,9 +15,51 @@ import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney } from './analytics.js';
+import {
+  t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
+  initDocumentLang, LOCALE_LIST, localeName,
+} from './i18n/index.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+let spreadRepaint = null; // 選牌畫面的輕量重繪（切換語系時只換文字）
+
+// 工具名稱：走語系字典（synthesis 也在 tools 內）
+function toolLabel(tool) {
+  return t(`tools.${tool}`) || TOOL_LABELS[tool] || tool || '';
+}
+
+// ---- 靜態文案：把 data-i18n / data-i18n-html / data-i18n-ph / data-i18n-aria 套上目前語系 ----
+function applyStaticText(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach((el) => {
+    const v = t(el.dataset.i18n);
+    if (v) el.textContent = v;
+  });
+  root.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    const v = t(el.dataset.i18nHtml);
+    if (v) el.innerHTML = v; // 僅用於自家語系檔中含 <b> 的字串
+  });
+  root.querySelectorAll('[data-i18n-ph]').forEach((el) => {
+    const v = t(el.dataset.i18nPh);
+    if (v) el.setAttribute('placeholder', v);
+  });
+  root.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    const v = t(el.dataset.i18nAria);
+    if (v) el.setAttribute('aria-label', v);
+  });
+}
+
+// ---- 選單內的語言切換 ----
+function renderLangRow() {
+  const row = $('langRow');
+  if (!row) return;
+  row.innerHTML = LOCALE_LIST.map((code) => `
+    <button type="button" class="lang-opt${code === getLocale() ? ' on' : ''}"
+      data-lang="${code}" lang="${code}">${esc(localeName(code))}</button>`).join('');
+  row.querySelectorAll('.lang-opt').forEach((b) => {
+    b.addEventListener('click', () => setLocale(b.dataset.lang, true));
+  });
+}
 
 // Buy Me a Coffee 贊助連結——點擊於新分頁開啟；留空則點擊顯示「即將開放」
 const BMC_URL = 'https://buymeacoffee.com/intuitivenotes';
@@ -72,22 +114,22 @@ function renderHistory(keepScreen) {
   const items = loadHistory();
   const host = $('historyHost');
   if (!items.length) {
-    host.innerHTML = '<div class="hist-empty">還沒有任何紀錄。<br>完成一次占卜後，就會出現在這裡。</div>';
+    host.innerHTML = `<div class="hist-empty">${t('history.empty')}</div>`;
   } else {
     host.innerHTML = `
       <div class="hist-bar">
-        <span class="hist-count">共 ${items.length} 則</span>
-        <button type="button" class="hist-clear" id="btnHistClear">全部清空</button>
+        <span class="hist-count">${esc(t('history.count', items.length))}</span>
+        <button type="button" class="hist-clear" id="btnHistClear">${esc(t('history.clearAll'))}</button>
       </div>
       ${items.map((r, i) => {
-        const tools = (r.tools || []).map((t) => TOOL_LABELS[t] || t).join('、');
+        const tools = (r.tools || []).map(toolLabel).join(t('listSep'));
         return `<div class="hist-card">
           <button type="button" class="hist-open" data-idx="${i}">
-            <div class="hist-card-title">${esc((r.analysis && r.analysis.title) || '分析結果')}</div>
-            <div class="hist-card-topic">關於「${esc(r.opening)}」</div>
+            <div class="hist-card-title">${esc((r.analysis && r.analysis.title) || t('result.titleFallback'))}</div>
+            <div class="hist-card-topic">${esc(t('result.about', r.opening))}</div>
             <div class="hist-card-meta">${esc(tools)}${tools ? ' · ' : ''}${esc(formatDate(r.savedAt))}</div>
           </button>
-          <button type="button" class="hist-del" data-id="${esc(r.id)}" aria-label="刪除這一則">刪除</button>
+          <button type="button" class="hist-del" data-id="${esc(r.id)}" aria-label="${esc(t('history.delAria'))}">${esc(t('history.del'))}</button>
         </div>`;
       }).join('')}`;
 
@@ -98,9 +140,9 @@ function renderHistory(keepScreen) {
     host.querySelectorAll('.hist-del').forEach((b) => {
       b.addEventListener('click', () => {
         if (b.dataset.confirm !== '1') {
-          host.querySelectorAll('.hist-del').forEach((o) => { o.dataset.confirm = ''; o.textContent = '刪除'; o.classList.remove('confirm'); });
+          host.querySelectorAll('.hist-del').forEach((o) => { o.dataset.confirm = ''; o.textContent = t('history.del'); o.classList.remove('confirm'); });
           b.dataset.confirm = '1';
-          b.textContent = '確定刪除？';
+          b.textContent = t('history.delConfirm');
           b.classList.add('confirm');
           return;
         }
@@ -113,7 +155,7 @@ function renderHistory(keepScreen) {
     clearBtn.addEventListener('click', () => {
       if (clearBtn.dataset.confirm !== '1') {
         clearBtn.dataset.confirm = '1';
-        clearBtn.textContent = '確定全部清空？';
+        clearBtn.textContent = t('history.clearConfirm');
         clearBtn.classList.add('confirm');
         return;
       }
@@ -153,12 +195,12 @@ function refreshStart() {
 }
 toolButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
-    const t = btn.dataset.tool;
-    const already = selectedTools.has(t);
+    const tool = btn.dataset.tool;
+    const already = selectedTools.has(tool);
     selectedTools.clear();
     toolButtons.forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
     if (!already) { // 再點同一個＝取消選取
-      selectedTools.add(t);
+      selectedTools.add(tool);
       btn.classList.add('on');
       btn.setAttribute('aria-pressed', 'true');
     }
@@ -196,10 +238,10 @@ function collectedCount() {
 }
 // 步驟引言前綴：第一個蒐集步驟用「首先，」，之後用「接著，」
 function stepPrefix() {
-  return collectedCount() === 0 ? '首先，' : '接著，';
+  return collectedCount() === 0 ? t('step.first') : t('step.then');
 }
 function collectNext() {
-  const next = state.tools.find((t) => !collected(t));
+  const next = state.tools.find((tool) => !collected(tool));
   if (!next) {
     state.status = 'weaving';
     saveSession(state);
@@ -215,15 +257,21 @@ function runSpread() {
   const count = $('pickCount');
   const doneBtn = $('btnSpreadDone');
   const resetBtn = $('btnSpreadReset');
-  deck.closest('.spread').querySelector('.divine-lede').textContent = `${stepPrefix()}請憑直覺選出 9 張牌卡。`;
+  deck.closest('.spread').querySelector('.divine-lede').textContent = `${stepPrefix()}${t('spread.lede')}`;
 
   const order = shuffledDeckOrder(); // 牌池顯示順序（牌背朝上，位置不代表任何牌）
   let picks = []; // 已選牌的索引（0..35），選取順序即內部九宮格位置；不對使用者揭示牌面
 
   function renderCount() {
-    count.textContent = `已選 ${picks.length} / 9`;
+    count.textContent = t('spread.picked', picks.length);
     doneBtn.disabled = picks.length !== 9;
   }
+  // 切換語系時只更新文字，不重建牌池（避免清掉使用者已選的牌）
+  spreadRepaint = () => {
+    deck.closest('.spread').querySelector('.divine-lede').textContent = `${stepPrefix()}${t('spread.lede')}`;
+    deck.querySelectorAll('.deck-card').forEach((c) => c.setAttribute('aria-label', t('spread.cardBack')));
+    renderCount();
+  };
 
   // 牌池：36 張牌背。點一張＝選取（發光框），再點一次＝取消選取；牌不翻面、不消失。
   deck.innerHTML = '';
@@ -233,7 +281,7 @@ function runSpread() {
     el.dataset.cardIdx = String(cardIdx);
     el.setAttribute('role', 'button');
     el.setAttribute('aria-pressed', 'false');
-    el.setAttribute('aria-label', '一張牌（牌背朝上）');
+    el.setAttribute('aria-label', t('spread.cardBack'));
     el.addEventListener('click', () => {
       const at = picks.indexOf(cardIdx);
       if (at >= 0) {
@@ -277,7 +325,7 @@ function runNumbers() {
   const doneBtn = $('btnNumbersDone');
   const randomBtn = $('btnNumbersRandom');
   const picked = $('numPicked');
-  $('screenNumbers').querySelector('.divine-lede').textContent = `${stepPrefix()}請憑直覺輸入 3 個個位數（1–9）。`;
+  $('screenNumbers').querySelector('.divine-lede').textContent = `${stepPrefix()}${t('numbers.lede')}`;
 
   const valid = (el) => {
     const v = Number(el.value);
@@ -310,7 +358,7 @@ function runNumbers() {
     crypto.getRandomValues(rand);
     const nums = [...rand].map((r) => (r % 9) + 1);
     inputs.forEach((el, i) => { el.value = String(nums[i]); });
-    picked.textContent = `此刻為你選出——${nums.join('、')}`;
+    picked.textContent = t('numbers.chosen', nums);
     refresh();
   };
 
@@ -333,7 +381,7 @@ function runAstro() {
   const countryListEl = $('countryList');
   const errEl = $('astroError');
   const doneBtn = $('btnAstroDone');
-  $('astroLede').textContent = `${stepPrefix()}請提供你的出生資料，將以天文曆精算你的本命星盤。`;
+  $('astroLede').textContent = `${stepPrefix()}${t('astro.lede')}`;
 
   let pickedPlace = null;   // 從搜尋清單選定的城市（帶經緯度/時區，計算時免再 geocode）
   let pickedCountry = null; // 從國家清單選定 {code, zh, en}
@@ -353,7 +401,7 @@ function runAstro() {
     if (!items) { cityListEl.hidden = true; cityListEl.innerHTML = ''; return; }
     cityListEl.innerHTML = items.length
       ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(r.country || '')}</small></div>`).join('')
-      : '<div class="combo-empty">找不到符合的城市——試試別的寫法（可省略「市」「縣」）</div>';
+      : `<div class="combo-empty">${esc(t('astro.emptyCity'))}</div>`;
     cityListEl.hidden = false;
     cityListEl.querySelectorAll('.combo-item').forEach((el) => {
       el.addEventListener('mousedown', (ev) => { ev.preventDefault(); pickCity(items[Number(el.dataset.i)]); });
@@ -393,7 +441,7 @@ function runAstro() {
     if (!items) { countryListEl.hidden = true; countryListEl.innerHTML = ''; return; }
     countryListEl.innerHTML = items.length
       ? items.map((c, i) => `<div class="combo-item" data-i="${i}"><span>${esc(c.zh)}</span><small>${esc(c.en)}</small></div>`).join('')
-      : '<div class="combo-empty">找不到符合的國家／地區</div>';
+      : `<div class="combo-empty">${esc(t('astro.emptyCountry'))}</div>`;
     countryListEl.hidden = false;
     countryListEl.querySelectorAll('.combo-item').forEach((el) => {
       el.addEventListener('mousedown', (ev) => {
@@ -423,7 +471,7 @@ function runAstro() {
   doneBtn.onclick = async () => {
     errEl.textContent = '';
     doneBtn.disabled = true;
-    doneBtn.textContent = '正在精算星盤……';
+    doneBtn.textContent = t('astro.calculating');
     try {
       const chart = await fetchAstroChart({
         date: dateEl.value,
@@ -444,11 +492,11 @@ function runAstro() {
       collectNext();
     } catch (e) {
       errEl.textContent = ({
-        geocode_failed: '找不到這個城市——請輸入後從跳出的清單中選擇一個城市。',
-        date_out_of_range: '出生年份需在 1800–2399 之間。',
-        tz_unavailable: '無法解析當地時區，請稍後再試。',
-      })[e.code] || '星盤計算暫時無法使用，請稍後再試。';
-      doneBtn.textContent = '計算星盤，繼續';
+        geocode_failed: t('astro.err.geocode'),
+        date_out_of_range: t('astro.err.date'),
+        tz_unavailable: t('astro.err.tz'),
+      })[e.code] || t('astro.err.generic');
+      doneBtn.textContent = t('astro.submit');
       refresh();
     }
   };
@@ -482,9 +530,9 @@ function spreadGridHtml(spread) {
     <div class="lg-cell">
       <div class="lg-pos">${i + 1}</div>
       <div class="lg-ico">${cardConstellation(card.id)}</div>
-      <div class="lg-name">${esc(card.name)}</div>
+      <div class="lg-name">${esc(cardName(card.id, card.name))}</div>
     </div>`).join('');
-  return `<div class="lenormand-grid" aria-label="雷諾曼九宮格">${cells}</div>`;
+  return `<div class="lenormand-grid" aria-label="${esc(t('spread.gridAria'))}">${cells}</div>`;
 }
 
 // 全形數字轉半形
@@ -504,18 +552,20 @@ function posGroupsInText(text) {
   return groups;
 }
 
-// 九宮格標準閱讀組別 → 固定位置。長名在前（「潛意識層」要先於「意識層」比對）。
-const GROUP_LABELS = [
-  { label: '潛意識層', pos: [7, 8, 9] },
-  { label: '意識層', pos: [1, 2, 3] },
-  { label: '現實層', pos: [4, 5, 6] },
-  { label: '過去', pos: [1, 4, 7] },
-  { label: '現在', pos: [2, 5, 8] },
-  { label: '未來', pos: [3, 6, 9] },
-  { label: '核心', pos: [5] },
-  { label: '十字', pos: [2, 4, 6, 8] },
-  { label: '四角', pos: [1, 3, 7, 9] },
-];
+// 九宮格閱讀組別 → 固定位置。依目前語系取標籤，AI 也被要求用同一組標籤。
+// 依字數由長到短排序，確保「潛意識層」先於「意識層」比對（日文的「潜在意識」對「意識」亦同）。
+const GROUP_POS = {
+  subconscious: [7, 8, 9], conscious: [1, 2, 3], material: [4, 5, 6],
+  past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
+  heart: [5], cross: [2, 4, 6, 8], corners: [1, 3, 7, 9],
+};
+function groupLabels() {
+  const g = dict().groups || {};
+  return Object.keys(GROUP_POS)
+    .map((k) => ({ label: g[k] || k, pos: GROUP_POS[k] }))
+    .filter((x) => x.label)
+    .sort((a, b) => b.label.length - a.label.length);
+}
 
 // 決定某段落前方要顯示哪些對照牌卡（回傳位置群組陣列）。
 // 主：內文若明寫「（1、4、7）」這類位置，全部採用；
@@ -523,10 +573,10 @@ const GROUP_LABELS = [
 function posGroupsForBlock(text) {
   const explicit = posGroupsInText(text);
   if (explicit.length) return explicit;
-  const t = String(text).trim();
-  if (t.length < 10) return []; // 太短多半是小標題本身（如「時間軸」「十字法」），不放牌卡
-  const head = t.slice(0, 6);   // 只看開頭，避免內文中偶然出現「現在」等常用詞誤判
-  for (const g of GROUP_LABELS) {
+  const txt = String(text).trim();
+  if (txt.length < 10) return []; // 太短多半是小標題本身（如「時間軸」「十字法」），不放牌卡
+  const head = txt.slice(0, 10);  // 只看開頭，避免內文中偶然出現「現在」等常用詞誤判
+  for (const g of groupLabels()) {
     if (head.includes(g.label)) return [g.pos.slice()];
   }
   return [];
@@ -540,19 +590,19 @@ function cardStripHtml(spread, positions) {
     return `<figure class="lg-mini">
       <span class="lg-mini-pos">${pos}</span>
       <span class="lg-mini-ico">${cardConstellation(item.card.id)}</span>
-      <figcaption class="lg-mini-name">${esc(item.card.name)}</figcaption>
+      <figcaption class="lg-mini-name">${esc(cardName(item.card.id, item.card.name))}</figcaption>
     </figure>`;
   }).join('');
   if (!cells) return '';
-  return `<div class="lg-strip" aria-label="本段對應牌卡">${cells}</div>`;
+  return `<div class="lg-strip" aria-label="${esc(t('spread.stripAria'))}">${cells}</div>`;
 }
 
 // 該段落是否為「單獨成行的組別小標題」（如只寫「過去」「潛意識層」）。
 // 需完全等於組名（可帶尾端標點），避免「十字法」這種章節標題被誤判為「十字」。
 function exactGroupLabel(text) {
-  const t = String(text).trim().replace(/[：:。，,、\s]+$/, '');
-  if (t.length > 5) return null;
-  return GROUP_LABELS.find((g) => g.label === t) || null;
+  const txt = String(text).trim().replace(/[：:。，,、\s]+$/, '');
+  if (txt.length > 5) return null;
+  return groupLabels().find((g) => g.label === txt) || null;
 }
 
 // 雷諾曼解析內文：逐段落渲染。
@@ -590,7 +640,7 @@ function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
     <div class="r-section">
-      <h3 class="r-sec-head">${esc(TOOL_LABELS[s.tool] || s.tool || '')}</h3>
+      <h3 class="r-sec-head">${esc(toolLabel(s.tool))}</h3>
       ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
       <div class="r-block">${s.tool === 'lenormand'
         ? lenormandContentHtml(s.content, state.lenormand)
@@ -598,23 +648,23 @@ function renderResult(a) {
     </div>`).join('');
 
   $('resultHost').innerHTML = `
-    <div class="r-title">${esc(a.title || '分析結果')}</div>
-    <div class="r-sub">關於「${esc(state.opening)}」</div>
+    <div class="r-title">${esc(a.title || t('result.titleFallback'))}</div>
+    <div class="r-sub">${esc(t('result.about', state.opening))}</div>
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-sponsor">
-      <p class="r-sponsor-line">這則分析對你有幫助嗎？</p>
-      <button class="btn bmc-btn" id="btnCoffee">🍰 贊助一塊蛋糕</button>
+      <p class="r-sponsor-line">${esc(t('result.sponsorAsk'))}</p>
+      <button class="btn bmc-btn" id="btnCoffee">${esc(t('result.sponsorBtn'))}</button>
       <div class="copy-toast" id="coffeeToast"></div>
     </div>
     <div class="r-actions">
-      <button class="btn" id="btnCopy">複製這則內容</button>
-      <button class="btn" id="btnRestart">回到首頁</button>
+      <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
+      <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
     <div class="r-continue">
-      <div class="r-continue-title">想針對這份分析，繼續往下聊？</div>
-      <p class="r-continue-hint">選一個你慣用的 AI——會自動帶入這則分析，開啟後直接提問就好（內容也已複製，萬一沒帶入就貼上）。</p>
+      <div class="r-continue-title">${esc(t('result.continueTitle'))}</div>
+      <p class="r-continue-hint">${esc(t('result.continueHint'))}</p>
       <div class="ai-row">
         <a class="btn ai-btn" data-ai="chatgpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
         <a class="btn ai-btn" data-ai="claude" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
@@ -623,24 +673,24 @@ function renderResult(a) {
       <div class="copy-toast" id="copyToast"></div>
     </div>
     <div class="r-advanced">
-      <button class="btn" id="btnAdvanced">直覺對話</button>
-      <div class="r-advanced-hint">一對一語音諮詢</div>
+      <button class="btn" id="btnAdvanced">${esc(t('result.advanced'))}</button>
+      <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
     </div>`;
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnAdvanced').addEventListener('click', () => {
-    const t = $('advToast');
-    t.textContent = '一對一語音諮詢正在建構中——此服務即將開放，敬請期待。';
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3200);
+    const el = $('advToast');
+    el.textContent = t('result.advancedSoon');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3200);
   });
   $('btnCoffee').addEventListener('click', () => {
     if (BMC_URL) { window.open(BMC_URL, '_blank', 'noopener,noreferrer'); return; }
-    const t = $('coffeeToast');
-    t.textContent = '贊助連結即將開放，感謝你的支持 ☕';
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3200);
+    const el = $('coffeeToast');
+    el.textContent = t('result.sponsorSoon');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3200);
   });
   const handoff = buildHandoff(a);
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
@@ -655,32 +705,32 @@ function renderResult(a) {
 function fullText(a) {
   const sections = sectionsOf(a);
   return [
-    a.title || '分析結果',
+    a.title || t('result.titleFallback'),
     '',
-    `我的主題：${state.opening}`,
+    t('result.myTopic', state.opening),
     '',
-    ...sections.map((s) => `【${TOOL_LABELS[s.tool] || s.tool}】\n${String(s.content || '')}`),
+    ...sections.map((s) => `【${toolLabel(s.tool)}】\n${String(s.content || '')}`),
     a.closing ? `\n${a.closing}` : '',
-    '\n— Intuitive Notes',
+    '\n' + t('result.signature'),
   ].filter((s) => s !== '').join('\n\n');
 }
 
 function copyAnalysis(a) {
   const btn = $('btnCopy');
   navigator.clipboard.writeText(fullText(a)).then(
-    () => { btn.textContent = '已複製 ✓'; setTimeout(() => { btn.textContent = '複製完整內容'; }, 1800); },
-    () => { btn.textContent = '複製失敗'; }
+    () => { btn.textContent = t('result.copied'); setTimeout(() => { btn.textContent = t('result.copy'); }, 1800); },
+    () => { btn.textContent = t('result.copyFail'); }
   );
 }
 
 // 導流用文字：內容 ＋ 接續提問引導（複製與 query param 帶入共用同一份）
 function buildHandoff(a) {
   return [
-    '以下是我剛在「Intuitive Notes」完成的一次分析，請你先讀完：',
+    t('result.handoffPrefix'),
     '',
     fullText(a),
     '',
-    '請你扮演一位溫暖而誠實的引導者，基於以上的主題與分析，陪我繼續深入探討——我接下來會針對其中的內容提問。',
+    t('result.handoffSuffix'),
   ].join('\n');
 }
 
@@ -703,11 +753,11 @@ function continueWithAI(a, provider) {
   const canPrefill = provider !== 'gemini';
   navigator.clipboard.writeText(handoff).then(
     () => showToast(canPrefill
-      ? '已為你帶入這則分析——直接提問即可（內容也已複製備用）。'
-      : 'Gemini 無法預先帶入，已複製內容——在開啟的分頁貼上即可。'),
+      ? t('result.aiPrefilledCopied')
+      : t('result.aiGemini')),
     () => showToast(canPrefill
-      ? '已為你帶入這則分析——直接提問即可。'
-      : '分頁已開啟。若沒有內容，請回來按「複製這則內容」再貼上。')
+      ? t('result.aiPrefilled')
+      : t('result.aiFallback'))
   );
 }
 
@@ -731,6 +781,32 @@ function restart() {
   refreshStart();
   showScreen('screenIntake');
 }
+
+// ---- 語系啟動與切換 ----
+// 目前停留在哪個畫面，切換語系後要重繪同一個畫面（動態產生的內容不會自動更新）
+function repaintCurrentScreen() {
+  const active = document.querySelector('.screen.active');
+  const id = active ? active.id : 'screenIntake';
+  if (id === 'screenResult' && state && state.analysis) { renderResult(state.analysis); return; }
+  if (id === 'screenHistory') { renderHistory(); return; }
+  if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
+  if (id === 'screenNumbers' || id === 'screenAstro') {
+    const lede = active.querySelector('.divine-lede');
+    if (lede) lede.textContent = `${stepPrefix()}${t(id === 'screenNumbers' ? 'numbers.lede' : 'astro.lede')}`;
+  }
+}
+
+initDocumentLang();
+applyStaticText();
+renderLangRow();
+onLocaleChange(() => {
+  applyStaticText();
+  renderLangRow();
+  repaintCurrentScreen();
+  refreshStart();
+});
+// 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救
+refineByCountry();
 
 // ---- 續玩 ----
 (function resume() {
