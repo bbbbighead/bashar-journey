@@ -1096,14 +1096,16 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   font-family: var(--sans); font-size: 11.5px; letter-spacing: .24em;
   color: var(--accent-dim); margin: 18px 0 8px;
 }
+/* 起源／使用系統與參考提問的內文，與簡介（.gd-lede）用同一級字體與顏色，
+   整頁的正文才是一致的一種聲音 */
 .gd-meta-text {
-  font-family: var(--sans); font-size: 13.5px; line-height: 1.95; color: var(--ink-faint);
+  font-family: var(--serif); font-size: 15px; line-height: 1.95; color: var(--ink-dim);
 }
-.gd-meta-text b { color: var(--ink-dim); font-weight: normal; }
+.gd-meta-text b { color: var(--ink); font-weight: normal; }
 .gd-ask-list, .gd-rows { list-style: none; }
 .gd-ask-list li, .gd-row {
   position: relative; padding-left: 16px; margin-bottom: 8px;
-  font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-dim);
+  font-family: var(--serif); font-size: 15px; line-height: 1.95; color: var(--ink-dim);
 }
 .gd-ask-list li::before, .gd-row::before {
   content: '·'; position: absolute; left: 3px; color: var(--accent-dim);

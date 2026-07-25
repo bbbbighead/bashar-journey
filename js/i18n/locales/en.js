@@ -51,7 +51,7 @@ export default {
   guide: {
     title: 'About the practices',
     overviewTitle: 'Three ways to explore',
-    overviewLede: 'Each practice answers a different layer of a question, and you are free to mix them as it suits you.',
+    overviewLede: 'Each practice answers a different layer of a question.',
     cards: [
       { name: 'Lenormand · Nine-Card Grid', line: 'Best for how a situation is unfolding, and the whole picture.' },
       { name: 'Plum Blossom I Ching', line: 'Best for timing, decisions, and which way things are shifting.' },
