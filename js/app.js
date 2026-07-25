@@ -547,19 +547,43 @@ function cardStripHtml(spread, positions) {
   return `<div class="lg-strip" aria-label="本段對應牌卡">${cells}</div>`;
 }
 
-// 雷諾曼解析內文：逐段落渲染，段落若提到位置群組（如「過去（1、4、7）」），
-// 把對應的小張牌卡放進「同一個段落面板的最上方」（與文字共用同一塊暗色底，
-// 避免牌卡浮在段落之間、底色不同而顯得被切斷）。
+// 該段落是否為「單獨成行的組別小標題」（如只寫「過去」「潛意識層」）。
+// 需完全等於組名（可帶尾端標點），避免「十字法」這種章節標題被誤判為「十字」。
+function exactGroupLabel(text) {
+  const t = String(text).trim().replace(/[：:。，,、\s]+$/, '');
+  if (t.length > 5) return null;
+  return GROUP_LABELS.find((g) => g.label === t) || null;
+}
+
+// 雷諾曼解析內文：逐段落渲染。
+// ・若某行是單獨的組別小標題（過去／現在／未來／意識層…），就把「小標題＋對應牌卡＋
+//   接在後面的內文」合併進同一塊面板，讀者一眼看到標題、牌面與解讀。
+// ・若內文自己帶位置或以組名開頭（舊格式），仍在該段面板最上方放牌卡。
 function lenormandContentHtml(content, spread) {
   const hasSpread = Array.isArray(spread) && spread.length;
   const blocks = String(content || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (!blocks.length) return `<p>${esc(String(content || ''))}</p>`;
-  return blocks.map((b) => {
+
+  const out = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    const g = exactGroupLabel(b);
+    if (g) {
+      // 組別小標題：帶上牌卡，並把下一段內文併進同一塊面板
+      const strip = hasSpread ? cardStripHtml(spread, g.pos) : '';
+      const next = blocks[i + 1];
+      const body = (next && !exactGroupLabel(next)) ? next : '';
+      if (body) i += 1;
+      out.push(`<div class="lg-para"><div class="lg-sub">${esc(g.label)}</div>${strip}`
+        + (body ? `<p>${esc(body)}</p>` : '') + `</div>`);
+      continue;
+    }
     const strip = hasSpread
-      ? posGroupsForBlock(b).map((g) => cardStripHtml(spread, g)).join('')
+      ? posGroupsForBlock(b).map((gr) => cardStripHtml(spread, gr)).join('')
       : '';
-    return `<div class="lg-para">${strip}<p>${esc(b)}</p></div>`;
-  }).join('');
+    out.push(`<div class="lg-para">${strip}<p>${esc(b)}</p></div>`);
+  }
+  return out.join('');
 }
 
 function renderResult(a) {
