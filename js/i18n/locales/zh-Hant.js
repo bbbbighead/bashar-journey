@@ -95,7 +95,7 @@ export default {
   result: {
     titleFallback: '分析結果',
     about: (topic) => `關於「${topic}」`,
-    sponsorAsk: '這則分析對你有幫助嗎？',
+    sponsorAsk: '這個體驗免費開放，靠讀者的心意走下去。',
     sponsorBtn: '🍰 贊助一塊蛋糕',
     sponsorSoon: '贊助連結即將開放，感謝你的支持 ☕',
     copy: '複製這則內容',
@@ -116,6 +116,20 @@ export default {
     aiPrefilledCopied: '已為你帶入這則分析——直接提問即可（內容也已複製備用）。',
     aiGemini: 'Gemini 無法預先帶入，已複製內容——在開啟的分頁貼上即可。',
     aiFallback: '分頁已開啟。若沒有內容，請回來按「複製這則內容」再貼上。',
+  },
+
+  // 結果頁的使用者回饋（星等＋選填文字，會匿名回傳後台）
+  feedback: {
+    title: '這次的解讀，貼近你的狀況嗎？',
+    hint: '回饋只有開發者會看到，用來讓解讀越來越準。',
+    scale: (n) => ['', '差得遠', '有點勉強', '還可以', '蠻貼近的', '非常貼近'][n] || '',
+    textPh: '想多說一點嗎？（選填）',
+    send: '送出回饋',
+    sending: '送出中……',
+    done: '收到了，謝謝你的回饋 ✓',
+    failed: '送出失敗，請再試一次',
+    already: (n) => `你給了這次解讀 ${n} 顆星，謝謝你 ✓`,
+    starAria: (n) => `${n} 顆星`,
   },
 
   history: {

@@ -124,3 +124,31 @@ export function trackJourney(state) {
     });
   } catch { /* 靜默 */ }
 }
+
+// ---- 4. 使用者回饋（星等＋選填文字） ----
+// 與其他埋點不同：這是使用者主動按下「送出」的動作，必須看得到成功或失敗，
+// 所以用 fetch 等回應，而不是 sendBeacon。API 對埋點一律回 204，因此
+// 「有收到回應」即視為送達；只有網路層失敗才回報失敗讓使用者重送。
+export async function sendFeedback({ rating, text, state, lang }) {
+  const body = JSON.stringify({
+    sid: SID,
+    vid: VID,
+    type: 'feedback',
+    rating: Number(rating) || 0,
+    text: String(text || '').slice(0, 500),
+    lang: String(lang || ''),
+    // 讓每則回饋自己帶著上下文，後台不必仰賴同一筆來訪紀錄還在
+    topic: String((state && state.opening) || '').slice(0, 300),
+    tools: (state && state.tools) || null,
+    title: String((state && state.analysis && state.analysis.title) || '').slice(0, 60),
+    offline: !!(state && state.usedOffline),
+  });
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body,
+    keepalive: true,
+  });
+  if (!res.ok) throw new Error('feedback_failed');
+  return true;
+}

@@ -19,7 +19,9 @@ Intuitive Notes（MVP）——輸入一個想探索的主題，自由勾選一�
 AI 分析（單次呼叫）：每個所選工具一節完整解析；
       兩個以上工具 → 最後加「交叉比對綜合分析」
       ↓
-結果：標題 + 分節解析（雷諾曼/梅花/占星/綜合）+ 一句結語
+結果：主題 + 分節解析（雷諾曼/梅花/占星/綜合）
+      ↓
+回饋（選填）：五顆星評分＋想多說的話 → 匿名送回後台
 ```
 
 - **雷諾曼**：九宮格（3×3）以牌組組合解讀——時間軸（過去 1/4/7、現在 2/5/8、未來 3/6/9）、三層意識（意識 1/2/3、現實 4/5/6、潛意識 7/8/9）、十字法（核心 5、十字 2/4/6/8、四角 1/3/7/9），整理成一個完整的生命故事。
@@ -56,14 +58,14 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 ### 後台管理（/admin.html）
 
-後台提供三類分析：使用者歷史紀錄（來訪時間、題目與產出）、來源與裝置分析、各頁面平均停留時間；「資料範圍」選單（僅有題目／全部／僅未完成）一次套用到所有統計與清單。單筆詳情記錄實際送給模型的完整 prompt（System＋User，可分段檢視），並附**除錯問答視窗**——問題會連同當時的 prompt 與產出一併送給 LLM，可直接詢問「這段結果是根據什麼產生的」。啟用需兩項設定：
+後台提供四類分析：使用者歷史紀錄（來訪時間、題目與產出）、**使用者回饋**（結果頁送出的星等與文字，含平均星等與 1–5 星分布）、來源與裝置分析、各頁面平均停留時間；紀錄清單各欄皆可點表頭遞增／遞減排序；「資料範圍」選單（僅有題目／全部／僅未完成）一次套用到所有統計與清單。單筆詳情記錄實際送給模型的完整 prompt（System＋User，可分段檢視），並附**除錯問答視窗**——問題會連同當時的 prompt 與產出一併送給 LLM，可直接詢問「這段結果是根據什麼產生的」。啟用需兩項設定：
 
 1. **儲存後端**：於 Vercel 專案 → Storage → Marketplace 安裝 **Upstash Redis**（免費方案即可），安裝後 `UPSTASH_REDIS_REST_URL` 與 `UPSTASH_REDIS_REST_TOKEN` 會自動注入（舊版 `KV_REST_API_URL/TOKEN` 命名亦相容）。
 2. **管理密碼**：環境變數 `ADMIN_PASSWORD`（自訂一組強密碼）。
 
 設定後 Redeploy，開 `https://<專案名>.vercel.app/admin.html` 以密碼登入。未設定時：埋點靜默不寫入、後台顯示未啟用，前台體驗完全不受影響。
 
-資料皆為匿名（隨機訪客 ID），**不設時間過期**。保存以容量為準：後台總覽顯示「容量使用 %」（估算，含重算按鈕），容量上限由 `STORAGE_LIMIT_MB` 控制（預設 256＝Upstash 免費方案）；用量達 **95%** 時系統自動從最舊的紀錄開始刪除、維持在 95% 以下，並在後台顯示警示橫幅（含已汰舊筆數），提醒你考慮升級容量。後台亦可勾選多筆批次刪除、對單筆加自由文字標註（統計與用量同步回扣）。
+資料皆為匿名（隨機訪客 ID），**不設時間過期**。保存以容量為準：後台總覽顯示「容量使用 %」（估算，含重算按鈕），容量上限由 `STORAGE_LIMIT_MB` 控制（預設 256＝Upstash 免費方案）；用量達 **95%** 時系統自動從最舊的紀錄開始刪除、維持在 95% 以下，並在後台顯示警示橫幅（含已汰舊筆數），提醒你考慮升級容量。後台亦可勾選多筆批次刪除、對單筆加自由文字標註（統計與用量同步回扣）。刪除或自動汰舊一筆來訪時，其回饋也一併移除，不留孤兒資料。
 
 ### 本地開發
 
@@ -92,8 +94,11 @@ js/engine/session.js     狀態 + localStorage 續玩
 js/engine/inquiry.js     分析引擎（AI/離線雙路徑、分節輸出）
 js/engine/lenormand.js   雷諾曼引擎（選牌/抽牌、九宮格語義、主題群集）
 js/engine/meihua.js      梅花易數引擎（報數/時間起卦、本互變卦、體用生剋）
+js/engine/history.js     解讀歷史（localStorage，供「我的靈感訊息」回顧）
+js/engine/profile.js     出生資料記憶（localStorage，下次占星自動帶入）
+js/engine/feedback.js    已回饋過的解讀（localStorage，避免重複詢問）
 js/content/crisis.js     危機關鍵字攔截
-js/content/templates.js  離線後備（訊息段落素材）
+js/i18n/                 四語系字典（繁中／英／日／韓）與語系偵測
 js/ai/client.js          對 /api/insight 的 fetch 包裝
 data/lenormand.js        36 牌內部詮釋 + 主題群集 + 宮位語義
 data/hexagrams.js        64 卦內部詮釋 + 八卦五行 + 階段語義
@@ -101,8 +106,8 @@ api/astro.py             西洋占星本命盤計算＋城市搜尋（Python + p
 data/countries.js        ISO 3166 國家/地區代碼（顯示名由 Intl.DisplayNames 產生）
 requirements.txt         Python 相依（pyswisseph）
 api/insight.js           Vercel serverless 代理（analyze，structured outputs、速率限制）
-api/track.js             匿名埋點收集（來訪/停留/題目 → Upstash Redis）
-api/admin.js             後台查詢（總覽/來訪清單/單次詳情，ADMIN_PASSWORD 驗證）
+api/track.js             匿名埋點收集（來訪/停留/題目/回饋 → Upstash Redis）
+api/admin.js             後台查詢（總覽/來訪清單/單次詳情/回饋，ADMIN_PASSWORD 驗證）
 lib/redis.js             Upstash Redis REST 極簡客戶端（零依賴）
 admin.html + js/admin.js 管理儀表板（/admin.html，noindex）
 js/analytics.js          前端埋點（sendBeacon，失敗靜默）

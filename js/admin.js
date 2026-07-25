@@ -88,6 +88,7 @@ async function enterDash() {
   sessOffset = 0;
   exhausted = false;
   await loadMore();
+  await refreshFeedback();
 }
 
 // ---- 篩選 ----
@@ -134,8 +135,13 @@ const SORT_VALUE = {
   device: (s) => `${s.device || ''} ${s.os || ''}`,
   tools: (s) => toolText(s),
   hasJourney: (s) => (s.hasJourney ? 1 : 0),
+  // 沒回饋的排在最後（遞減時最高分在前、遞增時 0 在前）
+  feedback: (s) => (s.feedback ? Number(s.feedback.rating) || 0 : 0),
   note: (s) => String(s.note || ''),
 };
+
+// 星等 → ★★★☆☆
+const STARS = (n) => '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n);
 
 function sortSessions(list) {
   const pick = SORT_VALUE[sort.key] || SORT_VALUE.ts;
@@ -250,6 +256,64 @@ function renderPie(host, entries, fmtValue, emptyText) {
     </div>`;
 }
 
+// ---- 使用者回饋 ----
+// 獨立的 pi:feedback 清單（新到舊）。每筆自帶主題與工具，
+// 因此就算原來訪紀錄已被刪除或汰舊，回饋內容仍讀得到。
+let fbLimit = 200;
+
+$('btnFbMore').addEventListener('click', async () => {
+  fbLimit = Math.min(500, fbLimit + 200);
+  await refreshFeedback();
+});
+
+async function refreshFeedback() {
+  try {
+    const d = await api({ view: 'feedback', limit: String(fbLimit) });
+    renderFeedback(d);
+  } catch {
+    $('fbList').innerHTML = '<div class="empty">（回饋讀取失敗）</div>';
+  }
+}
+
+function renderFeedback(d) {
+  const summary = $('fbSummary');
+  const list = $('fbList');
+
+  if (!d.total) {
+    summary.innerHTML = '';
+    list.innerHTML = '<div class="empty">（還沒有人送出回饋）</div>';
+    $('btnFbMore').style.display = 'none';
+    return;
+  }
+
+  const bars = [5, 4, 3, 2, 1].map((n) => {
+    const c = d.dist[n] || 0;
+    const pct = d.loaded ? Math.round((c / d.loaded) * 100) : 0;
+    return `<div class="fbd-row">
+      <span class="fbd-star">${STARS(n)}</span>
+      <span class="fbd-bar"><span class="fbd-fill" style="width:${pct}%"></span></span>
+      <span class="fbd-num">${c}</span>
+    </div>`;
+  }).join('');
+
+  summary.innerHTML = `
+    <div class="fb-avg"><b>${d.avg || '—'}</b><span>平均星等（已載入 ${d.loaded} 筆／共 ${d.total} 筆）</span></div>
+    <div class="fb-dist">${bars}</div>`;
+
+  list.innerHTML = d.items.map((f) => `
+    <div class="fb-card">
+      <div class="fb-card-head">
+        <span class="fb-card-stars">${STARS(Number(f.rating) || 0)}</span>
+        <span class="fb-card-meta">${fmtTime(f.ts)}${f.tools && f.tools.length ? `・${esc(f.tools.map((x) => TOOL_LABEL[x] || x).join('、'))}` : ''}${f.lang ? `・${esc(f.lang)}` : ''}${f.offline ? '・離線模板' : ''}</span>
+      </div>
+      <div class="fb-card-topic">主題：${esc(f.topic || '—')}</div>
+      ${f.text ? `<div class="fb-card-text">${esc(f.text)}</div>` : '<div class="fb-card-text dim">（沒有留下文字）</div>'}
+      <div class="fb-card-sid">來訪 <code>${esc(f.sid || '')}</code>・訪客 <code>${esc(f.vid || '')}</code></div>
+    </div>`).join('');
+
+  $('btnFbMore').style.display = (d.loaded < d.total && fbLimit < 500) ? 'inline-block' : 'none';
+}
+
 // ---- 使用紀錄 ----
 $('btnMore').addEventListener('click', loadMore);
 
@@ -303,7 +367,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -325,6 +389,11 @@ function renderSessions() {
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
+      <td class="fb-cell" title="${esc(s.feedback ? `${s.feedback.rating} 星${s.feedback.text ? `：${s.feedback.text}` : ''}` : '')}">${
+        s.feedback
+          ? `<span class="fb-stars-cell">${STARS(s.feedback.rating)}</span>${s.feedback.text ? `<span class="fb-has-text" title="有留言">✎</span>` : ''}`
+          : '<span class="dim-dash">—</span>'
+      }</td>
       <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
 
     const chk = tr.querySelector('.row-chk');
@@ -376,6 +445,7 @@ $('btnBulkDel').addEventListener('click', async () => {
     selected.clear();
     renderSessions();
     await refreshOverview();
+    await refreshFeedback(); // 刪掉的紀錄，其回饋也一併移除了
   } catch {
     alert('刪除失敗，請重試。');
   }
@@ -388,7 +458,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="8" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="9" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {
@@ -408,6 +478,10 @@ async function toggleDetail(tr, s) {
         ${j.message ? `
         <div class="d-line d-message"><b>訊息</b><div class="d-msg-text">${esc(j.message)}${j.closing ? `\n\n— ${esc(j.closing)}` : ''}</div></div>` : ''}
       ` : '<div class="d-line"><b>題目</b>（此次來訪未完成體驗）</div>'}
+      <div class="d-line"><b>回饋</b>${d.feedback
+        ? `<span class="fb-stars-cell">${STARS(Number(d.feedback.rating) || 0)}</span>（${Number(d.feedback.rating) || 0} 星，${fmtTime(d.feedback.ts)}）${
+          d.feedback.text ? `<div class="d-msg-text fb-detail-text">${esc(d.feedback.text)}</div>` : '<span class="astro-sub">（沒有留下文字）</span>'}`
+        : '（未回饋）'}</div>
       <div class="d-line"><b>停留</b>${dwell || '—'}</div>
       ${d.prompt ? `
       <div class="d-line d-message"><b>Prompt</b>
@@ -565,6 +639,7 @@ async function toggleDetail(tr, s) {
         allSessions = allSessions.filter((x) => x.sid !== s.sid);
         renderSessions();
         await refreshOverview(); // 刷新總覽（統計已回扣）
+        await refreshFeedback();
       } catch {
         alert('刪除失敗，請重試。');
       }

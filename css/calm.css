@@ -173,6 +173,49 @@ textarea::placeholder { color: var(--ink-faint); }
   .tool-opt { font-size: 13px; padding: 14px 6px; }
 }
 
+/* ---- 結果頁：使用者回饋（星等＋選填文字） ---- */
+.r-feedback {
+  margin: 26px auto 0; max-width: 440px; padding: 22px 20px 24px;
+  text-align: center; border: 1px solid rgba(214, 183, 122, .22); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 15, 24, .74), rgba(8, 12, 20, .86));
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, .42);
+}
+.fb-title {
+  font-family: var(--serif); font-size: 15px; color: var(--ink);
+  line-height: 1.8; margin-bottom: 14px;
+}
+.fb-stars { display: flex; justify-content: center; gap: 6px; }
+.fb-star {
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  font-size: 27px; line-height: 1; color: rgba(179, 169, 143, .38);
+  transition: color .18s, transform .18s, text-shadow .18s;
+}
+.fb-star:hover { transform: translateY(-1px); color: var(--accent-dim); }
+.fb-star.on { color: var(--accent); text-shadow: 0 0 12px rgba(224, 193, 132, .55); }
+.fb-scale {
+  min-height: 1.5em; margin-top: 6px; font-family: var(--sans);
+  font-size: 12.5px; letter-spacing: .06em; color: var(--accent-dim);
+}
+.fb-more { margin-top: 8px; }
+.fb-text {
+  display: block; width: 100%; box-sizing: border-box; resize: vertical;
+  margin-bottom: 12px; padding: 11px 12px;
+  font-family: var(--sans); font-size: 14px; line-height: 1.7;
+  color: var(--ink); background: rgba(6, 10, 17, .7);
+  border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
+}
+.fb-text:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 14px rgba(214, 183, 122, .14); }
+.fb-text::placeholder { color: var(--ink-faint); }
+.fb-hint {
+  margin-top: 12px; font-family: var(--sans); font-size: 12px;
+  line-height: 1.7; color: var(--ink-faint);
+}
+.fb-msg { margin-top: 8px; font-family: var(--sans); font-size: 12.5px; color: #e0a08a; }
+.fb-done {
+  font-family: var(--serif); font-size: 14.5px; line-height: 1.8; color: var(--accent);
+}
+.r-feedback.done { padding: 18px 20px; }
+
 /* ---- 結果頁：贊助創作者 ---- */
 .r-sponsor {
   margin-top: 10px; padding: 28px 20px 40px; text-align: center;
@@ -791,6 +834,42 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   border-radius: 2px; padding: 2px 7px; white-space: nowrap;
   background: rgba(224, 193, 132, .07);
 }
+
+/* ---- 後台：使用者回饋 ---- */
+.fb-summary {
+  display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+  padding: 14px 16px; margin-bottom: 14px;
+  border: 1px solid var(--line); border-radius: 2px; background: var(--panel);
+}
+.fb-avg { display: flex; flex-direction: column; gap: 2px; }
+.fb-avg b { font-family: var(--serif); font-size: 30px; color: var(--accent); line-height: 1; }
+.fb-avg span { font-size: 11.5px; color: var(--ink-faint); }
+.fb-dist { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 3px; }
+.fbd-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
+.fbd-star { color: var(--accent-dim); letter-spacing: .06em; white-space: nowrap; }
+.fbd-bar { flex: 1; height: 6px; background: rgba(224, 193, 132, .1); border-radius: 3px; overflow: hidden; }
+.fbd-fill { display: block; height: 100%; background: var(--accent-dim); }
+.fbd-num { width: 2.4em; text-align: right; color: var(--ink-dim); }
+
+.fb-list { display: flex; flex-direction: column; gap: 10px; }
+.fb-card {
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 2px;
+  background: var(--panel); font-size: 13px; color: var(--ink-dim);
+}
+.fb-card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.fb-card-stars { color: var(--accent); letter-spacing: .08em; }
+.fb-card-meta { font-size: 11.5px; color: var(--ink-faint); }
+.fb-card-topic { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 6px; }
+.fb-card-text { color: var(--ink); line-height: 1.8; white-space: pre-wrap; }
+.fb-card-text.dim { color: var(--ink-faint); }
+.fb-card-sid { margin-top: 6px; font-size: 11px; color: var(--ink-faint); }
+.fb-card-sid code { color: var(--accent-dim); }
+
+/* 清單中的回饋欄 */
+.fb-cell { white-space: nowrap; }
+.fb-stars-cell { color: var(--accent); letter-spacing: .06em; }
+.fb-has-text { margin-left: 5px; color: var(--accent-dim); }
+.fb-detail-text { margin-top: 6px; white-space: pre-wrap; max-height: 200px; }
 
 /* 標記＝典藏章：雙框戳記 */
 .badge {
