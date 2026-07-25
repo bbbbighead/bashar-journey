@@ -101,9 +101,65 @@ $('sideMenu').addEventListener('click', (e) => {
   setMenu(false);
   if (act === 'home') restart();
   else if (act === 'history') renderHistory();
+  else if (act === 'guide') renderGuide();
   // act === 'close'：點背景即關閉（上面已 setMenu(false)）
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
+// ---- 探索工具介紹（選單頁） ----
+// 內容全在語系字典裡（guide 區塊），這裡只負責排版：
+// 先三張速覽卡（滑一下就知道差異），再逐一展開細節，最後是「不知道該選哪一個？」。
+function renderGuide() {
+  const g = dict().guide || {};
+  const rows = (list) => (list || []).map((r) => `
+    <li class="gd-row"><span class="gd-row-name">${esc(r.name)}</span><span class="gd-row-line">${esc(r.line)}</span></li>`).join('');
+
+  const cards = (g.cards || []).map((c) => `
+    <div class="gd-card">
+      <div class="gd-card-name"><span class="gd-mark" aria-hidden="true">✦</span>${esc(c.name)}</div>
+      <div class="gd-card-line">${esc(c.line)}</div>
+    </div>`).join('');
+
+  const sections = (g.sections || []).map((s) => `
+    <section class="gd-sec">
+      <h3 class="gd-sec-name">${esc(s.name)}</h3>
+      <p class="gd-lede">${esc(s.lede)}</p>
+      <div class="gd-meta">
+        <div class="gd-label">${esc(s.metaLabel)}</div>
+        <p class="gd-meta-text">${s.meta}</p>
+      </div>
+      <div class="gd-asks">
+        <div class="gd-label">${esc(s.asksLabel)}</div>
+        <ul class="gd-ask-list">${(s.asks || []).map((a) => `<li>${esc(a)}</li>`).join('')}</ul>
+      </div>
+    </section>`).join('<div class="rule-orn" aria-hidden="true"></div>');
+
+  $('guideHost').innerHTML = `
+    <section class="gd-overview">
+      <h2 class="gd-h2">${esc(g.overviewTitle)}</h2>
+      <p class="gd-lede">${esc(g.overviewLede)}</p>
+      <div class="gd-cards">${cards}</div>
+    </section>
+    <div class="rule-orn" aria-hidden="true"></div>
+    ${sections}
+    <div class="rule-orn" aria-hidden="true"></div>
+    <section class="gd-choose">
+      <h2 class="gd-h2">${esc(g.chooseTitle)}</h2>
+      ${(g.chooseBody || []).map((p) => `<p class="gd-lede">${esc(p)}</p>`).join('')}
+      <div class="gd-label">${esc(g.exampleLabel)}</div>
+      <p class="gd-example-q">${esc(g.exampleQ)}</p>
+      <ul class="gd-rows">${rows(g.exampleRows)}</ul>
+      <p class="gd-lede">${esc(g.focusLabel)}</p>
+      <ul class="gd-rows">${rows(g.focusRows)}</ul>
+      <p class="gd-lede">${esc(g.closing)}</p>
+    </section>
+    <div class="gd-actions">
+      <button type="button" class="btn primary" id="btnGuideStart">${esc(g.cta)}</button>
+    </div>`;
+
+  $('btnGuideStart').addEventListener('click', () => showScreen('screenIntake'));
+  showScreen('screenGuide');
+}
 
 // ---- 我的靈感訊息（本機歷史回顧） ----
 function formatDate(ms) {
@@ -932,6 +988,7 @@ function repaintCurrentScreen() {
   const id = active ? active.id : 'screenIntake';
   if (id === 'screenResult' && state && state.analysis) { renderResult(state.analysis); return; }
   if (id === 'screenHistory') { renderHistory(); return; }
+  if (id === 'screenGuide') { renderGuide(); return; }
   if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
   if (id === 'screenNumbers') {
     const lede = active.querySelector('.divine-lede');
