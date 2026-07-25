@@ -740,6 +740,7 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .cap-fill.warn { background: linear-gradient(90deg, #97803e, #cba95e); }
 .cap-fill.crit { background: linear-gradient(90deg, #96504e, #c47f7f); }
 .cap-stat .btn.small { margin-top: 2px; padding: 3px 14px; font-size: 11.5px; }
+.recalc-note { display: block; margin-top: 5px; font-size: 11px; color: var(--accent-dim); }
 
 .cap-banner {
   margin: 20px 0 6px; padding: 12px 16px; border-radius: 0;

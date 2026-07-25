@@ -28,12 +28,17 @@ async function recordPrompt(sid, provider, model, systemPrompt, sysHash, prompt,
       prompt: prompt.slice(0, 20000),
       segments: segments || null,
     });
+    // 同一次來訪可能重跑分析（前端失敗會重試一次），SET 是覆寫、不是新增，
+    // 所以用量要算「新舊差額」，否則每次重試都會把同一份 prompt 再累加一遍。
+    const [oldR] = await redisPipeline([['STRLEN', `pi:prompt:${sid}`]]);
+    const oldLen = Number(oldR.result || 0);
+    const delta = (record.length + 64) - (oldLen ? oldLen + 64 : 0);
     const results = await redisPipeline([
       ['SET', `pi:prompt:${sid}`, record],
       ['SET', `pi:sysprompt:${sysHash}`, systemPrompt, 'NX'],
-      ['INCRBY', 'pi:agg:bytes', String(record.length + 64)],
+      ['INCRBY', 'pi:agg:bytes', String(delta)],
     ]);
-    // system prompt 首次寫入才計入用量
+    // system prompt 首次寫入才計入用量（NX 未寫入時回 null）
     if (results && results[1] && results[1].result === 'OK') {
       await redisPipeline([['INCRBY', 'pi:agg:bytes', String(systemPrompt.length + 64)]]);
     }

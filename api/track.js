@@ -26,6 +26,14 @@ const KEY_OVERHEAD = 64; // 每鍵估算固定開銷（bytes）
 const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
 const PRUNE_TARGET = 0.95;
 
+// 汰舊保護：進行中的來訪絕不能被刪。
+// 一次體驗的資料是分好幾個請求陸續寫進來的（start → dwell → journey → feedback），
+// 若在中途把來訪紀錄刪掉，後面寫入的題目、產出與回饋就變成沒有主人的孤兒鍵——
+// 既讀不到（清單掃不到）、也不會被容量重算算到，用量估算因此越來越虛高。
+// 一次體驗頂多幾分鐘，所以 30 分鐘的保護窗已非常寬裕；同時永遠留下最新的幾筆。
+const PRUNE_MIN_AGE_MS = 30 * 60_000;
+const PRUNE_KEEP_RECENT = 20;
+
 // User-Agent → 裝置與作業系統（粗分類即可滿足分析需求）
 function parseDevice(ua) {
   ua = String(ua || '');
@@ -159,18 +167,31 @@ function parseEntry(r) {
   try { return { raw: r, ...JSON.parse(r) }; } catch { return { raw: r }; }
 }
 
-// 用量超過上限的 95% 時自動汰舊。
-// 優先刪除「未完成（沒有留下題目）」的紀錄（由最舊往新掃描）；
-// 仍不足時，才從最舊的完成紀錄開始刪除。
-async function maybePrune() {
-  const [bR] = await redisPipeline([['GET', 'pi:agg:bytes']]);
-  let bytes = Number(bR.result || 0);
-  const target = LIMIT_BYTES * PRUNE_TARGET;
-  if (bytes <= target) return;
+// 從最舊的紀錄開始刪，直到回到目標用量以下。
+// 永遠保留最新的 PRUNE_KEEP_RECENT 筆——剛開始的來訪一定在清單最前面，
+// 這條規則本身就保證了進行中的來訪不會被刪。
+// 以 LRANGE 先看過、再用 LREM 精準移除，不用 RPOP：RPOP 會先把紀錄拿走，
+// 之後才判斷它其實該保留就來不及了。
+async function pruneOldest(bytes, target, prunable) {
+  for (let round = 0; round < 6 && bytes > target; round++) {
+    const [lenR] = await redisPipeline([['LLEN', 'pi:sessions']]);
+    const removable = Number(lenR.result || 0) - PRUNE_KEEP_RECENT;
+    if (removable <= 0) break;
+    const take = Math.min(20, removable);
+    const [rangeR] = await redisPipeline([['LRANGE', 'pi:sessions', String(-take), '-1']]);
+    const batch = (rangeR.result || []).map(parseEntry).filter(prunable);
+    if (!batch.length) break;
+    bytes -= await removeEntries(batch, true);
+  }
+  return bytes;
+}
 
-  // 第一階段：未完成優先（掃描最舊的 300 筆，找出沒有 journey 的）
+// 汰舊一輪：先刪「未完成（沒有留下題目）」的紀錄（由最舊往新），
+// 仍不足時才從最舊的完成紀錄開始刪。prunable 決定哪些紀錄可以碰。
+async function pruneToTarget(bytes, target, prunable) {
+  // 未完成優先（掃描最舊的 300 筆，找出沒有 journey 的）
   const [tailR] = await redisPipeline([['LRANGE', 'pi:sessions', '-300', '-1']]);
-  const tail = (tailR.result || []).map(parseEntry).reverse(); // 最舊在前
+  const tail = (tailR.result || []).map(parseEntry).reverse().filter(prunable); // 最舊在前
   if (tail.length) {
     const exists = await redisPipeline(tail.map((e) => ['EXISTS', `pi:journey:${e.sid}`]));
     const incompletes = tail.filter((e, i) => exists[i].result !== 1);
@@ -178,14 +199,30 @@ async function maybePrune() {
       bytes -= await removeEntries(incompletes.slice(i, i + 20), true);
     }
   }
+  // 仍超標 → 從最舊的紀錄（含完成的）開始刪
+  return pruneOldest(bytes, target, prunable);
+}
 
-  // 第二階段：仍超標 → 從最舊的紀錄（含完成的）開始刪
-  for (let round = 0; round < 3 && bytes > target; round++) {
-    const [popR] = await redisPipeline([['RPOP', 'pi:sessions', '20']]);
-    const raws = popR.result || [];
-    if (!raws.length) break;
-    bytes -= await removeEntries(raws.map(parseEntry), false);
-  }
+// 用量超過上限的 95% 時自動汰舊。
+async function maybePrune() {
+  const [bR] = await redisPipeline([['GET', 'pi:agg:bytes']]);
+  let bytes = Number(bR.result || 0);
+  const target = LIMIT_BYTES * PRUNE_TARGET;
+  if (bytes <= target) return;
+
+  // 最新的幾筆一律不動——進行中的來訪一定在清單最前面（見 PRUNE_KEEP_RECENT 的說明）
+  const [recentR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', String(PRUNE_KEEP_RECENT - 1)]]);
+  const kept = new Set(recentR.result || []);
+  const cutoff = Date.now() - PRUNE_MIN_AGE_MS;
+  const unprotected = (e) => !!e.sid && !kept.has(e.raw);
+  // 已結束＝不在保護名單內，且開始時間已超過保護窗（沒有 ts 的舊格式紀錄視為久遠）
+  const settled = (e) => unprotected(e) && !(Number(e.ts) > cutoff);
+
+  bytes = await pruneToTarget(bytes, target, settled);
+
+  // 仍超標＝短時間內爆量，所有紀錄都還在保護窗內。若就此罷手，用量會一路衝破
+  // 儲存上限、連寫入都失敗；因此放寬時間條件，但「最新的幾筆」這條線仍然守住。
+  if (bytes > target) await pruneToTarget(bytes, target, unprotected);
 }
 
 export default async function handler(req, res) {

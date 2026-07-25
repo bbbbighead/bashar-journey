@@ -44,6 +44,45 @@ function parseJSON(s, fallback) {
   try { return JSON.parse(s); } catch { return fallback; }
 }
 
+// 以 SCAN 列出符合樣式的所有鍵（Upstash REST 支援 SCAN）。
+// 用於容量重算：來訪清單是唯一索引，掃不到的附屬資料只能靠 SCAN 找出來。
+async function scanKeys(pattern, maxRounds = 60) {
+  const keys = [];
+  let cursor = '0';
+  for (let round = 0; round < maxRounds; round++) {
+    const [r] = await redisPipeline([['SCAN', cursor, 'MATCH', pattern, 'COUNT', '500']]);
+    const out = r && r.result ? r.result : [];
+    cursor = String(out[0] == null ? '0' : out[0]);
+    for (const k of (out[1] || [])) keys.push(String(k));
+    if (cursor === '0') break;
+  }
+  return keys;
+}
+
+// 單筆來訪的附屬資料前綴（皆以 sid 結尾）
+const PER_SID_PREFIXES = ['pi:journey:', 'pi:dwell:', 'pi:dwellcnt:', 'pi:note:', 'pi:prompt:', 'pi:fb:'];
+
+// 刪掉沒有主人的附屬資料：來訪紀錄已不在清單中，附屬鍵卻還留著。
+// 這類資料讀不到也算不到，只會讓用量估算虛高——重算時一併清除。
+async function removeOrphanKeys(liveSids) {
+  let removed = 0;
+  for (const prefix of PER_SID_PREFIXES) {
+    const orphans = (await scanKeys(prefix + '*')).filter((k) => !liveSids.has(k.slice(prefix.length)));
+    for (let i = 0; i < orphans.length; i += 50) {
+      const chunk = orphans.slice(i, i + 50);
+      const cmds = chunk.map((k) => ['DEL', k]);
+      // 回饋另有一份在 pi:feedback 清單裡，要用原始字串才能移除
+      if (prefix === 'pi:fb:') {
+        const vals = await redisPipeline(chunk.map((k) => ['GET', k]));
+        vals.forEach((v) => { if (v && v.result) cmds.push(['LREM', 'pi:feedback', '1', v.result]); });
+      }
+      await redisPipeline(cmds);
+      removed += chunk.length;
+    }
+  }
+  return removed;
+}
+
 export default async function handler(req, res) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
 
@@ -89,12 +128,19 @@ export default async function handler(req, res) {
       }
 
       if (action === 'recalc') {
-        // 全面重算用量估算（掃描所有紀錄；分批查詢避免單次 pipeline 過大）
+        // 全面重算用量估算（掃描所有紀錄；分批查詢避免單次 pipeline 過大）。
+        // 先清掉沒有主人的附屬資料，再重數——這樣重算後的數字就是真實用量。
         const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '-1']]);
         const raws = (listR.result || []).slice(0, 10000);
         let bytes = 0;
         for (const raw of raws) bytes += raw.length + 16;
         const sids2 = raws.map((r) => (parseJSON(r, {}) || {}).sid).filter(Boolean);
+
+        let orphansRemoved = 0;
+        try {
+          orphansRemoved = await removeOrphanKeys(new Set(sids2));
+        } catch { /* 儲存後端不支援 SCAN：略過清理，仍照樣重算 */ }
+
         for (let i = 0; i < sids2.length; i += 100) {
           const chunk = sids2.slice(i, i + 100);
           const STRIDE = 6;
@@ -123,8 +169,20 @@ export default async function handler(req, res) {
             if (fLen) bytes += fLen + KEY_OVERHEAD + fLen + 16; // 字串 + pi:feedback 清單各一份
           });
         }
+        // system prompt 依版本共用一份、不屬於任何單一來訪，也要計入用量
+        try {
+          const sysKeys = await scanKeys('pi:sysprompt:*');
+          for (let i = 0; i < sysKeys.length; i += 100) {
+            const reads = await redisPipeline(sysKeys.slice(i, i + 100).map((k) => ['STRLEN', k]));
+            for (const r of reads) {
+              const n = Number(r.result || 0);
+              if (n) bytes += n + KEY_OVERHEAD;
+            }
+          }
+        } catch { /* 不支援 SCAN：略過這一項 */ }
+
         await redisPipeline([['SET', 'pi:agg:bytes', String(Math.round(bytes))]]);
-        res.status(200).json({ ok: true, bytes: Math.round(bytes) });
+        res.status(200).json({ ok: true, bytes: Math.round(bytes), orphansRemoved });
         return;
       }
 
