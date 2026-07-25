@@ -80,6 +80,8 @@ export default {
     submit: '出生図を計算してすすむ',
     calculating: '星の位置を計算しています……',
     picked: (name) => `選択：${name}`,
+    searching: '検索中……',
+    searchFailed: '都市検索サービスが応答していません。少し時間をおいてお試しいただくか、都市名を入力してそのまま進んでください（計算時にもう一度解析します）。',
     emptyCity: '一致する都市が見つかりません。別の書き方でお試しください。',
     emptyCountry: '一致する国・地域が見つかりません',
     err: {

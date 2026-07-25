@@ -78,6 +78,8 @@ export default {
     submit: '計算星盤，繼續',
     calculating: '正在精算星盤……',
     picked: (name) => `已選：${name}`,
+    searching: '搜尋中……',
+    searchFailed: '城市搜尋服務暫時無回應——請稍後再試，或直接輸入城市名繼續（將於計算時再解析一次）。',
     emptyCity: '找不到符合的城市——試試別的寫法（可省略「市」「縣」）',
     emptyCountry: '找不到符合的國家／地區',
     err: {

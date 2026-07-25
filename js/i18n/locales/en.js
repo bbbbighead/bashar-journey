@@ -80,6 +80,8 @@ export default {
     submit: 'Calculate the chart, continue',
     calculating: 'Casting your chart…',
     picked: (name) => `Chosen: ${name}`,
+    searching: 'Searching…',
+    searchFailed: 'The city search service isn’t responding right now — try again shortly, or type the city name and continue (it will be resolved when the chart is calculated).',
     emptyCity: 'No matching city — try another spelling.',
     emptyCountry: 'No matching country or region',
     err: {

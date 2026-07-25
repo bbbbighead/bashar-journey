@@ -397,7 +397,18 @@ function runAstro() {
   // -- 城市：即時搜尋合法清單（含臺↔台變體），點選後鎖定經緯度與時區 --
   let cityTimer = null;
   let citySeq = 0;
-  const renderCityList = (items) => {
+  // state：'searching'（正在查）｜'failed'（服務異常）｜陣列（結果）｜null（收起）
+  const renderCityList = (items, state) => {
+    if (state === 'searching') {
+      cityListEl.innerHTML = `<div class="combo-empty">${esc(t('astro.searching'))}</div>`;
+      cityListEl.hidden = false;
+      return;
+    }
+    if (state === 'failed') {
+      cityListEl.innerHTML = `<div class="combo-empty">${esc(t('astro.searchFailed'))}</div>`;
+      cityListEl.hidden = false;
+      return;
+    }
     if (!items) { cityListEl.hidden = true; cityListEl.innerHTML = ''; return; }
     cityListEl.innerHTML = items.length
       ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(r.country || '')}</small></div>`).join('')
@@ -410,7 +421,7 @@ function runAstro() {
   const pickCity = (r) => {
     pickedPlace = r;
     cityEl.value = r.name;
-    cityPickedEl.textContent = `已選：${r.name}${r.admin1 ? `，${r.admin1}` : ''}（${r.country || '？'}・${r.timezone || ''}）`;
+    cityPickedEl.textContent = `${t('astro.picked', r.name)}${r.admin1 ? `，${r.admin1}` : ''}（${r.country || '—'}・${r.timezone || ''}）`;
     if (r.country && !countryEl.value.trim()) countryEl.value = r.country;
     renderCityList(null);
     refresh();
@@ -422,16 +433,24 @@ function runAstro() {
     clearTimeout(cityTimer);
     const q = cityEl.value.trim();
     if (!q) { renderCityList(null); return; }
+    renderCityList(null, 'searching');
     cityTimer = setTimeout(async () => {
       const seq = ++citySeq;
       try {
         const res = await fetch('/api/astro?q=' + encodeURIComponent(q));
         const json = await res.json();
         if (seq !== citySeq) return;
-        let items = (json && json.results) || [];
-        if (pickedCountry) items = items.filter((r) => String(r.countryCode || '').toUpperCase() === pickedCountry.code);
+        const all = (json && json.results) || [];
+        // 上游查詢失敗且完全沒有結果 → 明確告知是服務異常，不要說「找不到城市」
+        if (!all.length && json && json.searchOk === false) { renderCityList(null, 'failed'); return; }
+        // 已選國家只用來排序，不過濾掉其他結果——避免使用者先選了國家就看到空清單
+        let items = all;
+        if (pickedCountry) {
+          const inCountry = (r) => String(r.countryCode || '').toUpperCase() === pickedCountry.code;
+          items = [...all.filter(inCountry), ...all.filter((r) => !inCountry(r))];
+        }
         renderCityList(items.slice(0, 8));
-      } catch { if (seq === citySeq) renderCityList([]); }
+      } catch { if (seq === citySeq) renderCityList(null, 'failed'); }
     }, 350);
   };
   cityEl.onblur = () => setTimeout(() => renderCityList(null), 150);

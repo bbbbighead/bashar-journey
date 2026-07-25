@@ -80,6 +80,8 @@ export default {
     submit: '차트 계산하고 계속',
     calculating: '별의 자리를 계산하고 있습니다……',
     picked: (name) => `선택: ${name}`,
+    searching: '검색 중……',
+    searchFailed: '도시 검색 서비스가 응답하지 않습니다. 잠시 후 다시 시도하거나, 도시 이름을 입력한 뒤 계속해 주세요 (계산할 때 다시 확인합니다).',
     emptyCity: '일치하는 도시가 없습니다. 다른 표기로 시도해 보세요.',
     emptyCountry: '일치하는 국가·지역이 없습니다',
     err: {
