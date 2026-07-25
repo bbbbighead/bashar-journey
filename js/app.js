@@ -7,7 +7,7 @@ import {
   createSession, saveSession, loadSession, clearSession, TOOL_LABELS,
 } from './engine/session.js';
 import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
-import { saveAnalysisToHistory } from './engine/history.js';
+import { saveAnalysisToHistory, loadHistory } from './engine/history.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
@@ -34,6 +34,77 @@ function showScreen(id) {
 function showWeaving(text) {
   if (text) $('weavingText').innerHTML = text;
   showScreen('screenWeaving');
+}
+
+// ---- 左上角選單 ----
+function setMenu(open) {
+  const menu = $('sideMenu');
+  menu.classList.toggle('open', open);
+  menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  const toggle = $('menuToggle');
+  toggle.classList.toggle('is-open', open);
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+$('menuToggle').addEventListener('click', () => setMenu(!$('sideMenu').classList.contains('open')));
+$('sideMenu').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'coffee') { setMenu(false); return; } // <a> 自行開新分頁
+  e.preventDefault();
+  setMenu(false);
+  if (act === 'home') restart();
+  else if (act === 'history') renderHistory();
+  // act === 'close'：點背景即關閉（上面已 setMenu(false)）
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
+// ---- 我的靈感訊息（本機歷史回顧） ----
+function formatDate(ms) {
+  const d = new Date(ms || Date.now());
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function renderHistory() {
+  const items = loadHistory();
+  const host = $('historyHost');
+  if (!items.length) {
+    host.innerHTML = '<div class="hist-empty">還沒有任何紀錄。<br>完成一次占卜後，就會出現在這裡。</div>';
+  } else {
+    host.innerHTML = items.map((r, i) => {
+      const tools = (r.tools || []).map((t) => TOOL_LABELS[t] || t).join('、');
+      return `<button type="button" class="hist-card" data-idx="${i}">
+        <div class="hist-card-title">${esc((r.analysis && r.analysis.title) || '分析結果')}</div>
+        <div class="hist-card-topic">關於「${esc(r.opening)}」</div>
+        <div class="hist-card-meta">${esc(tools)}${tools ? ' · ' : ''}${esc(formatDate(r.savedAt))}</div>
+      </button>`;
+    }).join('');
+    host.querySelectorAll('.hist-card').forEach((b) => {
+      b.addEventListener('click', () => openHistoryRecord(items[Number(b.dataset.idx)]));
+    });
+  }
+  showScreen('screenHistory');
+}
+
+// 以歷史紀錄重建 state，沿用結果頁既有渲染（九宮格、對照牌卡、複製與導流）
+function openHistoryRecord(rec) {
+  if (!rec || !rec.analysis) return;
+  state = {
+    runId: rec.id,
+    version: 3,
+    status: 'done',
+    opening: rec.opening || '',
+    tools: Array.isArray(rec.tools) ? rec.tools : [],
+    lenormand: rec.lenormand || null,
+    meihua: rec.meihua || null,
+    astro: rec.astro || null,
+    numbers: rec.numbers || null,
+    analysis: rec.analysis,
+    usedOffline: !!rec.usedOffline,
+    fromHistory: true,
+  };
+  renderResult(rec.analysis);
 }
 
 // ---- 入口：主題 + 選擇分析工具（單選：一次只能選一個） ----

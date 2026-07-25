@@ -10,6 +10,23 @@
 <body>
 <!-- 星圖背景：站主提供的星圖攝影（assets/bg-*.jpg）＋可讀性暗色塗層 -->
 <div class="sky" aria-hidden="true"></div>
+
+<!-- 左上角選單：金色三線 → 展開側邊選單 -->
+<button class="menu-toggle" id="menuToggle" aria-label="開啟選單" aria-expanded="false" aria-controls="sideMenu">
+  <span></span><span></span><span></span>
+</button>
+<nav class="side-menu" id="sideMenu" aria-hidden="true">
+  <div class="menu-backdrop" data-act="close"></div>
+  <aside class="menu-panel" role="menu" aria-label="主選單">
+    <div class="menu-brand">Intuitive Notes</div>
+    <button type="button" class="menu-item" data-act="home" role="menuitem">首頁</button>
+    <button type="button" class="menu-item" data-act="history" role="menuitem">我的靈感訊息</button>
+    <button type="button" class="menu-item is-disabled" disabled role="menuitem">直覺對話（1 對 1 諮詢）</button>
+    <button type="button" class="menu-item is-disabled" disabled role="menuitem">專屬靈感牌卡</button>
+    <a class="menu-item menu-item-coffee" data-act="coffee" href="https://buymeacoffee.com/intuitivenotes" target="_blank" rel="noopener noreferrer" role="menuitem">支持開發者🍰</a>
+  </aside>
+</nav>
+
 <div class="app" id="app">
 
   <!-- 首頁：輸入主題 + 選擇分析工具 -->
@@ -130,6 +147,16 @@
   <!-- 靈感訊息 -->
   <section class="screen" id="screenResult">
     <div class="reading-wrap" id="resultHost"></div>
+  </section>
+
+  <!-- 我的靈感訊息（本機歷史回顧） -->
+  <section class="screen" id="screenHistory">
+    <div class="reading-wrap history-wrap">
+      <div class="r-title">我的靈感訊息</div>
+      <div class="r-sub">過去在這裡留下的占卜紀錄</div>
+      <div class="rule-orn" aria-hidden="true"></div>
+      <div id="historyHost"></div>
+    </div>
   </section>
 
 </div>
