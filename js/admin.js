@@ -133,6 +133,7 @@ const SORT_VALUE = {
   vid: (s) => String(s.vid || ''),
   src: (s) => String(s.src || ''),
   device: (s) => `${s.device || ''} ${s.os || ''}`,
+  topic: (s) => String(s.topic || ''),
   tools: (s) => toolText(s),
   hasJourney: (s) => (s.hasJourney ? 1 : 0),
   // 沒回饋的排在最後（遞減時最高分在前、遞增時 0 在前）
@@ -372,7 +373,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="9" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="10" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -392,6 +393,7 @@ function renderSessions() {
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
+      <td class="topic-cell" title="${esc(s.topic || '')}">${esc(truncate(s.topic, 12)) || '<span class="dim-dash">—</span>'}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
       <td class="fb-cell" title="${esc(s.feedback ? `${s.feedback.rating} 星${s.feedback.text ? `：${s.feedback.text}` : ''}` : '')}">${
@@ -463,7 +465,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="9" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="10" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {

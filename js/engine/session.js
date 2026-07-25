@@ -40,8 +40,6 @@ export function createSession(opening, tools) {
 
     analysis: null,    // { title, sections:[{tool,content}], closing }
 
-    aiAvailable: true,
-    aiFailStreak: 0,
     aiCallLog: [],
   };
 }
@@ -72,12 +70,7 @@ export function clearSession() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
 }
 
+// 只留紀錄用：失敗不再關閉 AI（沒有離線後備可退，每次重試都要真的重打一次）
 export function logAiCall(state, entry) {
   state.aiCallLog.push(entry);
-  if (entry.ok) {
-    state.aiFailStreak = 0;
-  } else {
-    state.aiFailStreak += 1;
-    if (state.aiFailStreak >= 2) state.aiAvailable = false; // 連兩次失敗 → 離線後備
-  }
 }

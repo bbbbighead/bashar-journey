@@ -104,13 +104,3 @@ export function meihuaForAI(cast) {
   };
 }
 
-// 離線降級：把卦象讀成「時機與節奏」的自然語句（不含卦名與術語）
-export function offlineDynamics(cast) {
-  const out = [];
-  out.push(STAGE_MEANING[cast.ben.stage].sentence + '。');
-  out.push(RELATION_MEANING[cast.relation].sentence + '。');
-  if (cast.bian.stage !== cast.ben.stage) {
-    out.push(`往前看，整體的節奏正在從「${STAGE_MEANING[cast.ben.stage].label}」轉向「${STAGE_MEANING[cast.bian.stage].label}」——${STAGE_MEANING[cast.bian.stage].sentence}。`);
-  }
-  return out;
-}

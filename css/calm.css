@@ -875,6 +875,9 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .fb-card-sid { margin-top: 6px; font-size: 11px; color: var(--ink-faint); }
 .fb-card-sid code { color: var(--accent-dim); }
 
+/* 清單中的主題欄：只露前段，全文放 title 與展開的詳情 */
+.topic-cell { max-width: 10em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* 清單中的回饋欄 */
 .fb-cell { white-space: nowrap; }
 .fb-stars-cell { color: var(--accent); letter-spacing: .06em; }
@@ -1060,6 +1063,24 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 
 .menu-item-coffee { color: var(--accent); }
 .menu-item-coffee:hover { background: rgba(211, 181, 120, .12); }
+
+/* ---- 分析中的等待提示 ／ 解讀失敗頁 ---- */
+.weaving-slow {
+  margin-top: 34px; text-align: center; display: flex;
+  flex-direction: column; align-items: center; gap: 10px;
+  animation: fadein .6s ease both;
+}
+.weaving-slow-text {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.8;
+  color: var(--ink-faint); max-width: 22em;
+}
+/* display:flex 會蓋掉 hidden 屬性，這行讓還沒等久時真的不顯示 */
+.weaving-slow[hidden] { display: none; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+.err-wrap { padding-top: 12vh; }
+.err-wrap .lede { max-width: 24em; margin: 0 auto 26px; }
+.err-wrap .fineprint { margin-top: 22px; }
 
 /* ---- 探索工具介紹 ---- */
 .guide-wrap { padding-top: 9vh; }

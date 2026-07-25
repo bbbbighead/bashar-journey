@@ -2,7 +2,7 @@
 // 驗證：Authorization: Bearer <ADMIN_PASSWORD>（環境變數，未設定即整個後台停用）。
 // GET views：
 //   overview            總覽（來訪數、來源分布、裝置分布、各畫面平均停留）
-//   sessions?offset=0   來訪清單（每頁 50 筆，含是否留有題目、標註與回饋星等）
+//   sessions?offset=0   來訪清單（每頁 50 筆，含題目前段、是否留有題目、標註與回饋星等）
 //   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註/回饋）
 //   feedback?limit=200  使用者回饋清單（新到舊）＋筆數、平均星等與分布
 // POST actions（body JSON）：
@@ -431,6 +431,8 @@ export default async function handler(req, res) {
           const journey = extras[i * STRIDE].result ? parseJSON(extras[i * STRIDE].result, null) : null;
           s.hasJourney = !!journey;
           s.tools = (journey && Array.isArray(journey.tools)) ? journey.tools : null;
+          // 題目只帶前段（清單看方向就夠，全文在展開的詳情裡）
+          s.topic = journey ? String(journey.opening || '').slice(0, 40) : '';
           s.note = extras[i * STRIDE + 1].result || '';
           const fb = extras[i * STRIDE + 2].result ? parseJSON(extras[i * STRIDE + 2].result, null) : null;
           s.feedback = fb ? { rating: fb.rating, text: fb.text || '', ts: fb.ts } : null;

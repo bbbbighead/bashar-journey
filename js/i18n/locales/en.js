@@ -171,7 +171,22 @@ export default {
     },
   },
 
-  weaving: { label: 'Reading the signs' },
+  weaving: {
+    label: 'Reading the signs',
+    slow: 'A reading can take up to a minute. Hold on a moment longer.',
+    leave: 'Back to home for now',
+  },
+
+  // When the reading fails — there is no offline template, so we invite a retry
+  analysisError: {
+    title: 'This reading didn’t come through',
+    body: 'Something broke while the reading was being written. It’s usually temporary — try again.',
+    timeout: 'That took too long. A reading can take up to a minute; trying again usually does it.',
+    unavailable: 'The reading service isn’t responding right now. Please try again shortly.',
+    retry: 'Try again',
+    home: 'Back to home',
+    keep: 'Your cards and details are still here — trying again won’t make you start over.',
+  },
 
   result: {
     titleFallback: 'Your reading',
@@ -231,17 +246,6 @@ export default {
     heart: 'Heart', cross: 'Cross', corners: 'Corners',
   },
 
-  offline: {
-    bridge: 'Held together, these threads point to a few things:',
-    invite: 'A sense of direction rarely arrives all at once, so it’s more useful not to force an answer yet. You’ve already noticed this theme — that itself is movement. Over the next few days, watch for when it surfaces again and what makes it clearer. That’s usually where the answer starts.',
-    astroOnline: 'A full chart reading needs the online mode. For now, here’s what the other practices offer.',
-    lenormandIntro: 'Together, these cards point to a few things:',
-    closings: [
-      'Answers tend to arrive when you stop reaching for them.',
-      'Set the question down, keep living — the threads will surface on their own.',
-      'You’ve started paying attention. That is the first step.',
-    ],
-  },
 
   cards: {
     1: 'Rider', 2: 'Clover', 3: 'Ship', 4: 'House', 5: 'Tree', 6: 'Clouds',

@@ -163,6 +163,24 @@
         </div>
         <p id="weavingText" class="orbit-label" data-i18n="weaving.label">分析中</p>
       </div>
+      <!-- 等太久時才出現的出口：不讓使用者以為自己卡死了 -->
+      <div class="weaving-slow" id="weavingSlow" hidden>
+        <p class="weaving-slow-text" data-i18n="weaving.slow">分析有時需要將近一分鐘，請再等一下。</p>
+        <button type="button" class="link-btn" id="btnWeavingHome" data-i18n="weaving.leave">先回首頁</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 解讀失敗：明說沒完成，並提供重試（刻意不給套版的離線內容） -->
+  <section class="screen" id="screenError">
+    <div class="intake err-wrap">
+      <h1 class="care-title" data-i18n="analysisError.title">解讀沒有完成</h1>
+      <p class="lede" id="errBody" data-i18n="analysisError.body">產生解讀時中斷了。這通常是暫時的，再試一次就好。</p>
+      <div class="divine-actions">
+        <button class="btn primary" id="btnErrRetry" data-i18n="analysisError.retry">再試一次</button>
+        <button class="btn ghost" id="btnErrHome" data-i18n="analysisError.home">回到首頁</button>
+      </div>
+      <div class="fineprint" data-i18n="analysisError.keep">你選的牌與資料都還在，重試不需要重新選一次。</div>
     </div>
   </section>
 
