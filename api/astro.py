@@ -111,44 +111,182 @@ def fmt_pos(lon):
     return sign_idx, f"{SIGNS[sign_idx]} {d}°{m:02d}′{s:02d}″"
 
 
-def _fetch_geo(name, count):
+# 臺灣地名對照表：22 個縣市 ＋ 常見行政區。
+# 為什麼要有這張表：城市搜尋原本完全依賴 Open-Meteo（GeoNames）的中文索引，
+# 而該索引對臺灣地名並不完整——例如「桃園」在 2014 年改制後被記為
+# 「桃園區／Taoyuan District」，只打「桃園」兩個字常常搜不到任何結果。
+# 這張表讓臺灣的輸入不受上游索引與網路狀況影響，直接取得座標與時區。
+TW_TZ = 'Asia/Taipei'
+TW_PLACES = [
+    # (顯示名, 別名..., 英文名, 緯度, 經度, 所屬)
+    ('臺北市', ['台北市', '臺北', '台北', 'Taipei'], 'Taipei', 25.0330, 121.5654, '臺北市'),
+    ('新北市', ['新北', 'New Taipei'], 'New Taipei', 25.0169, 121.4628, '新北市'),
+    ('板橋', ['板橋區', 'Banqiao'], 'Banqiao', 25.0143, 121.4672, '新北市'),
+    ('三重', ['三重區', 'Sanchong'], 'Sanchong', 25.0614, 121.4877, '新北市'),
+    ('中和', ['中和區', 'Zhonghe'], 'Zhonghe', 24.9993, 121.4989, '新北市'),
+    ('永和', ['永和區', 'Yonghe'], 'Yonghe', 25.0078, 121.5158, '新北市'),
+    ('新莊', ['新莊區', 'Xinzhuang'], 'Xinzhuang', 25.0359, 121.4324, '新北市'),
+    ('淡水', ['淡水區', 'Tamsui'], 'Tamsui', 25.1677, 121.4406, '新北市'),
+    ('桃園市', ['桃園', '桃園區', '桃園縣', 'Taoyuan'], 'Taoyuan', 24.9937, 121.3009, '桃園市'),
+    ('中壢', ['中壢區', 'Zhongli'], 'Zhongli', 24.9537, 121.2255, '桃園市'),
+    ('臺中市', ['台中市', '臺中', '台中', 'Taichung'], 'Taichung', 24.1477, 120.6736, '臺中市'),
+    ('臺南市', ['台南市', '臺南', '台南', 'Tainan'], 'Tainan', 22.9999, 120.2269, '臺南市'),
+    ('高雄市', ['高雄', 'Kaohsiung'], 'Kaohsiung', 22.6273, 120.3014, '高雄市'),
+    ('鳳山', ['鳳山區', 'Fengshan'], 'Fengshan', 22.6272, 120.3620, '高雄市'),
+    ('基隆市', ['基隆', 'Keelung'], 'Keelung', 25.1276, 121.7392, '基隆市'),
+    ('新竹市', ['新竹', 'Hsinchu'], 'Hsinchu', 24.8138, 120.9675, '新竹市'),
+    ('竹北', ['竹北市', '新竹縣', 'Zhubei'], 'Zhubei', 24.8387, 121.0177, '新竹縣'),
+    ('苗栗縣', ['苗栗', 'Miaoli'], 'Miaoli', 24.5602, 120.8214, '苗栗縣'),
+    ('彰化縣', ['彰化', 'Changhua'], 'Changhua', 24.0518, 120.5161, '彰化縣'),
+    ('南投縣', ['南投', 'Nantou'], 'Nantou', 23.9609, 120.9719, '南投縣'),
+    ('斗六', ['斗六市', '雲林縣', '雲林', 'Douliu'], 'Douliu', 23.7092, 120.5430, '雲林縣'),
+    ('嘉義市', ['嘉義', 'Chiayi'], 'Chiayi', 23.4801, 120.4491, '嘉義市'),
+    ('太保', ['太保市', '嘉義縣', 'Taibao'], 'Taibao', 23.4595, 120.3325, '嘉義縣'),
+    ('屏東縣', ['屏東', 'Pingtung'], 'Pingtung', 22.5519, 120.5487, '屏東縣'),
+    ('宜蘭縣', ['宜蘭', 'Yilan'], 'Yilan', 24.7021, 121.7378, '宜蘭縣'),
+    ('花蓮縣', ['花蓮', 'Hualien'], 'Hualien', 23.9871, 121.6015, '花蓮縣'),
+    ('臺東縣', ['台東縣', '臺東', '台東', 'Taitung'], 'Taitung', 22.7583, 121.1444, '臺東縣'),
+    ('馬公', ['馬公市', '澎湖縣', '澎湖', 'Magong'], 'Magong', 23.5712, 119.5793, '澎湖縣'),
+    ('金城', ['金城鎮', '金門縣', '金門', 'Jincheng'], 'Jincheng', 24.4321, 118.3171, '金門縣'),
+    ('南竿', ['南竿鄉', '連江縣', '馬祖', 'Nangan'], 'Nangan', 26.1608, 119.9509, '連江縣'),
+]
+
+
+def _norm(s):
+    """比對用正規化：統一異體字、去空白、轉小寫。"""
+    return str(s or '').strip().lower().replace('臺', '台')
+
+
+def local_search(query):
+    """先查本地臺灣對照表（不需連外，也不受上游索引缺漏影響）。"""
+    q = _norm(query)
+    if not q:
+        return []
+    hits = []
+    for disp, aliases, en, lat, lon, admin1 in TW_PLACES:
+        names = [disp, en] + list(aliases)
+        # 完全相符優先，其次前綴相符（「桃」也能帶出桃園）
+        exact = any(_norm(n) == q for n in names)
+        prefix = any(_norm(n).startswith(q) for n in names)
+        if exact or prefix:
+            hits.append((0 if exact else 1, {
+                'id': 'tw:' + en,
+                'name': disp,
+                'admin1': admin1 if admin1 != disp else None,
+                'country': '臺灣',
+                'country_code': 'TW',
+                'latitude': lat,
+                'longitude': lon,
+                'timezone': TW_TZ,
+            }))
+    hits.sort(key=lambda x: x[0])
+    return [h[1] for h in hits]
+
+
+def _fetch_geo(name, count, timeout=8, language='zh'):
+    """回傳 (results, ok)。ok=False 代表這次呼叫失敗（超時／服務異常），
+    與「查得到但沒有結果」必須分開，否則使用者會誤以為地名不合法。"""
     q = urllib.parse.urlencode({
-        'name': name, 'count': count, 'language': 'zh', 'format': 'json',
+        'name': name, 'count': count, 'language': language, 'format': 'json',
     })
     url = f'https://geocoding-api.open-meteo.com/v1/search?{q}'
     try:
-        with urllib.request.urlopen(url, timeout=8) as r:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
             data = json.loads(r.read().decode('utf-8'))
-        return data.get('results') or []
+        return (data.get('results') or []), True
     except Exception:
-        return []
+        return [], False
+
+
+# 常見行政區尾綴：搜尋時同時嘗試「去掉」與「加上」，
+# 因為上游有時只收錄「桃園區」而收不到「桃園」，反之亦然。
+_SUFFIXES = ['市', '縣', '區', '鄉', '鎮', '村', '里']
+
+
+def _query_variants(query):
+    """產生查詢變體：臺↔台、去尾綴、加尾綴。順序＝優先度。"""
+    base = [query]
+    if '臺' in query:
+        base.append(query.replace('臺', '台'))
+    elif '台' in query:
+        base.append(query.replace('台', '臺'))
+
+    out = []
+    for b in base:
+        if b not in out:
+            out.append(b)
+        # 去尾綴（桃園市 → 桃園）
+        for sfx in _SUFFIXES:
+            if b.endswith(sfx) and len(b) > len(sfx):
+                stripped = b[: -len(sfx)]
+                if stripped not in out:
+                    out.append(stripped)
+        # 加尾綴（桃園 → 桃園市／桃園區）
+        if not any(b.endswith(s) for s in _SUFFIXES):
+            for sfx in ('市', '區', '縣'):
+                cand = b + sfx
+                if cand not in out:
+                    out.append(cand)
+    return out
 
 
 def geo_search(query, count=8):
-    """城市搜尋：同時嘗試「臺↔台」異體字變體並合併去重，
-    讓「臺北」「台北」都能找到同一批合法城市。"""
+    """城市搜尋。回傳 (results, upstream_ok)。
+    本地臺灣對照表優先（權威、即時、不需連外）；命中完全相符時直接回傳，
+    不再等上游，避免多次外部查詢把回應時間拖到十幾秒而看起來像「沒反應」。"""
     query = str(query or '').strip()
     if not query:
-        return []
-    variants = [query]
-    if '臺' in query:
-        variants.append(query.replace('臺', '台'))
-    elif '台' in query:
-        variants.append(query.replace('台', '臺'))
+        return [], True
+
     seen = set()
     merged = []
-    for v in variants:
-        for item in _fetch_geo(v, count):
+
+    def add(items):
+        for item in items:
             key = item.get('id') or (item.get('name'), item.get('admin1'), item.get('country_code'))
             if key in seen:
                 continue
             seen.add(key)
             merged.append(item)
-    return merged[:count]
+
+    add(local_search(query))
+
+    # 本地已有「完全相符」的地名 → 立刻回傳，不打上游
+    q = _norm(query)
+    exact_local = any(
+        q in [_norm(n) for n in [disp, en] + list(aliases)]
+        for disp, aliases, en, *_r in TW_PLACES
+    )
+    if exact_local:
+        return merged[:count], True
+
+    # 否則向上游查詢：最多 2 個變體、每次 5 秒，控制總等待時間
+    upstream_any_ok = False
+    upstream_tried = False
+    for v in _query_variants(query)[:2]:
+        if len(merged) >= count:
+            break
+        upstream_tried = True
+        items, ok = _fetch_geo(v, count, timeout=5)
+        upstream_any_ok = upstream_any_ok or ok
+        add(items)
+
+    # 中文查不到、但本地表認得這個地名 → 用英文名再問一次
+    if not merged:
+        for disp, aliases, en, *_r in TW_PLACES:
+            if q in [_norm(n) for n in [disp] + list(aliases)]:
+                upstream_tried = True
+                items, ok = _fetch_geo(en, count, timeout=5, language='en')
+                upstream_any_ok = upstream_any_ok or ok
+                add(items)
+                break
+
+    upstream_ok = upstream_any_ok or not upstream_tried
+    return merged[:count], upstream_ok
 
 
 def geocode(city, country):
-    results = geo_search(city, count=8)
+    results, _ok = geo_search(city, count=8)
     if not results:
         return None
     if country:
@@ -529,8 +667,8 @@ class handler(BaseHTTPRequestHandler):
         if not query:
             self._send(400, {'ok': False, 'error': 'missing_query'})
             return
-        results = geo_search(query, count=10)
-        self._send(200, {'ok': True, 'results': [{
+        results, upstream_ok = geo_search(query, count=10)
+        self._send(200, {'ok': True, 'searchOk': upstream_ok, 'results': [{
             'name': item.get('name'),
             'admin1': item.get('admin1'),
             'country': item.get('country'),
