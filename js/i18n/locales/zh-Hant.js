@@ -20,7 +20,7 @@ export default {
 
   intake: {
     label: '你今天想探索什麼主題？',
-    placeholder: '可以是一個問題、一段想法、想獲得的靈感，或想釐清的事。',
+    placeholder: '一個問題、一段想法、想獲得的靈感，或想釐清的事。',
     toolPick: '選擇一項分析工具',
     soon: 'Coming Soon',
     start: '開始分析',
