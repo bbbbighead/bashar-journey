@@ -768,6 +768,29 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 
 .sess-row { cursor: pointer; transition: background .2s; }
 .sess-row:hover { background: rgba(194, 168, 105, .05); }
+/* 可排序表頭：點擊切換遞增／遞減，並以箭頭標示目前排序欄 */
+.a-table th.sortable {
+  cursor: pointer; user-select: none; white-space: nowrap;
+  position: relative; padding-right: 18px;
+  transition: color .2s ease;
+}
+.a-table th.sortable:hover { color: var(--accent); }
+.a-table th.sortable::after {
+  content: '⇅'; position: absolute; right: 5px;
+  font-size: 10px; opacity: .3;
+}
+.a-table th.sortable.asc::after { content: '↑'; opacity: 1; color: var(--accent); }
+.a-table th.sortable.desc::after { content: '↓'; opacity: 1; color: var(--accent); }
+.a-table th.sorted { color: var(--accent); }
+
+/* 工具標籤 */
+.tool-tag {
+  display: inline-block; font-size: 11.5px; letter-spacing: .04em;
+  color: var(--accent); border: 1px solid var(--line);
+  border-radius: 2px; padding: 2px 7px; white-space: nowrap;
+  background: rgba(224, 193, 132, .07);
+}
+
 /* 標記＝典藏章：雙框戳記 */
 .badge {
   font-size: 11px; color: var(--accent); border: 1px solid var(--accent-dim);
