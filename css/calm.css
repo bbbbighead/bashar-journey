@@ -826,9 +826,23 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   background: linear-gradient(90deg, var(--accent), #f0dca6);
   transition: transform .28s ease, opacity .2s ease;
 }
-.menu-toggle.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.menu-toggle.is-open span:nth-child(2) { opacity: 0; }
-.menu-toggle.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+/* 選單開啟時隱藏三線鈕——關閉改由面板右上角的 × 負責 */
+.menu-toggle.is-open { opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+
+/* 面板右上角的關閉鈕：淺銀白細線、小尺寸 */
+.menu-close {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 26px; height: 26px; padding: 0;
+  background: none; border: none; cursor: pointer;
+}
+.menu-close::before, .menu-close::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 15px; height: 1px; margin: -1px 0 0 -7.5px;
+  background: rgba(233, 237, 242, .7); transition: background .2s ease;
+}
+.menu-close::before { transform: rotate(45deg); }
+.menu-close::after { transform: rotate(-45deg); }
+.menu-close:hover::before, .menu-close:hover::after { background: #f4f7fa; }
 
 .side-menu { position: fixed; inset: 0; z-index: 55; visibility: hidden; }
 .side-menu.open { visibility: visible; }
