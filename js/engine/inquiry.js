@@ -107,7 +107,6 @@ export async function getAnalysis(state) {
       state.analysis = {
         title: String(data.title || '分析結果'),
         sections: data.sections.map((s) => ({ tool: String(s.tool || ''), content: String(s.content || '') })),
-        closing: String(data.closing || ''),
       };
       state.usedOffline = false;
       state.status = 'done';
@@ -146,7 +145,6 @@ function offlineAnalysis(state) {
   return {
     title: t('result.titleFallback'),
     sections,
-    closing: (() => { const c = dict().offline.closings; return c[hashCode(state.runId) % c.length]; })(),
   };
 }
 

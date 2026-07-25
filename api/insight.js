@@ -58,13 +58,12 @@ const ARR = (items) => ({ type: 'array', items });
 const OBJ = (required, properties) => ({ type: 'object', additionalProperties: false, required, properties });
 
 const SCHEMAS = {
-  analyze: OBJ(['title', 'sections', 'closing'], {
+  analyze: OBJ(['title', 'sections'], {
     title: S(),
     sections: ARR(OBJ(['tool', 'content'], {
       tool: S({ enum: ['lenormand', 'meihua', 'astro', 'synthesis'] }),
       content: S(),
     })),
-    closing: S(),
   }),
 };
 
@@ -259,9 +258,8 @@ ${blocks.join('\n\n')}
 ${structs}
 ${multi ? '\n完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。\n' : ''}
 輸出 JSON：
-- title：一句自然、日常、一看就懂的話（以輸出語言書寫；中日韓 ≤16 字，英文 ≤10 words）。
-- sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題可用「時間軸」「三層意識」「本卦」等自然標示，但不要用 markdown 符號。
-- closing：一句臨別祝福（以輸出語言書寫；中日韓 ≤40 字，英文 ≤25 words）。`;
+- title：一句自然、日常、一看就懂的話（以輸出語言書寫；中日韓 ≤16 字，英文 ≤10 words）。此標題**不會顯示在報告上**，僅用於「我的靈感訊息」列表的標籤。
+- sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題可用「時間軸」「三層意識」「本卦」等自然標示，但不要用 markdown 符號。`;
 }
 
 async function callOpenAI(apiKey, model, maxTokens, systemPrompt, userPrompt, schema, schemaName) {

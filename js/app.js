@@ -647,12 +647,11 @@ function renderResult(a) {
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
+  // 直接從使用者的主題開始（不放標題句），結尾也不放祝福語
   $('resultHost').innerHTML = `
-    <div class="r-title">${esc(a.title || t('result.titleFallback'))}</div>
-    <div class="r-sub">${esc(t('result.about', state.opening))}</div>
+    <div class="r-topic">${esc(t('result.about', state.opening))}</div>
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
-    ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-sponsor">
       <p class="r-sponsor-line">${esc(t('result.sponsorAsk'))}</p>
       <button class="btn bmc-btn" id="btnCoffee">${esc(t('result.sponsorBtn'))}</button>
@@ -705,12 +704,9 @@ function renderResult(a) {
 function fullText(a) {
   const sections = sectionsOf(a);
   return [
-    a.title || t('result.titleFallback'),
-    '',
     t('result.myTopic', state.opening),
     '',
     ...sections.map((s) => `【${toolLabel(s.tool)}】\n${String(s.content || '')}`),
-    a.closing ? `\n${a.closing}` : '',
     '\n' + t('result.signature'),
   ].filter((s) => s !== '').join('\n\n');
 }
