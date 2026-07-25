@@ -112,6 +112,10 @@
   <section class="screen" id="screenAstro">
     <div class="numbers astro">
       <p class="divine-lede" id="astroLede">請提供你的出生資料，將以天文曆精算你的本命星盤。</p>
+      <div class="astro-saved" id="astroSaved" hidden>
+        <span data-i18n="astro.savedHint">已帶入你上次的出生資料</span>
+        <button type="button" class="link-btn" id="btnAstroReset" data-i18n="astro.savedReset">改用其他資料</button>
+      </div>
       <p class="astro-privacy" data-i18n="astro.note">出生資料用於星盤計算，並以匿名方式記錄以改善體驗，不會對外顯示。</p>
       <div class="rule-orn" aria-hidden="true"></div>
       <div class="astro-form">
