@@ -25,6 +25,7 @@
     </div>
     <button type="button" class="menu-item" data-act="home" role="menuitem" data-i18n="menu.home">首頁</button>
     <button type="button" class="menu-item" data-act="history" role="menuitem" data-i18n="menu.history">我的靈感訊息</button>
+    <button type="button" class="menu-item" data-act="guide" role="menuitem" data-i18n="menu.guide">探索工具介紹</button>
     <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-i18n="menu.dialogue">直覺對話（1 對 1 諮詢）</button>
     <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-i18n="menu.cards">專屬靈感牌卡</button>
     <div class="menu-lang">
@@ -48,7 +49,7 @@
       </div>
 
       <div class="tool-pick">
-        <div class="tool-pick-label" data-i18n="intake.toolPick">選擇一項分析工具</div>
+        <div class="tool-pick-label" data-i18n="intake.toolPick">選擇一項探索工具</div>
         <div class="tool-grid" id="toolGrid">
           <button type="button" class="tool-opt" data-tool="lenormand" aria-pressed="false"><span data-i18n="tools.lenormand">雷諾曼牌陣</span><span class="tool-sub" data-i18n="toolSub.lenormand">事件分析</span></button>
           <button type="button" class="tool-opt" data-tool="meihua" aria-pressed="false"><span data-i18n="tools.meihua">梅花易數</span><span class="tool-sub" data-i18n="toolSub.meihua">決策方向</span></button>
@@ -171,6 +172,15 @@
   </section>
 
   <!-- 我的靈感訊息（本機歷史回顧） -->
+  <!-- 探索工具介紹（選單頁）：先一眼看出差異，再往下讀細節 -->
+  <section class="screen" id="screenGuide">
+    <div class="reading-wrap guide-wrap">
+      <div class="r-title" data-i18n="guide.title">探索工具介紹</div>
+      <div class="rule-orn" aria-hidden="true"></div>
+      <div id="guideHost"></div>
+    </div>
+  </section>
+
   <section class="screen" id="screenHistory">
     <div class="reading-wrap history-wrap">
       <div class="r-title" data-i18n="history.title">我的靈感訊息</div>

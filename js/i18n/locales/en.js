@@ -12,6 +12,7 @@ export default {
   menu: {
     home: 'Home',
     history: 'My readings',
+    guide: 'About the practices',
     dialogue: 'Intuitive dialogue (1-to-1 session)',
     cards: 'Your own oracle deck',
     support: 'Support this work 🍰',
@@ -44,6 +45,78 @@ export default {
     lenormand: 'Situations',
     meihua: 'Decisions',
     astro: 'Self-discovery',
+  },
+
+  // The practices guide (menu page): the differences at a glance, then the detail
+  guide: {
+    title: 'About the practices',
+    overviewTitle: 'Three ways to explore',
+    overviewLede: 'Each practice answers a different layer of a question, and you are free to mix them as it suits you.',
+    cards: [
+      { name: 'Lenormand · Nine-Card Grid', line: 'Best for how a situation is unfolding, and the whole picture.' },
+      { name: 'Plum Blossom I Ching', line: 'Best for timing, decisions, and which way things are shifting.' },
+      { name: 'Natal Astrology', line: 'Best for your own nature, your gifts, and your life’s themes.' },
+    ],
+    sections: [
+      {
+        name: 'Lenormand · Nine-Card Grid',
+        lede: 'Nine cards read as one combination, opening up the past, present and future of a situation — the threads running through it, what is shaping it, and where it could go from here.',
+        metaLabel: 'Origins',
+        meta: 'Lenormand cards come out of 19th-century France and carry the name of the celebrated French cartomancer <b>Marie Anne Lenormand</b>. A modern deck holds 36 cards, and the reading rests on how the cards combine rather than on single meanings — which is what makes it strong on concrete situations and the way they develop.',
+        asksLabel: 'Questions to try',
+        asks: [
+          'If I take the next step now, what should I be watching for?',
+          'Give me some inspiration for a new project.',
+          'How might my work / relationship / partnership develop from here?',
+        ],
+      },
+      {
+        name: 'Plum Blossom I Ching',
+        lede: 'A method of casting drawn from the I Ching: the hexagram shows how a situation moves and changes — its timing, its trend, and the next step.',
+        metaLabel: 'Origins',
+        meta: 'The Plum Blossom method is traditionally attributed to the Northern Song philosopher <b>Shao Yong</b> (Shao Kangjie), and rests on the image, number and principle of the I Ching. A hexagram can be cast from the moment itself, from numbers, or from whatever is at hand — no tools required — and read for the state a situation is in and how it will change.',
+        asksLabel: 'Questions to try',
+        asks: [
+          'If I take the next step now, what should I be watching for?',
+          'Is this a good moment to begin this project?',
+          'How might this develop from here?',
+        ],
+      },
+      {
+        name: 'Natal Astrology',
+        lede: 'Working from your birth chart to open up your gifts, your temperament, the themes your life keeps returning to, and where there is room to grow — a way of knowing yourself more closely.',
+        metaLabel: 'The system used',
+        meta: 'This site works in <b>modern Western astrology</b>: the tropical zodiac, Placidus houses and the True Node, read together with the major planets, the houses, the aspects and the significant asteroids.',
+        asksLabel: 'Questions to try',
+        asks: [
+          'If I set aside what other people expect of me, what do I actually want to do?',
+          'I have been anxious for a while and I cannot name what is really stuck.',
+          'How do I build work that genuinely fits me?',
+          'There is so much I want to do — why do I never start?',
+          'Suggest a direction for the way I run my social channels.',
+        ],
+      },
+    ],
+    chooseTitle: 'Not sure which to choose?',
+    chooseBody: [
+      'There is no wrong choice here.',
+      'Put the same question to two practices and you get two angles on it. They complement each other rather than replace each other.',
+    ],
+    exampleLabel: 'For example:',
+    exampleQ: 'How do I build work that genuinely fits me?',
+    exampleRows: [
+      { name: 'Natal Astrology', line: 'your gifts, your nature, and the directions that suit them.' },
+      { name: 'Lenormand · Nine-Card Grid', line: 'where your work stands now, and how it could develop.' },
+      { name: 'Plum Blossom I Ching', line: 'whether this is the moment to act, and what the next step is.' },
+    ],
+    focusLabel: 'Each one looks at a different layer:',
+    focusRows: [
+      { name: 'Natal Astrology', line: 'Who am I? What suits me?' },
+      { name: 'Lenormand · Nine-Card Grid', line: 'How is this unfolding?' },
+      { name: 'Plum Blossom I Ching', line: 'What is worth doing now?' },
+    ],
+    closing: 'Or simply follow your intuition. Taking one question through more than one practice gives you a fuller picture of it.',
+    cta: 'Start exploring',
   },
 
   care: {
