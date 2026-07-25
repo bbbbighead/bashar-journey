@@ -49,7 +49,7 @@ export default {
   guide: {
     title: '探索工具介紹',
     overviewTitle: '三種探索工具',
-    overviewLede: '不同工具擅長回答不同層面的問題，也能依需求自由搭配使用。',
+    overviewLede: '不同工具擅長回答不同層面的問題。',
     cards: [
       { name: '雷諾曼九宮格', line: '適合探索事件的發展與全貌。' },
       { name: '梅花易數', line: '適合探索時機、決策與變化趨勢。' },

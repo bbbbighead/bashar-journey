@@ -51,7 +51,7 @@ export default {
   guide: {
     title: '占術について',
     overviewTitle: '3つの占術',
-    overviewLede: 'それぞれ得意な問いの層がちがいます。組みあわせて使ってもかまいません。',
+    overviewLede: 'それぞれ得意な問いの層がちがいます。',
     cards: [
       { name: 'ルノルマン・9枚グリッド', line: '出来事の流れと全体像を見るのに向いています。' },
       { name: '梅花心易', line: 'タイミング、決断、変化の兆しを見るのに向いています。' },

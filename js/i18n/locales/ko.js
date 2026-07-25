@@ -51,7 +51,7 @@ export default {
   guide: {
     title: '탐색 도구 소개',
     overviewTitle: '세 가지 탐색 도구',
-    overviewLede: '도구마다 잘 답하는 층이 다릅니다. 필요에 따라 자유롭게 조합해도 됩니다.',
+    overviewLede: '도구마다 잘 답하는 층이 다릅니다.',
     cards: [
       { name: '르노르망 · 9카드 스프레드', line: '일이 어떻게 흘러가는지, 전체 그림을 보는 데 어울립니다.' },
       { name: '매화역수', line: '시기와 결정, 변화의 흐름을 보는 데 어울립니다.' },
