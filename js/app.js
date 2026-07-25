@@ -377,13 +377,61 @@ function spreadGridHtml(spread) {
   return `<div class="lenormand-grid" aria-label="雷諾曼九宮格">${cells}</div>`;
 }
 
+// 全形數字轉半形
+function normDigits(s) {
+  return String(s).replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
+}
+
+// 從段落文字中的「（1、4、7）」抓出所有位置群組（數字 1–9，每組 1–5 個）
+function posGroupsInText(text) {
+  const groups = [];
+  const re = /[（(]\s*([0-9０-９][0-9０-９\s、，,和及]*)\s*[）)]/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const nums = [...new Set((normDigits(m[1]).match(/[1-9]/g) || []).map(Number))];
+    if (nums.length >= 1 && nums.length <= 5) groups.push(nums);
+  }
+  return groups;
+}
+
+// 依位置陣列列出對應的小張牌卡（供各章節前方對照）
+function cardStripHtml(spread, positions) {
+  const cells = positions.map((pos) => {
+    const item = spread[pos - 1];
+    if (!item || !item.card) return '';
+    return `<figure class="lg-mini">
+      <span class="lg-mini-pos">${pos}</span>
+      <span class="lg-mini-ico">${cardConstellation(item.card.id)}</span>
+      <figcaption class="lg-mini-name">${esc(item.card.name)}</figcaption>
+    </figure>`;
+  }).join('');
+  if (!cells) return '';
+  return `<div class="lg-strip" aria-label="本段對應牌卡">${cells}</div>`;
+}
+
+// 雷諾曼解析內文：逐段落渲染，段落若提到位置群組（如「過去（1、4、7）」），
+// 在該段前方列出對應的小張牌卡，方便使用者對照九宮格。
+function lenormandContentHtml(content, spread) {
+  const hasSpread = Array.isArray(spread) && spread.length;
+  const blocks = String(content || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (!blocks.length) return `<p>${esc(String(content || ''))}</p>`;
+  return blocks.map((b) => {
+    const strip = hasSpread
+      ? posGroupsInText(b).map((g) => cardStripHtml(spread, g)).join('')
+      : '';
+    return `${strip}<p>${esc(b)}</p>`;
+  }).join('');
+}
+
 function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
     <div class="r-section">
       <h3 class="r-sec-head">${esc(TOOL_LABELS[s.tool] || s.tool || '')}</h3>
       ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
-      <div class="r-block"><p>${esc(String(s.content || ''))}</p></div>
+      <div class="r-block">${s.tool === 'lenormand'
+        ? lenormandContentHtml(s.content, state.lenormand)
+        : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
   $('resultHost').innerHTML = `
