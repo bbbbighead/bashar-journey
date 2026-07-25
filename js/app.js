@@ -70,9 +70,19 @@ trackVisit();
 trackScreen('screenIntake');
 
 // ---- 螢幕切換 ----
+// 「分析中」畫面：等超過 SLOW_HINT_MS 才顯示說明與回首頁的出口，
+// 免得使用者以為畫面卡死了（正常情況分析約需 20–60 秒）
+const SLOW_HINT_MS = 20000;
+let slowTimer = null;
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
+  // 離開「分析中」就收掉等待提示（見 SLOW_HINT_MS）
+  if (id !== 'screenWeaving') {
+    clearTimeout(slowTimer);
+    $('weavingSlow').hidden = true;
+  }
   trackScreen(id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -80,6 +90,9 @@ function showScreen(id) {
 function showWeaving(text) {
   if (text) $('weavingText').innerHTML = text;
   showScreen('screenWeaving');
+  $('weavingSlow').hidden = true;
+  clearTimeout(slowTimer);
+  slowTimer = setTimeout(() => { $('weavingSlow').hidden = false; }, SLOW_HINT_MS);
 }
 
 // ---- 左上角選單 ----
@@ -638,16 +651,37 @@ function runAstro() {
 }
 
 // ---- 分析 → 分節結果 ----
+// 沒有離線後備：解讀要嘛完成，要嘛顯示重試畫面。
 async function runAnalysis() {
   showWeaving();
   const t0 = Date.now();
-  const analysis = await getAnalysis(state);
-  saveSession(state);
-  saveAnalysisToHistory(state); // 存進瀏覽器歷史（localStorage，供日後回顧頁讀取）
-  trackJourney(state);
-  const waitMs = Math.max(0, 2400 - (Date.now() - t0));
-  setTimeout(() => renderResult(analysis), waitMs);
+  try {
+    const analysis = await getAnalysis(state);
+    saveSession(state);
+    saveAnalysisToHistory(state); // 存進瀏覽器歷史（localStorage，供日後回顧頁讀取）
+    trackJourney(state);
+    const waitMs = Math.max(0, 2400 - (Date.now() - t0));
+    setTimeout(() => renderResult(analysis), waitMs);
+  } catch (e) {
+    // 維持 weaving 狀態：重整或按重試都能從同一組牌與資料再跑一次
+    state.status = 'weaving';
+    saveSession(state);
+    showAnalysisError((e && e.code) || 'failed');
+  }
 }
+
+function showAnalysisError(code) {
+  const body = code === 'timeout' ? t('analysisError.timeout')
+    : code === 'unavailable' ? t('analysisError.unavailable')
+      : t('analysisError.body');
+  $('errBody').textContent = body;
+  showScreen('screenError');
+}
+
+$('btnErrRetry').addEventListener('click', () => { if (state) runAnalysis(); else restart(); });
+$('btnErrHome').addEventListener('click', restart);
+
+$('btnWeavingHome').addEventListener('click', restart);
 
 // 舊格式（.message）相容：包成單一 section
 function sectionsOf(a) {
