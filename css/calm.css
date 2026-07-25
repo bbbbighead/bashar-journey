@@ -8,11 +8,11 @@
   --bg: #101823;            /* 深海軍藍（調亮） */
   --bg-soft: #182233;       /* 石板藍面板 */
   --panel: rgba(24, 34, 51, .72);
-  --ink: #f3eddd;           /* 暖象牙（調亮） */
-  --ink-dim: #c5bba3;
-  --ink-faint: #948a72;
-  --accent: #d3b578;        /* 舊黃銅（調亮） */
-  --accent-dim: #a8905c;
+  --ink: #f7f2e6;           /* 暖象牙（再調亮，降低久讀疲勞） */
+  --ink-dim: #ddd4c0;       /* 次要文字：提高飽和與亮度 */
+  --ink-faint: #b3a98f;     /* 最淡的註記文字 */
+  --accent: #e0c184;        /* 舊黃銅（提高飽和） */
+  --accent-dim: #bda06a;
   --line: rgba(211, 181, 120, .24);        /* 金色髮絲線 */
   --line-strong: rgba(211, 181, 120, .42);
   --serif: 'Songti TC', 'Noto Serif TC', 'PMingLiU', Georgia, 'Times New Roman', serif;
@@ -36,25 +36,25 @@ body {
    橫向視窗用方形圖（bg-square）、直向視窗用縱向圖（bg-portrait）。 */
 .sky {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background: url('../assets/bg-square.jpg') center / cover no-repeat #0e141d;
-  filter: brightness(1.18) saturate(1.02); /* 照片整體提亮 */
+  background: url('../assets/bg-square.jpg') center / cover no-repeat #05070c;
+  filter: saturate(1.05); /* 新星圖本身已夠暗，不再額外提亮 */
 }
 @media (orientation: portrait) {
   .sky { background-image: url('../assets/bg-portrait.jpg'); }
 }
-/* 可讀性塗層：中央（內容欄）較深、四周保留照片氛圍；整體較先前輕 */
+/* 可讀性塗層：新星圖底色已深，僅在中央星盤亮核處輕壓一層即可 */
 .sky::after {
   content: ''; position: absolute; inset: 0;
   background:
-    radial-gradient(closest-side at 50% 42%,
-      rgba(8, 13, 21, .6), rgba(8, 13, 21, .38) 55%, rgba(8, 13, 21, .16) 82%, rgba(8, 13, 21, .1)),
-    linear-gradient(180deg, rgba(8, 13, 21, .28), rgba(8, 13, 21, .05) 32%, rgba(8, 13, 21, .05) 68%, rgba(8, 13, 21, .34));
+    radial-gradient(closest-side at 50% 45%,
+      rgba(5, 8, 13, .42), rgba(5, 8, 13, .26) 55%, rgba(5, 8, 13, .1) 82%, rgba(5, 8, 13, .04)),
+    linear-gradient(180deg, rgba(5, 8, 13, .2), rgba(5, 8, 13, 0) 30%, rgba(5, 8, 13, 0) 70%, rgba(5, 8, 13, .26));
 }
 /* 後台：縱向星圖＋較深的塗層（資料密度高，可讀性優先） */
 .sky-admin { background-image: url('../assets/bg-portrait.jpg'); }
 .sky-admin::after {
   background:
-    linear-gradient(180deg, rgba(8, 13, 21, .68), rgba(8, 13, 21, .58) 40%, rgba(8, 13, 21, .68));
+    linear-gradient(180deg, rgba(5, 8, 13, .62), rgba(5, 8, 13, .52) 40%, rgba(5, 8, 13, .62));
 }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
@@ -120,8 +120,8 @@ body {
 }
 .ask-box label {
   display: flex; align-items: center; gap: 12px;
-  font-size: 11.5px; color: var(--accent-dim); margin-bottom: 14px;
-  font-family: var(--sans); letter-spacing: .3em;
+  font-size: 14px; color: var(--accent); margin-bottom: 14px;
+  font-family: var(--sans); letter-spacing: .24em;
 }
 .ask-box label::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 /* 面板內的輸入區：極淡邊框（避免「框中框」的重複感） */
@@ -131,26 +131,26 @@ textarea {
   color: var(--ink);
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 2px;
   box-shadow: inset 0 0 18px rgba(0, 0, 0, .3);
-  padding: 14px 16px; font: inherit; font-size: 15px; line-height: 1.8;
+  padding: 14px 16px; font: inherit; font-size: 16.5px; line-height: 1.8;
 }
 textarea:focus { outline: none; border-color: rgba(226, 198, 138, .5); }
 textarea::placeholder { color: var(--ink-faint); }
 
 .ask-note {
-  margin-top: 12px; font-size: 12.5px; color: var(--ink-faint);
-  font-family: var(--sans); letter-spacing: .04em;
+  margin-top: 12px; font-size: 14px; color: var(--ink-dim);
+  font-family: var(--sans); letter-spacing: .04em; line-height: 1.75;
 }
 
 /* ---- 首頁：分析工具選擇 ---- */
 .tool-pick { margin-bottom: 30px; }
 .tool-pick-label {
-  font-size: 12px; color: var(--accent-dim); font-family: var(--sans);
-  letter-spacing: .26em; margin-bottom: 14px;
+  font-size: 14px; color: var(--accent); font-family: var(--sans);
+  letter-spacing: .22em; margin-bottom: 14px;
 }
 .tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .tool-opt {
-  position: relative; font: inherit; font-size: 14px;
-  font-family: var(--serif); color: var(--ink-dim);
+  position: relative; font: inherit; font-size: 15.5px;
+  font-family: var(--serif); color: var(--ink);
   background: rgba(13, 20, 31, .5);
   border: 1px solid rgba(214, 183, 122, .3); border-radius: 3px;
   padding: 16px 8px; cursor: pointer; text-align: center;
@@ -166,9 +166,13 @@ textarea::placeholder { color: var(--ink-faint); }
   content: '✓'; position: absolute; top: 5px; right: 8px;
   font-size: 11px; color: #e6cd96;
 }
-.tool-opt.soon { color: var(--ink-faint); cursor: not-allowed; opacity: .6; border-style: dashed; }
+/* 停用項：仍看得清楚，但以虛線框與較低對比表示不可選 */
+.tool-opt.soon {
+  color: var(--ink-dim); cursor: not-allowed; opacity: .82; border-style: dashed;
+  background: rgba(10, 15, 24, .58);
+}
 .soon-tag {
-  display: block; margin-top: 5px; font-size: 9.5px; letter-spacing: .12em;
+  display: block; margin-top: 5px; font-size: 10px; letter-spacing: .12em;
   font-family: var(--sans); color: var(--accent-dim); text-transform: uppercase;
 }
 @media (max-width: 560px) {
@@ -291,7 +295,10 @@ textarea::placeholder { color: var(--ink-faint); }
 .btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--ink-faint); }
 .btn.ghost:hover { color: var(--ink-dim); box-shadow: none; }
 
-.fineprint { margin-top: 40px; font-size: 12px; color: var(--ink-faint); font-family: var(--sans); }
+.fineprint {
+  margin-top: 40px; font-size: 13.5px; color: var(--ink-dim);
+  font-family: var(--sans); line-height: 1.9;
+}
 
 .care { padding-top: 16vh; }
 .care-title { font-family: var(--serif); font-size: 24px; letter-spacing: .1em; margin-bottom: 24px; }
