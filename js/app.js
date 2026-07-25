@@ -16,8 +16,8 @@ import { trackVisit, trackScreen, trackJourney } from './analytics.js';
 const $ = (id) => document.getElementById(id);
 let state = null;
 
-// Buy Me a Coffee 贊助連結——之後填入正式網址即成為真實連結；留空則點擊顯示「即將開放」
-const BMC_URL = '';
+// Buy Me a Coffee 贊助連結——點擊於新分頁開啟；留空則點擊顯示「即將開放」
+const BMC_URL = 'https://buymeacoffee.com/intuitivenotes';
 
 trackVisit();
 trackScreen('screenIntake');
@@ -441,8 +441,8 @@ function renderResult(a) {
     ${secHtml}
     ${a.closing ? `<div class="r-closing">${esc(a.closing)}</div>` : ''}
     <div class="r-sponsor">
-      <p class="r-sponsor-line">這則分析對你有幫助嗎？<br>贊助一杯咖啡 ☕</p>
-      <button class="btn bmc-btn" id="btnCoffee">Buy Me a Coffee</button>
+      <p class="r-sponsor-line">這則分析對你有幫助嗎？</p>
+      <button class="btn bmc-btn" id="btnCoffee">🍰 贊助一塊蛋糕</button>
       <div class="copy-toast" id="coffeeToast"></div>
     </div>
     <div class="r-actions">

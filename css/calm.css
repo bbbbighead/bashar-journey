@@ -195,7 +195,6 @@ textarea::placeholder { color: var(--ink-faint); }
   background: linear-gradient(180deg, #ffe480 0%, #f9cf52 100%);
   box-shadow: 0 0 30px rgba(245, 197, 66, .45), inset 0 1px 0 rgba(255, 250, 220, .55);
 }
-.bmc-btn::before { content: '☕ '; }
 
 /* ---- 結果頁：雷諾曼九宮格牌卡（星座圖案） ---- */
 .lenormand-grid {
