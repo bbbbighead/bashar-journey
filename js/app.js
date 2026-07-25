@@ -7,7 +7,9 @@ import {
   createSession, saveSession, loadSession, clearSession, TOOL_LABELS,
 } from './engine/session.js';
 import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
-import { saveAnalysisToHistory, loadHistory } from './engine/history.js';
+import {
+  saveAnalysisToHistory, loadHistory, deleteHistoryRecord, clearHistory,
+} from './engine/history.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
@@ -66,25 +68,60 @@ function formatDate(ms) {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function renderHistory() {
+function renderHistory(keepScreen) {
   const items = loadHistory();
   const host = $('historyHost');
   if (!items.length) {
     host.innerHTML = '<div class="hist-empty">還沒有任何紀錄。<br>完成一次占卜後，就會出現在這裡。</div>';
   } else {
-    host.innerHTML = items.map((r, i) => {
-      const tools = (r.tools || []).map((t) => TOOL_LABELS[t] || t).join('、');
-      return `<button type="button" class="hist-card" data-idx="${i}">
-        <div class="hist-card-title">${esc((r.analysis && r.analysis.title) || '分析結果')}</div>
-        <div class="hist-card-topic">關於「${esc(r.opening)}」</div>
-        <div class="hist-card-meta">${esc(tools)}${tools ? ' · ' : ''}${esc(formatDate(r.savedAt))}</div>
-      </button>`;
-    }).join('');
-    host.querySelectorAll('.hist-card').forEach((b) => {
+    host.innerHTML = `
+      <div class="hist-bar">
+        <span class="hist-count">共 ${items.length} 則</span>
+        <button type="button" class="hist-clear" id="btnHistClear">全部清空</button>
+      </div>
+      ${items.map((r, i) => {
+        const tools = (r.tools || []).map((t) => TOOL_LABELS[t] || t).join('、');
+        return `<div class="hist-card">
+          <button type="button" class="hist-open" data-idx="${i}">
+            <div class="hist-card-title">${esc((r.analysis && r.analysis.title) || '分析結果')}</div>
+            <div class="hist-card-topic">關於「${esc(r.opening)}」</div>
+            <div class="hist-card-meta">${esc(tools)}${tools ? ' · ' : ''}${esc(formatDate(r.savedAt))}</div>
+          </button>
+          <button type="button" class="hist-del" data-id="${esc(r.id)}" aria-label="刪除這一則">刪除</button>
+        </div>`;
+      }).join('')}`;
+
+    host.querySelectorAll('.hist-open').forEach((b) => {
       b.addEventListener('click', () => openHistoryRecord(items[Number(b.dataset.idx)]));
     });
+    // 單筆刪除：需二次確認（再按一次才真的刪）
+    host.querySelectorAll('.hist-del').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.dataset.confirm !== '1') {
+          host.querySelectorAll('.hist-del').forEach((o) => { o.dataset.confirm = ''; o.textContent = '刪除'; o.classList.remove('confirm'); });
+          b.dataset.confirm = '1';
+          b.textContent = '確定刪除？';
+          b.classList.add('confirm');
+          return;
+        }
+        deleteHistoryRecord(b.dataset.id);
+        renderHistory(true);
+      });
+    });
+    // 全部清空：同樣二次確認
+    const clearBtn = $('btnHistClear');
+    clearBtn.addEventListener('click', () => {
+      if (clearBtn.dataset.confirm !== '1') {
+        clearBtn.dataset.confirm = '1';
+        clearBtn.textContent = '確定全部清空？';
+        clearBtn.classList.add('confirm');
+        return;
+      }
+      clearHistory();
+      renderHistory(true);
+    });
   }
-  showScreen('screenHistory');
+  if (!keepScreen) showScreen('screenHistory');
 }
 
 // 以歷史紀錄重建 state，沿用結果頁既有渲染（九宮格、對照牌卡、複製與導流）
