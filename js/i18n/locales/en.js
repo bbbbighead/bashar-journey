@@ -39,6 +39,13 @@ export default {
     synthesis: 'Where the readings meet',
   },
 
+  // Sub-labels inside the tool boxes on the home page — what each practice is good at
+  toolSub: {
+    lenormand: 'Situations',
+    meihua: 'Decisions',
+    astro: 'Self-discovery',
+  },
+
   care: {
     title: 'Let’s pause here — someone cares',
     body: 'Thank you for putting something this heavy into words. This space isn’t able to hold what you’re carrying right now, and you deserve real company and real support.',
