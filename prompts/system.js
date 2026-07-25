@@ -84,9 +84,49 @@ function outro(multi) {
 嚴格依照要求的 JSON schema 輸出：title、sections（依所選工具順序，每節 {tool, content}${multi ? '；兩個以上工具時最後加 tool="synthesis"' : ''}）、closing。只輸出該 JSON 物件本身，不加 markdown、程式碼圍欄或任何說明文字。`;
 }
 
+// ── 輸出語言 ──
+// 每個語系除了「用什麼語言寫」，還要指定該語言的靈性書寫語域：
+// 使用當地占卜／靈性圈實際在用的詞彙，而不是把中文詞逐字翻過去。
+const LANG_RULES = {
+  'zh-Hant': `## 輸出語言
+
+以**繁體中文（臺灣用語）**書寫全部內容，包含 title、各節 content 與 closing。`,
+
+  en: `## Output language
+
+Write everything — title, every section's content, and the closing — in **English**.
+
+Use the living vocabulary of Anglophone divination and contemplative practice, not a literal translation of Chinese terms:
+- Call it a **reading**, not an "analysis"; cards are **drawn**, not "selected".
+- Natural register: "what this points to", "what's asking for attention", "sit with", "notice", "where the energy is going". Avoid stiff calques like "the card surface displays" or "this hexagram expresses".
+- Card, hexagram and chart names in their standard English forms (Rider, Clover, Coffin; Kun, Qian; Ascendant, Midheaven, Part of Fortune).
+- Second person "you". Plain, grounded English — a perceptive writer talking to a reader, never mystical purple prose.`,
+
+  ja: `## 出力言語
+
+title・各セクションの content・closing のすべてを**日本語**で書いてください。
+
+日本の占い文化で実際に使われている語彙を用い、中国語の語をそのまま訳さないこと：
+- 「分析」ではなく**鑑定**／**読み解き**。カードは「選ぶ」ではなく**引く**。
+- 自然な言い回し：「〜を示しています」「〜が浮かび上がってきます」「いま向き合っているのは」。「牌面が表示する」のような直訳調は避ける。
+- 卦名は日本で通用する読み（坤・乾・震…）、占星術用語も標準的な日本語（アセンダント、MC、フォルトゥナ）。
+- 二人称は「あなた」。ていねいだが硬すぎない「です・ます」体。スピリチュアル・ポエムではなく、人をよく見ている書き手の語り口で。`,
+
+  ko: `## 출력 언어
+
+title, 각 섹션의 content, closing을 모두 **한국어**로 작성하세요.
+
+한국의 타로·점성술 현장에서 실제로 쓰는 어휘를 사용하고, 중국어 표현을 그대로 옮기지 마세요:
+- '분석'이 아니라 **풀이**／**리딩**. 카드는 '선택'이 아니라 **뽑는다**.
+- 자연스러운 표현: "~을 가리킵니다", "~이 드러납니다", "지금 마주하고 있는 것은". '패면이 표시한다' 같은 직역체는 피하세요.
+- 괘 이름은 한국식 독음(곤·건·진…), 점성술 용어도 표준 한국어(상승점, 천정점, 행운의 점).
+- 2인칭은 '당신'. 정중하지만 딱딱하지 않은 '~습니다' 체. 신비로운 미문이 아니라, 사람을 잘 보는 글쓴이의 목소리로.`,
+};
+
 // 依使用者所選工具動態組出 system prompt。
 // tools：工具代碼陣列（lenormand／meihua／astro）；空值時退回單一 lenormand。
-export function buildSystemPrompt(tools) {
+// lang：輸出語言（zh-Hant／en／ja／ko）。
+export function buildSystemPrompt(tools, lang) {
   const picked = (Array.isArray(tools) ? tools : []).filter((t) => TOOLS.includes(t));
   const list = picked.length ? picked : ['lenormand'];
   const multi = list.length > 1;
@@ -94,9 +134,10 @@ export function buildSystemPrompt(tools) {
   const parts = [intro(multi)];
   for (const t of list) parts.push(TOOL_SECTION[t]);
   if (multi) parts.push(SYNTHESIS_SECTION);
+  parts.push(LANG_RULES[lang] || LANG_RULES['zh-Hant']);
   parts.push(outro(multi));
   return parts.join('\n\n');
 }
 
-// 向後相容：預設（單選雷諾曼）的 system prompt。
-export const SYSTEM_PROMPT = buildSystemPrompt(['lenormand']);
+// 向後相容：預設（單選雷諾曼、繁中）的 system prompt。
+export const SYSTEM_PROMPT = buildSystemPrompt(['lenormand'], 'zh-Hant');

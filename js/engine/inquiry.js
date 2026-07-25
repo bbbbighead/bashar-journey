@@ -9,8 +9,8 @@ import { callAI, AI_CONFIG } from '../ai/client.js';
 import { logAiCall } from './session.js';
 import { drawSpread, spreadForAI, offlinePatterns } from './lenormand.js';
 import { castHexagrams, castFromNumbers, meihuaForAI, offlineDynamics } from './meihua.js';
-import { OFFLINE_MESSAGE, OFFLINE_CLOSINGS } from '../content/templates.js';
 import { sessionId } from '../analytics.js';
+import { getLocale, t, dict } from '../i18n/index.js';
 
 function aiOn(state) {
   return AI_CONFIG.enabled && state.aiAvailable;
@@ -93,6 +93,8 @@ export async function getAnalysis(state) {
   if (aiOn(state)) {
     const payload = {
       sid: sessionId(), // 供 server 端把實際送出的 prompt 記錄到這筆來訪
+      lang: getLocale(),          // 輸出語言
+      groupLabels: dict().groups, // 九宮格小標題必須用這組字，前端據此對應牌卡
       tools: state.tools,
       opening: state.opening,
       lenormand: state.tools.includes('lenormand') ? spreadForAI(state.lenormand) : null,
@@ -105,7 +107,6 @@ export async function getAnalysis(state) {
       state.analysis = {
         title: String(data.title || '分析結果'),
         sections: data.sections.map((s) => ({ tool: String(s.tool || ''), content: String(s.content || '') })),
-        closing: String(data.closing || ''),
       };
       state.usedOffline = false;
       state.status = 'done';
@@ -127,7 +128,7 @@ function offlineAnalysis(state) {
     sections.push({
       tool: 'lenormand',
       content: [
-        '這一組牌共同指向幾件事：',
+        t('offline.lenormandIntro'),
         ...patterns.slice(0, 3).map(ensurePeriod),
       ].join('\n'),
     });
@@ -136,15 +137,14 @@ function offlineAnalysis(state) {
     sections.push({ tool: 'meihua', content: offlineDynamics(state.meihua).join('\n') });
   }
   if (state.tools.includes('astro')) {
-    sections.push({ tool: 'astro', content: '完整的星盤解讀需要連線模式（AI）。此刻先以其他工具為你整理。' });
+    sections.push({ tool: 'astro', content: t('offline.astroOnline') });
   }
   if (state.tools.length > 1) {
-    sections.push({ tool: 'synthesis', content: [OFFLINE_MESSAGE.bridge, OFFLINE_MESSAGE.invite].join('\n\n') });
+    sections.push({ tool: 'synthesis', content: [t('offline.bridge'), t('offline.invite')].join('\n\n') });
   }
   return {
-    title: '分析結果',
+    title: t('result.titleFallback'),
     sections,
-    closing: OFFLINE_CLOSINGS[hashCode(state.runId) % OFFLINE_CLOSINGS.length],
   };
 }
 
