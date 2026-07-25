@@ -351,6 +351,8 @@ textarea::placeholder { color: var(--ink-faint); }
   font-family: var(--sans); font-size: 12.5px; color: var(--accent);
 }
 .astro-saved::before { content: '✓'; opacity: .85; }
+/* display:flex 會蓋掉 hidden 屬性，這行讓沒存過資料時真的不顯示 */
+.astro-saved[hidden] { display: none; }
 .link-btn {
   font: inherit; color: var(--ink-dim); background: none;
   border: none; border-bottom: 1px solid var(--line);
@@ -359,7 +361,6 @@ textarea::placeholder { color: var(--ink-faint); }
 .link-btn:hover { color: var(--ink); border-color: var(--accent-dim); }
 
 /* ---- 占星出生資料：毛玻璃登錄卡 ---- */
-.astro-privacy { font-size: 12.5px; color: var(--ink-faint); text-align: center; max-width: 26em; margin: 0 auto 4px; }
 .astro-form {
   max-width: 400px; margin: 0 auto; text-align: left; position: relative;
   padding: 22px 20px 8px; border: 1px solid rgba(214, 183, 122, .28);
