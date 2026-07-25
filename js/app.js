@@ -440,7 +440,8 @@ function cardStripHtml(spread, positions) {
 }
 
 // 雷諾曼解析內文：逐段落渲染，段落若提到位置群組（如「過去（1、4、7）」），
-// 在該段前方列出對應的小張牌卡，方便使用者對照九宮格。
+// 把對應的小張牌卡放進「同一個段落面板的最上方」（與文字共用同一塊暗色底，
+// 避免牌卡浮在段落之間、底色不同而顯得被切斷）。
 function lenormandContentHtml(content, spread) {
   const hasSpread = Array.isArray(spread) && spread.length;
   const blocks = String(content || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
@@ -449,7 +450,7 @@ function lenormandContentHtml(content, spread) {
     const strip = hasSpread
       ? posGroupsForBlock(b).map((g) => cardStripHtml(spread, g)).join('')
       : '';
-    return `${strip}<p>${esc(b)}</p>`;
+    return `<div class="lg-para">${strip}<p>${esc(b)}</p></div>`;
   }).join('');
 }
 
