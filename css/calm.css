@@ -1063,11 +1063,11 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 /* ---- 探索工具介紹 ---- */
 .guide-wrap { padding-top: 9vh; }
 .gd-h2 {
-  font-family: var(--serif); font-size: 19px; color: var(--ink);
+  font-family: var(--serif); font-size: 20.5px; color: var(--ink);
   letter-spacing: .06em; text-align: center; margin-bottom: 12px;
 }
 .gd-lede {
-  font-family: var(--serif); font-size: 15px; line-height: 1.95;
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.95;
   color: var(--ink-dim); margin-bottom: 14px;
 }
 .gd-overview .gd-lede { text-align: center; max-width: 28em; margin: 0 auto 20px; }
@@ -1080,32 +1080,32 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   box-shadow: inset 0 0 22px rgba(0, 0, 0, .4);
 }
 .gd-card-name {
-  font-family: var(--serif); font-size: 15.5px; color: var(--accent);
+  font-family: var(--serif); font-size: 17px; color: var(--accent);
   letter-spacing: .04em; margin-bottom: 5px;
 }
 .gd-mark { margin-right: 7px; opacity: .8; }
-.gd-card-line { font-family: var(--sans); font-size: 13px; line-height: 1.75; color: var(--ink-dim); }
+.gd-card-line { font-family: var(--sans); font-size: 14.5px; line-height: 1.75; color: var(--ink-dim); }
 
 /* 各工具的詳細介紹 */
 .gd-sec { margin: 4px 0; }
 .gd-sec-name {
-  font-family: var(--serif); font-size: 18px; color: var(--accent);
+  font-family: var(--serif); font-size: 19.5px; color: var(--accent);
   letter-spacing: .06em; text-align: center; margin-bottom: 14px;
 }
 .gd-label {
-  font-family: var(--sans); font-size: 11.5px; letter-spacing: .24em;
+  font-family: var(--sans); font-size: 12.5px; letter-spacing: .24em;
   color: var(--accent-dim); margin: 18px 0 8px;
 }
 /* 起源／使用系統與參考提問的內文，與簡介（.gd-lede）用同一級字體與顏色，
    整頁的正文才是一致的一種聲音 */
 .gd-meta-text {
-  font-family: var(--serif); font-size: 15px; line-height: 1.95; color: var(--ink-dim);
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.95; color: var(--ink-dim);
 }
 .gd-meta-text b { color: var(--ink); font-weight: normal; }
 .gd-ask-list, .gd-rows { list-style: none; }
 .gd-ask-list li, .gd-row {
-  position: relative; padding-left: 16px; margin-bottom: 8px;
-  font-family: var(--serif); font-size: 15px; line-height: 1.95; color: var(--ink-dim);
+  position: relative; padding-left: 18px; margin-bottom: 8px;
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.95; color: var(--ink-dim);
 }
 .gd-ask-list li::before, .gd-row::before {
   content: '·'; position: absolute; left: 3px; color: var(--accent-dim);
@@ -1114,7 +1114,7 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .gd-row-name { color: var(--accent); margin-right: 6px; }
 .gd-row-name::after { content: '：'; color: var(--ink-faint); }
 .gd-example-q {
-  font-family: var(--serif); font-size: 15.5px; line-height: 1.9; color: var(--ink);
+  font-family: var(--serif); font-size: 17px; line-height: 1.9; color: var(--ink);
   padding: 12px 14px; margin-bottom: 16px;
   border-left: 2px solid var(--accent-dim); background: rgba(214, 183, 122, .06);
 }
