@@ -8,34 +8,34 @@
 // action：analyze（描述＋雷諾曼＋梅花易數 → 五段式最後分析）
 // 回傳：{ ok:true, data } 或 { ok:false, fallback:true }。
 
-import { SYSTEM_PROMPT } from '../prompts/system.js';
+import { buildSystemPrompt } from '../prompts/system.js';
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
 
-// system prompt 版本雜湊（djb2）——prompt 紀錄引用它，system prompt 本體依版本去重存一份
+// system prompt 版本雜湊（djb2）——prompt 紀錄引用它，system prompt 本體依版本去重存一份。
+// system prompt 現依所選工具動態組裝，故雜湊與內容都逐次計算。
 function djb2(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
   return h.toString(16);
 }
-const SYS_HASH = djb2(SYSTEM_PROMPT);
 
 // 把實際送給 LLM 的 prompt 記錄到該次來訪（含各階段資料段，供後台復盤；失敗靜默）
-async function recordPrompt(sid, provider, model, prompt, segments) {
+async function recordPrompt(sid, provider, model, systemPrompt, sysHash, prompt, segments) {
   try {
     if (!sid || !redisConfigured()) return;
     const record = JSON.stringify({
-      ts: Date.now(), provider, model, sysHash: SYS_HASH,
+      ts: Date.now(), provider, model, sysHash,
       prompt: prompt.slice(0, 20000),
       segments: segments || null,
     });
     const results = await redisPipeline([
       ['SET', `pi:prompt:${sid}`, record],
-      ['SET', `pi:sysprompt:${SYS_HASH}`, SYSTEM_PROMPT, 'NX'],
+      ['SET', `pi:sysprompt:${sysHash}`, systemPrompt, 'NX'],
       ['INCRBY', 'pi:agg:bytes', String(record.length + 64)],
     ]);
     // system prompt 首次寫入才計入用量
     if (results && results[1] && results[1].result === 'OK') {
-      await redisPipeline([['INCRBY', 'pi:agg:bytes', String(SYSTEM_PROMPT.length + 64)]]);
+      await redisPipeline([['INCRBY', 'pi:agg:bytes', String(systemPrompt.length + 64)]]);
     }
   } catch { /* 靜默 */ }
 }
@@ -178,7 +178,7 @@ function buildSegments(p) {
 // 每個工具「必須逐項走完」的結構——直接寫進 prompt，模型須依此展開每一段
 const TOOL_STRUCT = {
   lenormand: `雷諾曼牌陣（九宮格 3×3）——content 內請依下列小標題依序展開，每一段都要具體、有內容，以「牌組組合」而非逐張牌義解讀：
-① 先用一兩句列出這九張牌（位置 1–9）。
+① 九張牌已以九宮格圖示呈現給使用者，**不要在文字中逐一列出牌名**；直接從整體印象進入解讀。
 ② 時間軸：分別解讀「過去（1、4、7）」「現在（2、5、8）」「未來（3、6、9）」三組，各成一段。
 ③ 三層意識：分別解讀「意識層（1、2、3）」「現實層（4、5、6）」「潛意識層（7、8、9）」三組，各成一段。
 ④ 十字法：解讀「核心（5）」「十字（2、4、6、8）」「四角（1、3、7、9）」。
@@ -229,7 +229,7 @@ ${multi ? '\n完成各節後，另加「交叉比對綜合分析」：找出共�
 - closing：一句臨別祝福（≤40字）。`;
 }
 
-async function callOpenAI(apiKey, model, maxTokens, userPrompt, schema, schemaName) {
+async function callOpenAI(apiKey, model, maxTokens, systemPrompt, userPrompt, schema, schemaName) {
   const res = await fetch(OPENAI_URL, {
     method: 'POST',
     headers: {
@@ -240,7 +240,7 @@ async function callOpenAI(apiKey, model, maxTokens, userPrompt, schema, schemaNa
       model,
       max_completion_tokens: maxTokens * 4, // 推理型模型把思考也算進去，放寬
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       response_format: {
@@ -256,7 +256,7 @@ async function callOpenAI(apiKey, model, maxTokens, userPrompt, schema, schemaNa
   return JSON.parse(msg.content);
 }
 
-async function callAnthropic(apiKey, model, maxTokens, userPrompt, schema) {
+async function callAnthropic(apiKey, model, maxTokens, systemPrompt, userPrompt, schema) {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -267,7 +267,7 @@ async function callAnthropic(apiKey, model, maxTokens, userPrompt, schema) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       output_config: { format: { type: 'json_schema', schema } },
       messages: [{ role: 'user', content: userPrompt }],
     }),
@@ -323,12 +323,18 @@ export default async function handler(req, res) {
   const maxTokens = MAX_TOKENS[action];
   const schema = SCHEMAS[action];
 
+  // system prompt 依所選工具動態組裝（只納入被選到的章節；兩個以上工具才加「交叉比對綜合分析」）
+  const systemPrompt = buildSystemPrompt(segments.tools);
+  const sysHash = djb2(systemPrompt);
+
   // 記錄實際送出的 prompt 與各階段資料段（呼叫前寫入——模型失敗也留有紀錄可復盤）
   const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
   await recordPrompt(
     sid,
     openaiKey ? 'openai' : 'anthropic',
     openaiKey ? openaiModels()[action] : MODEL[action],
+    systemPrompt,
+    sysHash,
     prompt,
     segments,
   );
@@ -337,8 +343,8 @@ export default async function handler(req, res) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const data = openaiKey
-        ? await callOpenAI(openaiKey, openaiModels()[action], maxTokens, prompt, schema, action)
-        : await callAnthropic(anthropicKey, MODEL[action], maxTokens, prompt, schema);
+        ? await callOpenAI(openaiKey, openaiModels()[action], maxTokens, systemPrompt, prompt, schema, action)
+        : await callAnthropic(anthropicKey, MODEL[action], maxTokens, systemPrompt, prompt, schema);
       res.status(200).json({ ok: true, data });
       return;
     } catch (e) {

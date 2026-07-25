@@ -8,6 +8,7 @@ import {
 } from './engine/session.js';
 import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
+import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney } from './analytics.js';
@@ -364,11 +365,24 @@ function sectionsOf(a) {
   return [{ tool: only, content: String(a.message || '') }];
 }
 
+// 雷諾曼九宮格牌卡畫面：3×3，每張牌以星座圖案＋牌名＋位置編號呈現
+function spreadGridHtml(spread) {
+  if (!Array.isArray(spread) || !spread.length) return '';
+  const cells = spread.map(({ card }, i) => `
+    <div class="lg-cell">
+      <div class="lg-pos">${i + 1}</div>
+      <div class="lg-ico">${cardConstellation(card.id)}</div>
+      <div class="lg-name">${esc(card.name)}</div>
+    </div>`).join('');
+  return `<div class="lenormand-grid" aria-label="雷諾曼九宮格">${cells}</div>`;
+}
+
 function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
     <div class="r-section">
       <h3 class="r-sec-head">${esc(TOOL_LABELS[s.tool] || s.tool || '')}</h3>
+      ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
       <div class="r-block"><p>${esc(String(s.content || ''))}</p></div>
     </div>`).join('');
 
