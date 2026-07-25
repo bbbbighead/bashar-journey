@@ -2,8 +2,9 @@
 // 驗證：Authorization: Bearer <ADMIN_PASSWORD>（環境變數，未設定即整個後台停用）。
 // GET views：
 //   overview            總覽（來訪數、來源分布、裝置分布、各畫面平均停留）
-//   sessions?offset=0   來訪清單（每頁 50 筆，含是否留有題目與標註）
-//   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註）
+//   sessions?offset=0   來訪清單（每頁 50 筆，含是否留有題目、標註與回饋星等）
+//   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註/回饋）
+//   feedback?limit=200  使用者回饋清單（新到舊）＋筆數、平均星等與分布
 // POST actions（body JSON）：
 //   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
 //   { action:'delete', sid|sids[] }  刪除紀錄（清單/題目/停留/標註），並回扣聚合統計與用量
@@ -96,26 +97,30 @@ export default async function handler(req, res) {
         const sids2 = raws.map((r) => (parseJSON(r, {}) || {}).sid).filter(Boolean);
         for (let i = 0; i < sids2.length; i += 100) {
           const chunk = sids2.slice(i, i + 100);
+          const STRIDE = 6;
           const reads = await redisPipeline(chunk.flatMap((s) => [
             ['STRLEN', `pi:journey:${s}`],
             ['HGETALL', `pi:dwell:${s}`],
             ['HGETALL', `pi:dwellcnt:${s}`],
             ['STRLEN', `pi:note:${s}`],
             ['STRLEN', `pi:prompt:${s}`],
+            ['STRLEN', `pi:fb:${s}`],
           ]));
           chunk.forEach((s, j) => {
-            const jLen = Number(reads[j * 5].result || 0);
+            const jLen = Number(reads[j * STRIDE].result || 0);
             if (jLen) bytes += jLen + KEY_OVERHEAD;
             const toObj2 = (arr) => {
               const o = {}; const a = arr || [];
               for (let k = 0; k < a.length; k += 2) o[a[k]] = a[k + 1];
               return o;
             };
-            bytes += dwellBytesOf(toObj2(reads[j * 5 + 1].result), toObj2(reads[j * 5 + 2].result));
-            const nLen = Number(reads[j * 5 + 3].result || 0);
+            bytes += dwellBytesOf(toObj2(reads[j * STRIDE + 1].result), toObj2(reads[j * STRIDE + 2].result));
+            const nLen = Number(reads[j * STRIDE + 3].result || 0);
             if (nLen) bytes += nLen + KEY_OVERHEAD;
-            const pLen = Number(reads[j * 5 + 4].result || 0);
+            const pLen = Number(reads[j * STRIDE + 4].result || 0);
             if (pLen) bytes += pLen + KEY_OVERHEAD;
+            const fLen = Number(reads[j * STRIDE + 5].result || 0);
+            if (fLen) bytes += fLen + KEY_OVERHEAD + fLen + 16; // 字串 + pi:feedback 清單各一份
           });
         }
         await redisPipeline([['SET', 'pi:agg:bytes', String(Math.round(bytes))]]);
@@ -138,13 +143,14 @@ export default async function handler(req, res) {
         }
 
         // 讀取各筆的停留數據與大小，供回扣統計與用量
-        const STRIDE = 5;
+        const STRIDE = 6;
         const reads = await redisPipeline(sids.flatMap((s) => [
           ['HGETALL', `pi:dwell:${s}`],
           ['HGETALL', `pi:dwellcnt:${s}`],
           ['STRLEN', `pi:journey:${s}`],
           ['STRLEN', `pi:note:${s}`],
           ['STRLEN', `pi:prompt:${s}`],
+          ['GET', `pi:fb:${s}`], // 取全文：從 pi:feedback 清單移除需要原始字串
         ]));
         const toObj = (arr) => {
           const o = {}; const a = arr || [];
@@ -178,12 +184,18 @@ export default async function handler(req, res) {
           if (nLen) freed += nLen + KEY_OVERHEAD;
           const pLen = Number(reads[i * STRIDE + 4].result || 0);
           if (pLen) freed += pLen + KEY_OVERHEAD;
+          const fbRaw = reads[i * STRIDE + 5].result || '';
+          if (fbRaw) {
+            freed += fbRaw.length + KEY_OVERHEAD + fbRaw.length + 16; // 字串 + 清單各一份
+            cmds.push(['LREM', 'pi:feedback', '1', fbRaw]);
+          }
           cmds.push(
             ['DEL', `pi:journey:${s}`],
             ['DEL', `pi:dwell:${s}`],
             ['DEL', `pi:dwellcnt:${s}`],
             ['DEL', `pi:note:${s}`],
             ['DEL', `pi:prompt:${s}`],
+            ['DEL', `pi:fb:${s}`],
           );
         });
         cmds.push(['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))]);
@@ -348,18 +360,22 @@ export default async function handler(req, res) {
         ['LRANGE', 'pi:sessions', String(offset), String(offset + 49)],
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
-      // 附註每筆是否留有題目（journey）、使用的工具與標註內容。
+      // 附註每筆是否留有題目（journey）、使用的工具、標註內容與回饋。
       // 取 journey 全文（而非只 EXISTS）是為了帶出 tools 讓清單直接顯示工具。
       if (sessions.length) {
+        const STRIDE = 3;
         const extras = await redisPipeline(sessions.flatMap((s) => [
           ['GET', `pi:journey:${s.sid}`],
           ['GET', `pi:note:${s.sid}`],
+          ['GET', `pi:fb:${s.sid}`],
         ]));
         sessions.forEach((s, i) => {
-          const journey = extras[i * 2].result ? parseJSON(extras[i * 2].result, null) : null;
+          const journey = extras[i * STRIDE].result ? parseJSON(extras[i * STRIDE].result, null) : null;
           s.hasJourney = !!journey;
           s.tools = (journey && Array.isArray(journey.tools)) ? journey.tools : null;
-          s.note = extras[i * 2 + 1].result || '';
+          s.note = extras[i * STRIDE + 1].result || '';
+          const fb = extras[i * STRIDE + 2].result ? parseJSON(extras[i * STRIDE + 2].result, null) : null;
+          s.feedback = fb ? { rating: fb.rating, text: fb.text || '', ts: fb.ts } : null;
         });
       }
       res.status(200).json({ ok: true, offset, sessions });
@@ -369,11 +385,12 @@ export default async function handler(req, res) {
     if (view === 'session') {
       const sid = String(url.searchParams.get('sid') || '').slice(0, 16).replace(/[^\w-]/g, '');
       if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
-      const [jR, dR, nR, pR] = await redisPipeline([
+      const [jR, dR, nR, pR, fR] = await redisPipeline([
         ['GET', `pi:journey:${sid}`],
         ['HGETALL', `pi:dwell:${sid}`],
         ['GET', `pi:note:${sid}`],
         ['GET', `pi:prompt:${sid}`],
+        ['GET', `pi:fb:${sid}`],
       ]);
       const dwell = {};
       const da = dR.result || [];
@@ -384,6 +401,31 @@ export default async function handler(req, res) {
         dwellMs: dwell,
         note: nR.result || '',
         prompt: pR.result ? parseJSON(pR.result, null) : null,
+        feedback: fR.result ? parseJSON(fR.result, null) : null,
+      });
+      return;
+    }
+
+    if (view === 'feedback') {
+      // 使用者回饋清單（新到舊）＋筆數、平均星等與 1–5 星分布。
+      // 每筆自帶主題與工具，因此即使原來訪紀錄已被刪除，回饋本身仍可閱讀。
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit')) || 200));
+      const [listR] = await redisPipeline([['LRANGE', 'pi:feedback', '0', String(limit - 1)]]);
+      const items = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
+      const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      let sum = 0;
+      for (const f of items) {
+        const r = Number(f.rating) || 0;
+        if (r >= 1 && r <= 5) { dist[r]++; sum += r; }
+      }
+      const [lenR] = await redisPipeline([['LLEN', 'pi:feedback']]);
+      res.status(200).json({
+        ok: true,
+        total: Number(lenR.result || 0),
+        loaded: items.length,
+        avg: items.length ? +(sum / items.length).toFixed(2) : 0,
+        dist,
+        items,
       });
       return;
     }

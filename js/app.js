@@ -11,11 +11,12 @@ import {
   saveAnalysisToHistory, loadHistory, deleteHistoryRecord, clearHistory,
 } from './engine/history.js';
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
+import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
-import { trackVisit, trackScreen, trackJourney } from './analytics.js';
+import { trackVisit, trackScreen, trackJourney, sendFeedback } from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
   initDocumentLang, LOCALE_LIST, localeName,
@@ -713,6 +714,73 @@ function lenormandContentHtml(content, spread) {
   return out.join('');
 }
 
+// ---- 使用者回饋（星等＋選填文字，送到後台） ----
+const FB_STARS = 5;
+
+// 已回饋過就直接呈現感謝狀態；否則畫出星等（選了星才展開文字框與送出鈕）
+function feedbackHtml() {
+  const done = feedbackFor(state && state.runId);
+  if (done) return `<div class="r-feedback done"><div class="fb-done">${esc(t('feedback.already', done))}</div></div>`;
+  const stars = Array.from({ length: FB_STARS }, (_, i) => i + 1).map((n) => `
+    <button type="button" class="fb-star" data-rating="${n}"
+      aria-label="${esc(t('feedback.starAria', n))}" title="${esc(t('feedback.scale', n))}">★</button>`).join('');
+  return `<div class="r-feedback" id="fbBlock">
+    <div class="fb-title">${esc(t('feedback.title'))}</div>
+    <div class="fb-stars" id="fbStars" role="group" aria-label="${esc(t('feedback.title'))}">${stars}</div>
+    <div class="fb-scale" id="fbScale"></div>
+    <div class="fb-more" id="fbMore" hidden>
+      <textarea class="fb-text" id="fbText" maxlength="500" rows="3"
+        placeholder="${esc(t('feedback.textPh'))}"></textarea>
+      <button type="button" class="btn fb-send" id="btnFeedback">${esc(t('feedback.send'))}</button>
+      <div class="fb-hint">${esc(t('feedback.hint'))}</div>
+      <div class="fb-msg" id="fbMsg"></div>
+    </div>
+  </div>`;
+}
+
+function bindFeedback() {
+  const block = $('fbBlock');
+  if (!block) return; // 已回饋過，沒有互動元素
+  const scaleEl = $('fbScale');
+  const moreEl = $('fbMore');
+  const msgEl = $('fbMsg');
+  const sendBtn = $('btnFeedback');
+  let rating = 0;
+
+  const paint = () => {
+    block.querySelectorAll('.fb-star').forEach((b) => {
+      b.classList.toggle('on', Number(b.dataset.rating) <= rating);
+    });
+    scaleEl.textContent = rating ? t('feedback.scale', rating) : '';
+  };
+
+  block.querySelectorAll('.fb-star').forEach((b) => {
+    b.addEventListener('click', () => {
+      rating = Number(b.dataset.rating);
+      paint();
+      moreEl.hidden = false;
+      msgEl.textContent = '';
+    });
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    if (!rating || sendBtn.disabled) return;
+    sendBtn.disabled = true;
+    sendBtn.textContent = t('feedback.sending');
+    msgEl.textContent = '';
+    try {
+      await sendFeedback({ rating, text: $('fbText').value, state, lang: getLocale() });
+      rememberFeedback(state && state.runId, rating);
+      block.classList.add('done');
+      block.innerHTML = `<div class="fb-done">${esc(t('feedback.done'))}</div>`;
+    } catch {
+      msgEl.textContent = t('feedback.failed');
+      sendBtn.disabled = false;
+      sendBtn.textContent = t('feedback.send');
+    }
+  });
+}
+
 function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
@@ -729,6 +797,7 @@ function renderResult(a) {
     <div class="r-topic">${esc(t('result.about', state.opening))}</div>
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
+    ${feedbackHtml()}
     <div class="r-sponsor">
       <p class="r-sponsor-line">${esc(t('result.sponsorAsk'))}</p>
       <button class="btn bmc-btn" id="btnCoffee">${esc(t('result.sponsorBtn'))}</button>
@@ -753,6 +822,7 @@ function renderResult(a) {
       <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
     </div>`;
+  bindFeedback();
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnAdvanced').addEventListener('click', () => {

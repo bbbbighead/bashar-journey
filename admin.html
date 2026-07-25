@@ -73,6 +73,15 @@
       <div class="chart-host" id="dwellChart"></div>
     </div>
 
+    <!-- 使用者回饋 -->
+    <div class="a-block">
+      <h3>使用者回饋</h3>
+      <div class="a-hint">結果頁上使用者自己送出的星等與文字。每筆都帶著當時的主題與工具，即使原來訪紀錄被刪除也讀得到。</div>
+      <div class="fb-summary" id="fbSummary"></div>
+      <div class="fb-list" id="fbList"></div>
+      <div class="a-actions"><button class="btn" id="btnFbMore" style="display:none">載入更多回饋</button></div>
+    </div>
+
     <!-- 使用紀錄 -->
     <div class="a-block">
       <h3>使用者歷史紀錄</h3>
@@ -94,7 +103,7 @@
         <button class="btn small danger" id="btnBulkDel">刪除選取的紀錄</button>
       </div>
       <table class="a-table sessions" id="sessTable">
-        <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="note">標註</th></tr></thead>
+        <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>

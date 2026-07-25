@@ -1,5 +1,6 @@
 // api/track.js — 匿名埋點收集端點（sendBeacon POST）。
-// 事件：start（來訪：來源/UTM/裝置）、dwell（頁面停留）、journey（題目與產出）。
+// 事件：start（來訪：來源/UTM/裝置）、dwell（頁面停留）、journey（題目與產出）、
+//       feedback（結果頁的星等與選填文字）。
 // 寫入 Upstash Redis；未設定儲存後端時回 204 靜默丟棄。永不回傳錯誤內容給前端。
 //
 // 保存策略：資料不設時間過期。以 pi:agg:bytes 估算目前用量（邏輯大小＋每鍵固定開銷），
@@ -12,6 +13,8 @@
 //   pi:dwell:<sid>         HASH  各畫面停留毫秒累計
 //   pi:dwellcnt:<sid>      HASH  各畫面停留事件數（刪除時精準回扣平均值）
 //   pi:journey:<sid>       STRING JSON（opening/cards/numbers/title/message/closing/offline/ts）
+//   pi:fb:<sid>            STRING JSON（rating/text/topic/tools/ts）＝該次來訪的回饋
+//   pi:feedback            LIST  同一份 JSON（含 sid/vid），新的在左，供後台整批瀏覽
 //   pi:agg:src / device    HASH  來源/裝置 → 次數
 //   pi:agg:dwell_sum/_cnt  HASH  畫面 → 停留毫秒總和／次數
 //   pi:agg:bytes           STRING 估算用量（bytes）
@@ -96,13 +99,14 @@ export function dwellBytes(dwell, dcnt) {
 // 刪除一批來訪紀錄（清單項已由呼叫端移出或將以 LREM 移出），回傳估算釋放的 bytes
 async function removeEntries(entries, useLrem) {
   if (!entries.length) return 0;
-  const STRIDE = 5;
+  const STRIDE = 6;
   const reads = await redisPipeline(entries.flatMap((e) => [
     ['STRLEN', `pi:journey:${e.sid}`],
     ['HGETALL', `pi:dwell:${e.sid}`],
     ['HGETALL', `pi:dwellcnt:${e.sid}`],
     ['STRLEN', `pi:note:${e.sid}`],
     ['STRLEN', `pi:prompt:${e.sid}`],
+    ['GET', `pi:fb:${e.sid}`], // 取全文而非長度：從 pi:feedback 清單移除需要原始字串
   ]));
 
   const cmds = [];
@@ -118,6 +122,11 @@ async function removeEntries(entries, useLrem) {
     if (nLen) freed += nLen + KEY_OVERHEAD;
     const pLen = Number(reads[i * STRIDE + 4].result || 0);
     if (pLen) freed += pLen + KEY_OVERHEAD;
+    const fbRaw = reads[i * STRIDE + 5].result || '';
+    if (fbRaw) {
+      freed += fbRaw.length + KEY_OVERHEAD + fbRaw.length + 16; // 字串 + 清單各一份
+      cmds.push(['LREM', 'pi:feedback', '1', fbRaw]);
+    }
 
     if (useLrem) cmds.push(['LREM', 'pi:sessions', '1', e.raw]);
     if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
@@ -133,6 +142,7 @@ async function removeEntries(entries, useLrem) {
         ['DEL', `pi:dwellcnt:${e.sid}`],
         ['DEL', `pi:note:${e.sid}`],
         ['DEL', `pi:prompt:${e.sid}`],
+        ['DEL', `pi:fb:${e.sid}`],
       );
     }
   });
@@ -241,6 +251,33 @@ export default async function handler(req, res) {
       cmds.push(
         ['SET', `pi:journey:${sid}`, journey],
         ['INCRBY', 'pi:agg:bytes', String(journey.length + KEY_OVERHEAD)],
+      );
+    } else if (body.type === 'feedback') {
+      // 結果頁的回饋：1–5 顆星（必填）＋選填文字。同一次來訪重送＝覆寫舊的。
+      const rating = Math.round(Number(body.rating) || 0);
+      if (rating < 1 || rating > 5) { res.end(); return; }
+      const record = JSON.stringify({
+        sid,
+        vid,
+        ts: Date.now(),
+        rating,
+        text: String(body.text || '').trim().slice(0, 500),
+        topic: String(body.topic || '').slice(0, 300),
+        tools: Array.isArray(body.tools) ? body.tools.slice(0, 6).map((x) => String(x).slice(0, 16)) : null,
+        title: String(body.title || '').slice(0, 60),
+        lang: String(body.lang || '').slice(0, 12),
+        offline: !!body.offline,
+      });
+      // 舊回饋要先從清單移除，否則同一次來訪會出現兩筆
+      const [oldR] = await redisPipeline([['GET', `pi:fb:${sid}`]]);
+      const old = oldR.result || '';
+      if (old) cmds.push(['LREM', 'pi:feedback', '1', old]);
+      const oldSize = old ? old.length + KEY_OVERHEAD + old.length + 16 : 0;
+      const newSize = record.length + KEY_OVERHEAD + record.length + 16;
+      cmds.push(
+        ['SET', `pi:fb:${sid}`, record],
+        ['LPUSH', 'pi:feedback', record],
+        ['INCRBY', 'pi:agg:bytes', String(newSize - oldSize)],
       );
     } else {
       res.end(); return;

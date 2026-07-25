@@ -97,7 +97,7 @@ export default {
   result: {
     titleFallback: 'Your reading',
     about: (topic) => `On “${topic}”`,
-    sponsorAsk: 'Did this reading speak to you?',
+    sponsorAsk: 'This is free to use, and keeps going on readers’ goodwill.',
     sponsorBtn: '🍰 Buy me a slice of cake',
     sponsorSoon: 'The support link is opening soon — thank you for the thought ☕',
     copy: 'Copy this reading',
@@ -118,6 +118,20 @@ export default {
     aiPrefilledCopied: 'Your reading has been carried over — just ask your question. (Also copied, as a backup.)',
     aiGemini: 'Gemini can’t be pre-filled, so the reading is on your clipboard — paste it into the new tab.',
     aiFallback: 'The tab is open. If nothing came through, come back and press “Copy this reading”, then paste.',
+  },
+
+  // Feedback on the result page (rating + optional note, sent anonymously)
+  feedback: {
+    title: 'Did this reading land for you?',
+    hint: 'Only the developer sees this. It’s what makes the readings sharper.',
+    scale: (n) => ['', 'Way off', 'A little off', 'Somewhat', 'Pretty close', 'Spot on'][n] || '',
+    textPh: 'Anything you’d like to add? (optional)',
+    send: 'Send feedback',
+    sending: 'Sending…',
+    done: 'Got it — thank you ✓',
+    failed: 'Couldn’t send — please try again',
+    already: (n) => `You rated this reading ${n} star${n === 1 ? '' : 's'} — thank you ✓`,
+    starAria: (n) => `${n} star${n === 1 ? '' : 's'}`,
   },
 
   history: {
