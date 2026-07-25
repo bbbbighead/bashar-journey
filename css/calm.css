@@ -843,9 +843,12 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 }
 .side-menu.open .menu-panel { transform: translateX(0); }
 .menu-brand {
+  display: flex; align-items: center; gap: .6em;
   font-family: var(--serif); font-size: 15px; letter-spacing: .22em; color: var(--accent);
   padding-bottom: 16px; margin-bottom: 10px; border-bottom: 1px solid var(--line);
 }
+/* 標誌尺寸以 em 綁定標題字級，改字級時自動等比縮放 */
+.menu-logo { width: 1.9em; height: 1.9em; flex: 0 0 auto; object-fit: contain; display: block; }
 .menu-item {
   display: block; width: 100%; text-align: left; text-decoration: none;
   font-family: var(--serif); font-size: 16px; letter-spacing: .1em; color: var(--ink);
