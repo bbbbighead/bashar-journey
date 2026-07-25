@@ -22,7 +22,7 @@ export default {
 
   intake: {
     label: '오늘은 어떤 이야기를 들여다보고 싶으세요?',
-    placeholder: '예: 일이 향하는 방향',
+    placeholder: '질문, 떠오른 생각, 받고 싶은 영감, 정리하고 싶은 일 무엇이든.',
     toolPick: '점술을 하나 선택해 주세요',
     soon: 'Coming Soon',
     start: '풀이 시작하기',

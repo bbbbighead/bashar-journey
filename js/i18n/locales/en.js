@@ -22,7 +22,7 @@ export default {
 
   intake: {
     label: 'What would you like to explore today?',
-    placeholder: 'e.g. where my work is heading',
+    placeholder: 'A question, a thought, an inspiration you’re after, or something you want to get clear on.',
     toolPick: 'Choose one practice',
     soon: 'Coming Soon',
     start: 'Begin the reading',
