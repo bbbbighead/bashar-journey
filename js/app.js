@@ -481,7 +481,7 @@ function renderResult(a) {
     </div>
     <div class="r-continue">
       <div class="r-continue-title">想針對這份分析，繼續往下聊？</div>
-      <p class="r-continue-hint">選一個你慣用的 AI——完整內容會自動複製，開啟後直接貼上，就能接著深入提問。</p>
+      <p class="r-continue-hint">選一個你慣用的 AI——會自動帶入這則分析，開啟後直接提問就好（內容也已複製，萬一沒帶入就貼上）。</p>
       <div class="ai-row">
         <a class="btn ai-btn" data-ai="chatgpt" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
         <a class="btn ai-btn" data-ai="claude" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Claude</a>
@@ -509,8 +509,11 @@ function renderResult(a) {
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3200);
   });
+  const handoff = buildHandoff(a);
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
-    b.addEventListener('click', () => continueWithAI(a));
+    const provider = b.dataset.ai;
+    b.href = aiHandoffUrl(provider, handoff); // 透過 query param 預先帶入內容
+    b.addEventListener('click', () => continueWithAI(a, provider));
   });
   showScreen('screenResult');
 }
@@ -537,19 +540,41 @@ function copyAnalysis(a) {
   );
 }
 
-// 導流：連結開啟所選 AI 的新分頁；此函式在點擊當下把「內容＋接續提問引導」寫入剪貼簿
-function continueWithAI(a) {
-  const handoff = [
+// 導流用文字：內容 ＋ 接續提問引導（複製與 query param 帶入共用同一份）
+function buildHandoff(a) {
+  return [
     '以下是我剛在「Intuitive Notes」完成的一次分析，請你先讀完：',
     '',
     fullText(a),
     '',
     '請你扮演一位溫暖而誠實的引導者，基於以上的主題與分析，陪我繼續深入探討——我接下來會針對其中的內容提問。',
   ].join('\n');
+}
 
+// 各 AI 的開新分頁網址；ChatGPT／Claude 支援 ?q= 預填提示，Gemini 無官方預填參數
+const AI_ENDPOINTS = {
+  chatgpt: 'https://chatgpt.com/?q=',
+  claude: 'https://claude.ai/new?q=',
+  gemini: 'https://gemini.google.com/app', // 無預填參數，維持原網址（靠剪貼簿）
+};
+
+function aiHandoffUrl(provider, text) {
+  const base = AI_ENDPOINTS[provider] || AI_ENDPOINTS.chatgpt;
+  if (provider === 'gemini') return base; // 不支援 query 預填
+  return base + encodeURIComponent(text);
+}
+
+// 導流：連結已透過 query param 預先帶入內容；仍把同一份文字寫入剪貼簿當後備
+function continueWithAI(a, provider) {
+  const handoff = buildHandoff(a);
+  const canPrefill = provider !== 'gemini';
   navigator.clipboard.writeText(handoff).then(
-    () => showToast('內容已複製——在開啟的分頁裡貼上，就能接著聊。'),
-    () => showToast('分頁已開啟。若貼上時沒有內容，請回來按「複製完整內容」。')
+    () => showToast(canPrefill
+      ? '已為你帶入這則分析——直接提問即可（內容也已複製備用）。'
+      : 'Gemini 無法預先帶入，已複製內容——在開啟的分頁貼上即可。'),
+    () => showToast(canPrefill
+      ? '已為你帶入這則分析——直接提問即可。'
+      : '分頁已開啟。若沒有內容，請回來按「複製這則內容」再貼上。')
   );
 }
 
