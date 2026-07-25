@@ -231,6 +231,25 @@ textarea::placeholder { color: var(--ink-faint); }
   .lenormand-grid { gap: 6px; }
 }
 
+/* 章節前的對照小牌卡 */
+.lg-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px; }
+.lg-mini {
+  position: relative; width: 62px; margin: 0; padding: 6px 3px 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, .45);
+}
+.lg-mini-pos {
+  position: absolute; top: 3px; left: 5px;
+  font-size: 9px; color: var(--accent-dim); font-family: Georgia, serif; opacity: .8;
+}
+.lg-mini-ico { width: 72%; margin: 2px auto 3px; }
+.lg-mini-name {
+  font-family: var(--serif); font-size: 11px; color: var(--ink-dim);
+  letter-spacing: .06em; text-align: center; line-height: 1.3;
+}
+
 /* ---- 結果頁：分節解析 ---- */
 .r-section { margin-bottom: 30px; }
 .r-sec-head {
