@@ -344,6 +344,20 @@ textarea::placeholder { color: var(--ink-faint); }
 }
 .divine-actions { margin-top: 40px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
 
+/* 已帶入上次出生資料的提示（可一鍵改用其他資料） */
+.astro-saved {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 6px 12px; margin: 0 auto 14px; max-width: 30em;
+  font-family: var(--sans); font-size: 12.5px; color: var(--accent);
+}
+.astro-saved::before { content: '✓'; opacity: .85; }
+.link-btn {
+  font: inherit; color: var(--ink-dim); background: none;
+  border: none; border-bottom: 1px solid var(--line);
+  padding: 0 1px 1px; cursor: pointer; transition: color .2s, border-color .2s;
+}
+.link-btn:hover { color: var(--ink); border-color: var(--accent-dim); }
+
 /* ---- 占星出生資料：毛玻璃登錄卡 ---- */
 .astro-privacy { font-size: 12.5px; color: var(--ink-faint); text-align: center; max-width: 26em; margin: 0 auto 4px; }
 .astro-form {

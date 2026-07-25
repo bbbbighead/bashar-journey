@@ -10,6 +10,7 @@ import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
 import {
   saveAnalysisToHistory, loadHistory, deleteHistoryRecord, clearHistory,
 } from './engine/history.js';
+import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
@@ -494,6 +495,46 @@ function runAstro() {
 
   errEl.textContent = '';
   cityPickedEl.textContent = '';
+
+  // ---- 自動帶入上次填過的出生資料（存在本機，省去重複輸入）----
+  const savedEl = $('astroSaved');
+  const showSavedHint = (on) => { savedEl.hidden = !on; };
+  const fillFrom = (prof) => {
+    dateEl.value = prof.date || '';
+    unknownEl.checked = !!prof.timeUnknown;
+    timeEl.value = prof.timeUnknown ? '' : (prof.time || '');
+    cityEl.value = prof.city || '';
+    countryEl.value = prof.country || '';
+    if (prof.place && prof.place.latitude != null && prof.place.timezone) {
+      pickedPlace = prof.place;
+      const cz = countryName(prof.place);
+      cityPickedEl.textContent = `${t('astro.picked', prof.place.name || prof.city || '')}`
+        + `${prof.place.admin1 ? `，${prof.place.admin1}` : ''}（${cz || '—'}・${prof.place.timezone}）`;
+    }
+    refresh();
+  };
+  const profile = loadBirthProfile();
+  if (profile) { fillFrom(profile); showSavedHint(true); } else { showSavedHint(false); }
+
+  // 換一組資料（例如替別人看盤）：清空表單與本機紀錄
+  $('btnAstroReset').onclick = () => {
+    clearBirthProfile();
+    pickedPlace = null;
+    pickedCountry = null;
+    dateEl.value = '';
+    timeEl.value = '';
+    unknownEl.checked = false;
+    cityEl.value = '';
+    countryEl.value = '';
+    cityPickedEl.textContent = '';
+    errEl.textContent = '';
+    renderCityList(null);
+    renderCountryList(null);
+    showSavedHint(false);
+    refresh();
+    dateEl.focus();
+  };
+
   refresh();
 
   doneBtn.onclick = async () => {
@@ -517,6 +558,15 @@ function runAstro() {
       });
       state.astro = chart;
       saveSession(state);
+      // 記在本機，下次占星自動帶入
+      saveBirthProfile({
+        date: dateEl.value,
+        time: timeEl.value,
+        timeUnknown: unknownEl.checked,
+        city: cityEl.value.trim(),
+        country: countryEl.value.trim(),
+        place: pickedPlace,
+      });
       collectNext();
     } catch (e) {
       errEl.textContent = ({

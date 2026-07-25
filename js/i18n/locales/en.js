@@ -71,6 +71,8 @@ export default {
     lede: 'share your birth details, and your natal chart will be calculated from astronomical ephemerides.',
     cityPh: 'Search by city name, e.g. London',
     countryPh: 'Search the country list, e.g. United Kingdom',
+    savedHint: 'Your birth details from last time have been filled in',
+    savedReset: 'Use different details',
     note: 'Birth details are used for the chart calculation and recorded anonymously to improve the experience. They are never shown publicly.',
     date: 'Date of birth',
     time: 'Time of birth',
