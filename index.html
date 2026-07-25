@@ -142,8 +142,18 @@
   <!-- 整合中 -->
   <section class="screen" id="screenWeaving">
     <div class="weaving">
-      <div class="orb"></div>
-      <p id="weavingText">正在為你分析……</p>
+      <!-- 星軌：三層軌道繞著「分析中」運行 -->
+      <div class="orbit-stage">
+        <div class="orbit-rig" aria-hidden="true">
+          <svg class="orb-ring or1" viewBox="0 0 200 200"><circle class="orb-guide" cx="100" cy="100" r="92"></circle><circle class="orb-arc" cx="100" cy="100" r="92"></circle></svg>
+          <svg class="orb-ring or2" viewBox="0 0 200 200"><circle class="orb-guide" cx="100" cy="100" r="92"></circle><circle class="orb-arc" cx="100" cy="100" r="92"></circle></svg>
+          <svg class="orb-ring or3" viewBox="0 0 200 200"><circle class="orb-guide" cx="100" cy="100" r="92"></circle><circle class="orb-arc" cx="100" cy="100" r="92"></circle></svg>
+          <div class="orb-planet op1"><i></i></div>
+          <div class="orb-planet op2"><i></i></div>
+          <div class="orb-planet op3"><i></i></div>
+        </div>
+        <p id="weavingText" class="orbit-label">分析中</p>
+      </div>
     </div>
   </section>
 

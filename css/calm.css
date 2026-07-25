@@ -439,27 +439,56 @@ input.num::-webkit-outer-spin-button, input.num::-webkit-inner-spin-button { -we
 input.num:focus { outline: 1px solid var(--line); outline-offset: 3px; border-color: var(--accent-dim); }
 input.num::placeholder { color: var(--ink-faint); }
 
-/* ---- 整合中：緩慢自轉的渾儀環 ---- */
-.weaving { text-align: center; padding-top: 26vh; color: var(--ink-dim); font-family: var(--serif); font-size: 16px; }
-.orb {
-  width: 66px; height: 66px; margin: 0 auto 42px; border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  position: relative;
+/* ---- 分析中：星軌（三層軌道繞著文字運行） ---- */
+.weaving { text-align: center; padding-top: 20vh; color: var(--ink-dim); font-family: var(--serif); font-size: 16px; }
+.orbit-stage {
+  position: relative; width: 300px; height: 300px; margin: 0 auto;
+  display: grid; place-items: center;
 }
-.orb::before {
-  content: ''; position: absolute; inset: -12px; border-radius: 50%;
-  border: 1px dashed var(--line);
-  animation: orbspin 16s linear infinite;
+.orbit-rig { position: absolute; inset: 0; display: grid; place-items: center; }
+.orbit-rig svg { position: absolute; overflow: visible; }
+.orb-guide { fill: none; stroke: rgba(224, 193, 132, .13); stroke-width: 1; }
+.orb-arc { fill: none; stroke: var(--accent); stroke-linecap: round; }
+
+.orb-ring { animation: orbspin linear infinite; transform-origin: 50% 50%; }
+.or1 { width: 300px; height: 300px; animation-duration: 7s; }
+.or2 { width: 216px; height: 216px; animation-duration: 4.6s; animation-name: orbspinback; }
+.or3 { width: 140px; height: 140px; animation-duration: 3.1s; }
+.or1 .orb-arc { stroke-width: 3; stroke-dasharray: 168 420; }
+.or2 .orb-arc { stroke-width: 2.6; stroke-dasharray: 120 302; stroke: #f0dca6; }
+.or3 .orb-arc { stroke-width: 2.2; stroke-dasharray: 74 200; }
+
+/* 行星節點：獨立轉盤，把亮點推到各自軌道半徑上 */
+.orb-planet { position: absolute; animation: orbspin linear infinite; transform-origin: 50% 50%; }
+.orb-planet i {
+  position: absolute; left: 50%; top: 0; width: 7px; height: 7px; margin-left: -3.5px;
+  border-radius: 50%; background: #f0dca6;
+  box-shadow: 0 0 12px 3px rgba(240, 220, 166, .6);
 }
-.orb::after {
-  content: ''; position: absolute; inset: 27px; border-radius: 50%;
-  background: #e6cd96;
-  box-shadow: 0 0 22px 4px rgba(230, 205, 150, .5);
-  animation: orbpulse 3.6s ease-in-out infinite;
+.op1 { width: 300px; height: 300px; animation-duration: 7s; }
+.op2 { width: 216px; height: 216px; animation-duration: 4.6s; animation-name: orbspinback; }
+.op3 { width: 140px; height: 140px; animation-duration: 3.1s; }
+.op3 i { width: 5px; height: 5px; margin-left: -2.5px; }
+
+.orbit-label {
+  position: relative; z-index: 3;
+  font-family: var(--serif); font-size: 16.5px; letter-spacing: .18em; text-indent: .18em;
+  color: var(--ink-dim); text-shadow: 0 1px 6px rgba(3, 7, 13, .9);
 }
+
 @keyframes orbspin { to { transform: rotate(360deg); } }
+@keyframes orbspinback { to { transform: rotate(-360deg); } }
+/* 結果頁的匯聚圖光暈仍沿用此淡入淡出 */
 @keyframes orbpulse { 0%, 100% { opacity: .65; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .orb::before, .orb::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .orb-ring, .orb-planet { animation: none; }
+}
+@media (max-width: 420px) {
+  .orbit-stage { width: 250px; height: 250px; }
+  .or1, .op1 { width: 250px; height: 250px; }
+  .or2, .op2 { width: 182px; height: 182px; }
+  .or3, .op3 { width: 122px; height: 122px; }
+}
 
 /* ---- 結果頁：三系統匯聚圖（同一份底層圖樣） ---- */
 .r-converge { max-width: 480px; margin: 0 auto 34px; }
