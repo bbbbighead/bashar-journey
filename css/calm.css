@@ -862,14 +862,41 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
   text-align: center; font-family: var(--serif); color: var(--ink-dim);
   font-size: 15px; line-height: 2; margin-top: 40px;
 }
+/* 工具列：筆數 ＋ 全部清空 */
+.hist-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.hist-count { font-family: var(--sans); font-size: 12px; letter-spacing: .1em; color: var(--ink-dim); }
+.hist-clear {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .08em;
+  color: var(--ink-dim); background: none; border: 1px solid var(--line);
+  border-radius: 3px; padding: 7px 12px; cursor: pointer; transition: all .2s ease;
+}
+.hist-clear:hover { color: #e0a0a0; border-color: rgba(224, 160, 160, .5); }
+.hist-clear.confirm { color: #e8b0b0; border-color: rgba(224, 140, 140, .65); background: rgba(90, 40, 40, .28); }
+
 .hist-card {
-  display: block; width: 100%; text-align: left; cursor: pointer;
+  display: flex; align-items: stretch;
   background: rgba(10, 15, 24, .72); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
   border: 1px solid var(--line); border-radius: 3px;
   box-shadow: 0 0 18px rgba(0, 0, 0, .3);
-  padding: 16px 18px; margin-bottom: 14px; transition: border-color .2s ease, background .2s ease;
+  margin-bottom: 14px; overflow: hidden; transition: border-color .2s ease, background .2s ease;
 }
 .hist-card:hover { border-color: var(--accent-dim); background: rgba(15, 23, 36, .8); }
+.hist-open {
+  flex: 1; min-width: 0; text-align: left; cursor: pointer;
+  background: none; border: none; padding: 16px 14px 16px 18px;
+}
+.hist-del {
+  flex: 0 0 auto; align-self: stretch; cursor: pointer;
+  font-family: var(--sans); font-size: 11.5px; letter-spacing: .06em; line-height: 1.4;
+  color: var(--ink-faint); background: rgba(255, 255, 255, .03);
+  border: none; border-left: 1px solid var(--line);
+  padding: 0 13px; max-width: 88px; transition: all .2s ease;
+}
+.hist-del:hover { color: #e0a0a0; background: rgba(90, 40, 40, .22); }
+.hist-del.confirm { color: #f0bcbc; background: rgba(110, 45, 45, .38); }
 .hist-card-title { font-family: var(--serif); font-size: 17px; color: var(--ink); margin-bottom: 6px; }
 .hist-card-topic { font-family: var(--serif); font-size: 14px; color: var(--ink-dim); margin-bottom: 8px; }
 .hist-card-meta { font-family: var(--sans); font-size: 12px; letter-spacing: .06em; color: var(--accent-dim); }

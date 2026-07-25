@@ -81,7 +81,14 @@ export function saveAnalysisToHistory(state) {
   return capped.length;
 }
 
-// 清空歷史（日後「歷史回顧」頁可能會用到）
+// 刪除單筆（依 id）；回傳刪除後的筆數
+export function deleteHistoryRecord(id) {
+  const list = loadHistory().filter((r) => r && r.id !== id);
+  writeHistory(list);
+  return list.length;
+}
+
+// 清空全部歷史
 export function clearHistory() {
   try { localStorage.removeItem(HISTORY_KEY); } catch { /* ignore */ }
 }
