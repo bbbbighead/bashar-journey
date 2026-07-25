@@ -348,14 +348,17 @@ export default async function handler(req, res) {
         ['LRANGE', 'pi:sessions', String(offset), String(offset + 49)],
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
-      // 附註每筆是否留有題目（journey）與標註內容
+      // 附註每筆是否留有題目（journey）、使用的工具與標註內容。
+      // 取 journey 全文（而非只 EXISTS）是為了帶出 tools 讓清單直接顯示工具。
       if (sessions.length) {
         const extras = await redisPipeline(sessions.flatMap((s) => [
-          ['EXISTS', `pi:journey:${s.sid}`],
+          ['GET', `pi:journey:${s.sid}`],
           ['GET', `pi:note:${s.sid}`],
         ]));
         sessions.forEach((s, i) => {
-          s.hasJourney = extras[i * 2].result === 1;
+          const journey = extras[i * 2].result ? parseJSON(extras[i * 2].result, null) : null;
+          s.hasJourney = !!journey;
+          s.tools = (journey && Array.isArray(journey.tools)) ? journey.tools : null;
           s.note = extras[i * 2 + 1].result || '';
         });
       }

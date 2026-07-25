@@ -114,8 +114,46 @@ function matchesFilters(s) {
   return true;
 }
 
+// 工具代碼 → 中文標籤（後台一律繁體中文）
+const TOOL_LABEL = {
+  lenormand: '雷諾曼牌陣', meihua: '梅花易數', astro: '西洋占星',
+  bazi: '八字', ziwei: '紫微斗數', tarot: '塔羅牌',
+};
+const toolText = (s) => (Array.isArray(s.tools) && s.tools.length
+  ? s.tools.map((x) => TOOL_LABEL[x] || x).join('、')
+  : '');
+
+// 排序狀態（點表頭切換 遞增／遞減）。預設依時間新到舊。
+let sort = { key: 'ts', dir: 'desc' };
+
+// 各欄的排序鍵值（統一成可比較的字串或數字）
+const SORT_VALUE = {
+  ts: (s) => Number(s.ts) || 0,
+  vid: (s) => String(s.vid || ''),
+  src: (s) => String(s.src || ''),
+  device: (s) => `${s.device || ''} ${s.os || ''}`,
+  tools: (s) => toolText(s),
+  hasJourney: (s) => (s.hasJourney ? 1 : 0),
+  note: (s) => String(s.note || ''),
+};
+
+function sortSessions(list) {
+  const pick = SORT_VALUE[sort.key] || SORT_VALUE.ts;
+  const mul = sort.dir === 'asc' ? 1 : -1;
+  return [...list].sort((a, b) => {
+    const va = pick(a);
+    const vb = pick(b);
+    let c;
+    if (typeof va === 'number' && typeof vb === 'number') c = va - vb;
+    else c = String(va).localeCompare(String(vb), 'zh-Hant');
+    if (c === 0) c = (Number(b.ts) || 0) - (Number(a.ts) || 0); // 同值時固定以時間新到舊
+    else c *= mul;
+    return c;
+  });
+}
+
 function visibleSessions() {
-  return allSessions.filter(matchesFilters);
+  return sortSessions(allSessions.filter(matchesFilters));
 }
 
 // ---- 總覽（圓餅圖） ----
@@ -233,13 +271,39 @@ async function loadMore() {
   renderSessions();
 }
 
+// 表頭排序：點一次切換遞增／遞減，再點同一欄則反向
+function bindSortHeaders() {
+  document.querySelectorAll('#sessTable th.sortable').forEach((th) => {
+    if (th.dataset.bound) return;
+    th.dataset.bound = '1';
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+      else sort = { key, dir: key === 'ts' ? 'desc' : 'asc' };
+      renderSessions();
+    });
+  });
+}
+
+function paintSortHeaders() {
+  document.querySelectorAll('#sessTable th.sortable').forEach((th) => {
+    const on = th.dataset.sort === sort.key;
+    th.classList.toggle('sorted', on);
+    th.classList.toggle('asc', on && sort.dir === 'asc');
+    th.classList.toggle('desc', on && sort.dir === 'desc');
+    th.setAttribute('aria-sort', on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+  });
+}
+
 function renderSessions() {
+  bindSortHeaders();
+  paintSortHeaders();
   const tbody = $('sessTable').querySelector('tbody');
   tbody.innerHTML = '';
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -259,6 +323,7 @@ function renderSessions() {
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
+      <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
       <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
 
@@ -323,7 +388,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="7" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="8" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {
