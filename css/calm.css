@@ -197,6 +197,40 @@ textarea::placeholder { color: var(--ink-faint); }
 }
 .bmc-btn::before { content: '☕ '; }
 
+/* ---- 結果頁：雷諾曼九宮格牌卡（星座圖案） ---- */
+.lenormand-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  max-width: 420px; margin: 0 auto 22px;
+}
+.lg-cell {
+  position: relative; aspect-ratio: 3 / 4; padding: 6px 4px;
+  border: 1px solid rgba(214, 183, 122, .28); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, .5), 0 0 12px rgba(214, 183, 122, .05);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.lg-cell::before { /* 牌面內框 */
+  content: ''; position: absolute; inset: 4px;
+  border: 1px solid rgba(214, 183, 122, .12); border-radius: 2px; pointer-events: none;
+}
+.lg-pos {
+  position: absolute; top: 5px; left: 8px;
+  font-size: 10px; color: var(--accent-dim); font-family: Georgia, serif; opacity: .8;
+}
+.lg-ico { width: 78%; margin: 2px auto 4px; }
+.cst { width: 100%; height: auto; display: block; overflow: visible; }
+.cst-lines line { stroke: rgba(214, 183, 122, .5); stroke-width: 0.9; }
+.cst-stars circle { fill: #f0dca6; }
+.lg-name {
+  font-family: var(--serif); font-size: 12.5px; color: var(--ink-dim);
+  letter-spacing: .12em; text-align: center;
+}
+@media (max-width: 420px) {
+  .lg-name { font-size: 11.5px; }
+  .lenormand-grid { gap: 6px; }
+}
+
 /* ---- 結果頁：分節解析 ---- */
 .r-section { margin-bottom: 30px; }
 .r-sec-head {
