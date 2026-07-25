@@ -169,8 +169,16 @@ textarea::placeholder { color: var(--ink-faint); }
   display: block; margin-top: 5px; font-size: 10px; letter-spacing: .12em;
   font-family: var(--sans); color: var(--accent-dim); text-transform: uppercase;
 }
+/* 工具小標：一眼看出這個工具擅長回答哪一類問題 */
+.tool-sub {
+  display: block; margin-top: 6px; font-size: 11px; line-height: 1.45;
+  letter-spacing: .06em; font-family: var(--sans); color: var(--ink-faint);
+  transition: color .3s;
+}
+.tool-opt.on .tool-sub { color: var(--accent-dim); }
 @media (max-width: 560px) {
   .tool-opt { font-size: 13px; padding: 14px 6px; }
+  .tool-sub { font-size: 10px; margin-top: 4px; letter-spacing: .02em; }
 }
 
 /* ---- 結果頁：使用者回饋（星等＋選填文字） ---- */
