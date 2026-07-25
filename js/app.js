@@ -136,7 +136,6 @@ function renderGuide() {
 
   $('guideHost').innerHTML = `
     <section class="gd-overview">
-      <h2 class="gd-h2">${esc(g.overviewTitle)}</h2>
       <p class="gd-lede">${esc(g.overviewLede)}</p>
       <div class="gd-cards">${cards}</div>
     </section>

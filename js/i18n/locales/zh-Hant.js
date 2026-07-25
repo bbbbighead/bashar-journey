@@ -48,7 +48,6 @@ export default {
   // 探索工具介紹（選單頁）：先一眼看出差異，再往下讀細節
   guide: {
     title: '探索工具介紹',
-    overviewTitle: '三種探索工具',
     overviewLede: '不同工具擅長回答不同層面的問題。',
     cards: [
       { name: '雷諾曼九宮格', line: '適合探索事件的發展與全貌。' },
