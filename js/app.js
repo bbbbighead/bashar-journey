@@ -386,6 +386,10 @@ function runAstro() {
   let pickedPlace = null;   // 從搜尋清單選定的城市（帶經緯度/時區，計算時免再 geocode）
   let pickedCountry = null; // 從國家清單選定 {code, zh, en}
   const COUNTRIES = countryList();
+  // 國名一律用自家清單的繁體名（Intl.DisplayNames zh-Hant）——
+  // 上游 geocoder 以簡體回傳（例如「台湾」），不可直接顯示
+  const CC2ZH = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.zh]));
+  const countryZh = (r) => CC2ZH[String(r.countryCode || '').toUpperCase()] || r.country || '';
 
   const refresh = () => {
     timeEl.disabled = unknownEl.checked;
@@ -411,7 +415,7 @@ function runAstro() {
     }
     if (!items) { cityListEl.hidden = true; cityListEl.innerHTML = ''; return; }
     cityListEl.innerHTML = items.length
-      ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(r.country || '')}</small></div>`).join('')
+      ? items.map((r, i) => `<div class="combo-item" data-i="${i}"><span>${esc(r.name)}${r.admin1 ? `<small>，${esc(r.admin1)}</small>` : ''}</span><small>${esc(countryZh(r))}</small></div>`).join('')
       : `<div class="combo-empty">${esc(t('astro.emptyCity'))}</div>`;
     cityListEl.hidden = false;
     cityListEl.querySelectorAll('.combo-item').forEach((el) => {
@@ -421,8 +425,9 @@ function runAstro() {
   const pickCity = (r) => {
     pickedPlace = r;
     cityEl.value = r.name;
-    cityPickedEl.textContent = `${t('astro.picked', r.name)}${r.admin1 ? `，${r.admin1}` : ''}（${r.country || '—'}・${r.timezone || ''}）`;
-    if (r.country && !countryEl.value.trim()) countryEl.value = r.country;
+    const cz = countryZh(r);
+    cityPickedEl.textContent = `${t('astro.picked', r.name)}${r.admin1 ? `，${r.admin1}` : ''}（${cz || '—'}・${r.timezone || ''}）`;
+    if (cz && !countryEl.value.trim()) countryEl.value = cz;
     renderCityList(null);
     refresh();
   };
