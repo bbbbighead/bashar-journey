@@ -382,7 +382,6 @@ function runAstro() {
   const countryListEl = $('countryList');
   const errEl = $('astroError');
   const doneBtn = $('btnAstroDone');
-  $('astroLede').textContent = `${stepPrefix()}${t('astro.lede')}`;
 
   let pickedPlace = null;   // 從搜尋清單選定的城市（帶經緯度/時區，計算時免再 geocode）
   let pickedCountry = null; // 從國家清單選定 {code, zh, en}
@@ -864,9 +863,9 @@ function repaintCurrentScreen() {
   if (id === 'screenResult' && state && state.analysis) { renderResult(state.analysis); return; }
   if (id === 'screenHistory') { renderHistory(); return; }
   if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
-  if (id === 'screenNumbers' || id === 'screenAstro') {
+  if (id === 'screenNumbers') {
     const lede = active.querySelector('.divine-lede');
-    if (lede) lede.textContent = `${stepPrefix()}${t(id === 'screenNumbers' ? 'numbers.lede' : 'astro.lede')}`;
+    if (lede) lede.textContent = `${stepPrefix()}${t('numbers.lede')}`;
   }
 }
 
