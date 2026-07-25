@@ -22,7 +22,7 @@ export default {
 
   intake: {
     label: '今日は、どんなことを見つめてみたいですか？',
-    placeholder: '例：仕事の進む方向',
+    placeholder: '問い、いま思っていること、受けとりたいひらめき、はっきりさせたいこと——どれでも。',
     toolPick: '占術をひとつ選んでください',
     soon: 'Coming Soon',
     start: '鑑定をはじめる',
