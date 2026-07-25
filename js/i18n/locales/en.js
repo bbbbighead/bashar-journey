@@ -50,7 +50,6 @@ export default {
   // The practices guide (menu page): the differences at a glance, then the detail
   guide: {
     title: 'About the practices',
-    overviewTitle: 'Three ways to explore',
     overviewLede: 'Each practice answers a different layer of a question.',
     cards: [
       { name: 'Lenormand · Nine-Card Grid', line: 'Best for how a situation is unfolding, and the whole picture.' },
