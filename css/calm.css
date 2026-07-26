@@ -453,8 +453,29 @@ textarea::placeholder { color: var(--ink-faint); }
   box-shadow: 0 0 30px rgba(228, 200, 138, .45), inset 0 1px 0 rgba(255, 245, 216, .5);
 }
 .btn.primary:disabled { opacity: .35; cursor: default; box-shadow: none; }
-.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--ink-faint); }
-.btn.ghost:hover { color: var(--ink-dim); box-shadow: none; }
+
+/* 次要按鈕：原本把框線、底色、陰影全部拿掉，結果只剩淡字浮在星圖上，
+   使用者看不出可以點。改為保留金邊與暗色底，只是比主要按鈕收斂——
+   三個層級才分得開：primary（填滿）> .btn（一般）> .ghost（淡金邊）。
+   刻意不用虛線邊：本站的虛線框是「COMING SOON」的語言，會被讀成不能點。 */
+/* 底色壓得比一般按鈕更暗：這些鈕會落在星圖最亮的區域，
+   邊框太淡就融進背景（錯誤頁實測過），寧可暗一點也要看得出是個框。 */
+.btn.ghost {
+  color: var(--ink-dim);
+  background: rgba(9, 14, 23, .62);
+  border-color: rgba(214, 183, 122, .34);
+  box-shadow: 0 0 10px rgba(214, 183, 122, .05);
+}
+.btn.ghost:hover:not(:disabled) {
+  color: var(--ink); border-color: rgba(226, 198, 138, .58);
+  box-shadow: 0 0 16px rgba(220, 190, 130, .16);
+}
+/* 手機沒有 hover，按下去要看得到反應 */
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn.ghost:active:not(:disabled) {
+  color: var(--ink); border-color: rgba(226, 198, 138, .7);
+  background: rgba(20, 30, 45, .7);
+}
 
 .fineprint {
   margin-top: 40px; font-size: 13.5px; color: var(--ink-dim);
