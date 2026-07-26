@@ -13,6 +13,7 @@ import {
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
+import { hexagramLines } from './engine/meihua.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
@@ -737,6 +738,34 @@ function spreadGridHtml(spread) {
   return `<div class="lenormand-grid" aria-label="${esc(t('spread.gridAria'))}">${cells}</div>`;
 }
 
+// 梅花易數卦象：本卦／互卦／變卦各一張「牌」，六爻以橫槓畫出（由下而上）。
+// 與雷諾曼九宮格同一套視覺語言——同樣在該節最上方，讓使用者看得到抽到什麼。
+function meihuaGridHtml(cast) {
+  if (!cast || !cast.ben) return '';
+  const g = dict().meihuaGrid || {};
+  const cell = (hex, role, movingAt) => {
+    if (!hex) return '';
+    const lines = hexagramLines(hex);
+    if (!lines.length) return '';
+    // DOM 由上而下，六爻由下而上：反轉後才是傳統的擺法（上爻在最上）
+    const yao = lines.map((v, i) => {
+      const isMoving = movingAt && (i + 1) === movingAt;
+      return `<span class="mh-yao ${v ? 'yang' : 'yin'}${isMoving ? ' moving' : ''}"
+        ${isMoving ? `title="${esc(g.moving || '')}"` : ''}></span>`;
+    }).reverse().join('');
+    return `<figure class="mh-cell">
+      <div class="mh-role">${esc(role)}</div>
+      <div class="mh-lines">${yao}</div>
+      <figcaption class="mh-name">${esc(hex.name || '')}</figcaption>
+    </figure>`;
+  };
+  return `<div class="mh-grid" aria-label="${esc(g.aria || '')}">
+    ${cell(cast.ben, g.ben, cast.moving)}
+    ${cell(cast.hu, g.hu, 0)}
+    ${cell(cast.bian, g.bian, cast.moving)}
+  </div>`;
+}
+
 // 全形數字轉半形
 function normDigits(s) {
   return String(s).replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
@@ -911,6 +940,7 @@ function renderResult(a) {
     <div class="r-section">
       <h3 class="r-sec-head">${esc(toolLabel(s.tool))}</h3>
       ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
+      ${s.tool === 'meihua' ? meihuaGridHtml(state.meihua) : ''}
       <div class="r-block">${s.tool === 'lenormand'
         ? lenormandContentHtml(s.content, state.lenormand)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
