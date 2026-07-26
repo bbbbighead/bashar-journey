@@ -15,8 +15,31 @@
   --accent-dim: #bda06a;
   --line: rgba(211, 181, 120, .24);        /* 金色髮絲線 */
   --line-strong: rgba(211, 181, 120, .42);
+  /* 預設＝繁體中文。其他語系在下方依 html[lang] 覆寫這兩個變數 */
   --serif: 'Songti TC', 'Noto Serif TC', 'PMingLiU', Georgia, 'Times New Roman', serif;
   --sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, sans-serif;
+}
+
+/* ---- 各語系字型 ----
+   為什麼要分：Songti TC 有漢字但沒有假名，也沒有諺文。日文頁面若用繁中堆疊，
+   漢字由 Songti TC 畫（而且是中文字形）、假名 fallback 到系統日文字體，
+   同一句話會出現兩套字體。韓文的諺文同理，英文則會被 Songti TC 的拉丁字形接走。
+   html 的 lang 由 initDocumentLang() 設定，所以只覆寫變數就好，元件 CSS 不必改。 */
+html[lang^="ja"] {
+  --serif: 'Hiragino Mincho ProN', 'Hiragino Mincho Pro', 'Yu Mincho', YuMincho,
+    'Noto Serif JP', serif;
+  --sans: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', YuGothic,
+    'Noto Sans JP', -apple-system, sans-serif;
+}
+/* iOS 沒有可靠的系統諺文明朝體，所以韓文的 serif 實際上多半會落到 gothic */
+html[lang^="ko"] {
+  --serif: AppleMyungjo, 'Nanum Myeongjo', 'Noto Serif KR', serif;
+  --sans: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    -apple-system, sans-serif;
+}
+html[lang^="en"] {
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
