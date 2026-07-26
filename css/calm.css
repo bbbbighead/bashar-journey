@@ -875,6 +875,17 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .fb-card-sid { margin-top: 6px; font-size: 11px; color: var(--ink-faint); }
 .fb-card-sid code { color: var(--accent-dim); }
 
+/* ---- 後台：處理時間 ---- */
+.tm-stats { margin-bottom: 14px; }
+.tm-stats-head { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 8px; }
+.a-table.tm-summary { max-width: 560px; }
+.a-table.tm-summary th, .a-table.tm-summary td { padding: 5px 10px; }
+.tm-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tm-num.dim { color: var(--ink-faint); }
+.a-table.timings { font-size: 12px; }
+.a-table.timings th, .a-table.timings td { padding: 5px 8px; }
+.a-table.timings tbody tr:hover { background: rgba(224, 193, 132, .05); }
+
 /* 清單中的主題欄：只露前段，全文放 title 與展開的詳情 */
 .topic-cell { max-width: 10em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

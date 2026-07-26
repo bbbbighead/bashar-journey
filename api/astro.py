@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import math
 import os
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -701,13 +702,18 @@ def make_point(name, lon, speed, cusps, is_axis=False):
 
 def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
     warnings = []
+    # 計時：分開記「查地點（對外連線）」與「星曆計算」，兩者的優化方式完全不同
+    t_enter = time.perf_counter()
+    geocode_ms = None  # 前端已選定地點時不會查，保持 None 才不會把統計拉低
     if not EPHE_OK:
         warnings.append('星曆檔目錄未找到（seas_18.se1 不在任何候選路徑）——小行星與凱龍將無法計算，行星退回內建理論精度。')
 
     # 前端若已從搜尋清單選定城市（帶經緯度與時區），直接採用、不再 geocode
     if not (place and place.get('latitude') is not None
             and place.get('longitude') is not None and place.get('timezone')):
+        t_geo = time.perf_counter()
         place = geocode(city, country)
+        geocode_ms = (time.perf_counter() - t_geo) * 1000
     if not place:
         return None, 'geocode_failed'
     lat, lon_geo = float(place['latitude']), float(place['longitude'])
@@ -986,6 +992,11 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
             'systems': '西洋占星｜熱帶黃道 Tropical｜Placidus 宮制｜True Node 真北交點｜Mean Black Moon Lilith｜地心盤 Geocentric｜Swiss Ephemeris',
             'orbPolicy': '主相位：日月與四軸 8°、行星 6°、小行星/交點/莉莉絲/福點 3°（取兩者平均）；次要相位：依序 2.5°/2°/1.5°。入相出相依實際速度與逆行狀態計算。',
             'warnings': warnings,
+            # 處理時間（毫秒）：geocode＝對外查地點；ephemeris＝Swiss Ephemeris 實算
+            'timing': {
+                'geocodeMs': None if geocode_ms is None else round(geocode_ms, 1),
+                'ephemerisMs': round((time.perf_counter() - t_enter) * 1000 - (geocode_ms or 0.0), 1),
+            },
         },
         'points': all_points,
         'houses': houses,
@@ -1080,6 +1091,7 @@ class handler(BaseHTTPRequestHandler):
         if not date_str or not (city or place):
             self._send(400, {'ok': False, 'error': 'missing_fields'})
             return
+        t_req = time.perf_counter()
         try:
             chart, err = compute_chart(date_str, time_str, time_unknown,
                                        city or (place or {}).get('name', ''), country, place)
@@ -1089,4 +1101,8 @@ class handler(BaseHTTPRequestHandler):
         if err:
             self._send(200, {'ok': False, 'error': err})
             return
+        try:
+            chart['meta']['timing']['serverMs'] = round((time.perf_counter() - t_req) * 1000, 1)
+        except (KeyError, TypeError):
+            pass
         self._send(200, {'ok': True, 'chart': chart})
