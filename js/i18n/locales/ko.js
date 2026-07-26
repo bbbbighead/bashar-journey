@@ -209,6 +209,12 @@ export default {
     copyFull: '전문 복사',
     copied: '복사했습니다 ✓',
     copyFail: '복사하지 못했습니다',
+    // 공유되는 것은 사이트 자체입니다 — 주제나 풀이 내용은 포함하지 않습니다
+    share: '친구에게 공유',
+    shareTitle: 'Intuitive Notes',
+    shareText: 'Intuitive Notes의 카드와 괘, 출생 차트로 생각을 정리하고 있어요. 한번 써 보세요.',
+    shareCopied: '링크를 복사했습니다 ✓',
+    shareFail: '공유하지 못했습니다',
     home: '홈으로 돌아가기',
     continueTitle: '더 이야기해 볼까요?',
     continueHint: '평소 쓰는 AI를 선택하면 풀이 내용이 그대로 넘어갑니다.',

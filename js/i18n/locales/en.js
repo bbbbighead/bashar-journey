@@ -209,6 +209,12 @@ export default {
     copyFull: 'Copy the full reading',
     copied: 'Copied ✓',
     copyFail: 'Copy failed',
+    // Shares the site itself — never the user's topic or reading
+    share: 'Share with a friend',
+    shareTitle: 'Intuitive Notes',
+    shareText: 'I use Intuitive Notes to think things through with cards, hexagrams and birth charts. Worth a try.',
+    shareCopied: 'Link copied ✓',
+    shareFail: 'Could not share',
     home: 'Back to home',
     continueTitle: 'Keep going?',
     continueHint: 'Pick the AI you use — the reading carries over.',

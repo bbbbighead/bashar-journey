@@ -959,6 +959,7 @@ function renderResult(a) {
     </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
+      <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
       <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
     <div class="r-continue">
@@ -979,6 +980,7 @@ function renderResult(a) {
   bindFeedback();
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
+  $('btnShare').addEventListener('click', shareSite);
   $('btnAdvanced').addEventListener('click', () => {
     const el = $('advToast');
     el.textContent = t('result.advancedSoon');
@@ -1044,6 +1046,36 @@ function copyAnalysis(a) {
   navigator.clipboard.writeText(fullText(a)).then(
     () => { btn.textContent = t('result.copied'); setTimeout(() => { btn.textContent = t('result.copy'); }, 1800); },
     () => { btn.textContent = t('result.copyFail'); }
+  );
+}
+
+// 分享網站本身（一句話＋網址），刻意**不帶使用者的主題與解析內容**——
+// 主題常常很私人，自動塞進社群分享等於替使用者洩漏；要分享內容的人有「複製」可用。
+// 網址取當下站台位址，所以本機、preview、正式站都分享得出正確連結。
+function siteUrl() {
+  return (location.origin + location.pathname).replace(/index\.html$/, '');
+}
+
+function shareSite() {
+  const btn = $('btnShare');
+  const flash = (key, revert = true) => {
+    btn.textContent = t(key);
+    if (revert) setTimeout(() => { btn.textContent = t('result.share'); }, 1800);
+  };
+  const text = t('result.shareText');
+  const url = siteUrl();
+  if (navigator.share) {
+    navigator.share({ title: t('result.shareTitle'), text, url }).catch((e) => {
+      // 使用者按取消不算失敗，不要跳錯誤訊息
+      if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return;
+      flash('result.shareFail');
+    });
+    return;
+  }
+  // 桌機瀏覽器多半沒有 Web Share API：退回複製「一句話＋網址」
+  navigator.clipboard.writeText(`${text}\n${url}`).then(
+    () => flash('result.shareCopied'),
+    () => flash('result.shareFail')
   );
 }
 
