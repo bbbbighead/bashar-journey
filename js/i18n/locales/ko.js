@@ -234,6 +234,10 @@ export default {
     shareText: 'Intuitive Notes의 카드와 괘, 출생 차트로 생각을 정리하고 있어요. 한번 써 보세요.',
     shareCopied: '링크를 복사했습니다 ✓',
     shareFail: '공유하지 못했습니다',
+    // 팔로우는 공유와 반대 방향 — 읽는 분을 다시 데려오는 길
+    followTitle: '새 소식 받기',
+    followHint: '이 사이트는 계속 자라고 있습니다. 새로운 도구와 기능은 여기에서 먼저 알립니다.',
+    followBtn: 'Threads에서 팔로우',
     home: '홈으로 돌아가기',
     continueTitle: '더 이야기해 볼까요?',
     continueHint: '평소 쓰는 AI를 선택하면 풀이 내용이 그대로 넘어갑니다.',

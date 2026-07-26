@@ -234,6 +234,10 @@ export default {
     shareText: 'Intuitive Notes のカード・卦・ホロスコープで考えを整理しています。よかったら試してみてください。',
     shareCopied: 'リンクをコピーしました ✓',
     shareFail: 'シェアできませんでした',
+    // フォローはシェアと逆方向——読者をここへ連れもどす導線
+    followTitle: '最新のお知らせ',
+    followHint: 'このサイトはまだ育っています。新しい道具や機能は、まずここでお知らせします。',
+    followBtn: 'Threads でフォロー',
     home: 'ホームにもどる',
     continueTitle: 'さらに話してみますか？',
     continueHint: 'ふだん使う AI を選ぶと、鑑定の内容が引きつがれます。',
