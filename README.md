@@ -58,7 +58,7 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 ### 後台管理（/admin.html）
 
-後台提供四類分析：使用者歷史紀錄（來訪時間、主題前段、工具與產出）、**使用者回饋**（結果頁送出的星等與文字，含平均星等與 1–5 星分布）、來源與裝置分析、各頁面平均停留時間；紀錄清單各欄皆可點表頭遞增／遞減排序；「資料範圍」選單（僅有題目／全部／僅未完成）一次套用到所有統計與清單。單筆詳情記錄實際送給模型的完整 prompt（System＋User，可分段檢視），並附**除錯問答視窗**——問題會連同當時的 prompt 與產出一併送給 LLM，可直接詢問「這段結果是根據什麼產生的」。啟用需兩項設定：
+後台提供五類分析：使用者歷史紀錄（來訪時間、主題前段、工具與產出）、**使用者回饋**（結果頁送出的星等與文字，含平均星等與 1–5 星分布）、**處理時間**（「分析中」的耗時拆解：LLM 生成、組 prompt、寫紀錄、Swiss Ephemeris 實算、geocoding、動畫刻意等待，逐筆列出並附中位數／P90／最慢）、來源與裝置分析、各頁面平均停留時間；紀錄清單各欄皆可點表頭遞增／遞減排序；「資料範圍」選單（僅有題目／全部／僅未完成）一次套用到所有統計與清單。單筆詳情記錄實際送給模型的完整 prompt（System＋User，可分段檢視），並附**除錯問答視窗**——問題會連同當時的 prompt 與產出一併送給 LLM，可直接詢問「這段結果是根據什麼產生的」。啟用需兩項設定：
 
 1. **儲存後端**：於 Vercel 專案 → Storage → Marketplace 安裝 **Upstash Redis**（免費方案即可），安裝後 `UPSTASH_REDIS_REST_URL` 與 `UPSTASH_REDIS_REST_TOKEN` 會自動注入（舊版 `KV_REST_API_URL/TOKEN` 命名亦相容）。
 2. **管理密碼**：環境變數 `ADMIN_PASSWORD`（自訂一組強密碼）。
@@ -108,8 +108,8 @@ api/astro.py             西洋占星本命盤計算＋城市搜尋（Python + p
 data/countries.js        ISO 3166 國家/地區代碼（顯示名由 Intl.DisplayNames 產生）
 requirements.txt         Python 相依（pyswisseph）
 api/insight.js           Vercel serverless 代理（analyze，structured outputs、速率限制）
-api/track.js             匿名埋點收集（來訪/停留/題目/回饋 → Upstash Redis）
-api/admin.js             後台查詢（總覽/來訪清單/單次詳情/回饋，ADMIN_PASSWORD 驗證）
+api/track.js             匿名埋點收集（來訪/停留/題目/回饋/處理時間 → Upstash Redis）
+api/admin.js             後台查詢（總覽/來訪清單/單次詳情/回饋/處理時間，ADMIN_PASSWORD 驗證）
 lib/redis.js             Upstash Redis REST 極簡客戶端（零依賴）
 admin.html + js/admin.js 管理儀表板（/admin.html，noindex）
 js/analytics.js          前端埋點（sendBeacon，失敗靜默）

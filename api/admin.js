@@ -5,6 +5,7 @@
 //   sessions?offset=0   來訪清單（每頁 50 筆，含題目前段、是否留有題目、標註與回饋星等）
 //   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註/回饋）
 //   feedback?limit=200  使用者回饋清單（新到舊）＋筆數、平均星等與分布
+//   timings?limit=200   處理時間清單（新到舊）＋各階段的中位數與 P90
 // POST actions（body JSON）：
 //   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
 //   { action:'delete', sid|sids[] }  刪除紀錄（清單/題目/停留/標註），並回扣聚合統計與用量
@@ -60,7 +61,7 @@ async function scanKeys(pattern, maxRounds = 60) {
 }
 
 // 單筆來訪的附屬資料前綴（皆以 sid 結尾）
-const PER_SID_PREFIXES = ['pi:journey:', 'pi:dwell:', 'pi:dwellcnt:', 'pi:note:', 'pi:prompt:', 'pi:fb:'];
+const PER_SID_PREFIXES = ['pi:journey:', 'pi:dwell:', 'pi:dwellcnt:', 'pi:note:', 'pi:prompt:', 'pi:fb:', 'pi:timing:'];
 
 // 刪掉沒有主人的附屬資料：來訪紀錄已不在清單中，附屬鍵卻還留著。
 // 這類資料讀不到也算不到，只會讓用量估算虛高——重算時一併清除。
@@ -71,10 +72,11 @@ async function removeOrphanKeys(liveSids) {
     for (let i = 0; i < orphans.length; i += 50) {
       const chunk = orphans.slice(i, i + 50);
       const cmds = chunk.map((k) => ['DEL', k]);
-      // 回饋另有一份在 pi:feedback 清單裡，要用原始字串才能移除
-      if (prefix === 'pi:fb:') {
+      // 回饋與計時各另有一份在清單裡，要用原始字串才能移除
+      const listKey = prefix === 'pi:fb:' ? 'pi:feedback' : prefix === 'pi:timing:' ? 'pi:timings' : '';
+      if (listKey) {
         const vals = await redisPipeline(chunk.map((k) => ['GET', k]));
-        vals.forEach((v) => { if (v && v.result) cmds.push(['LREM', 'pi:feedback', '1', v.result]); });
+        vals.forEach((v) => { if (v && v.result) cmds.push(['LREM', listKey, '1', v.result]); });
       }
       await redisPipeline(cmds);
       removed += chunk.length;
@@ -143,7 +145,7 @@ export default async function handler(req, res) {
 
         for (let i = 0; i < sids2.length; i += 100) {
           const chunk = sids2.slice(i, i + 100);
-          const STRIDE = 6;
+          const STRIDE = 7;
           const reads = await redisPipeline(chunk.flatMap((s) => [
             ['STRLEN', `pi:journey:${s}`],
             ['HGETALL', `pi:dwell:${s}`],
@@ -151,6 +153,7 @@ export default async function handler(req, res) {
             ['STRLEN', `pi:note:${s}`],
             ['STRLEN', `pi:prompt:${s}`],
             ['STRLEN', `pi:fb:${s}`],
+            ['STRLEN', `pi:timing:${s}`],
           ]));
           chunk.forEach((s, j) => {
             const jLen = Number(reads[j * STRIDE].result || 0);
@@ -167,6 +170,8 @@ export default async function handler(req, res) {
             if (pLen) bytes += pLen + KEY_OVERHEAD;
             const fLen = Number(reads[j * STRIDE + 5].result || 0);
             if (fLen) bytes += fLen + KEY_OVERHEAD + fLen + 16; // 字串 + pi:feedback 清單各一份
+            const tLen = Number(reads[j * STRIDE + 6].result || 0);
+            if (tLen) bytes += tLen + KEY_OVERHEAD + tLen + 16; // 字串 + pi:timings 清單各一份
           });
         }
         // system prompt 依版本共用一份、不屬於任何單一來訪，也要計入用量
@@ -201,7 +206,7 @@ export default async function handler(req, res) {
         }
 
         // 讀取各筆的停留數據與大小，供回扣統計與用量
-        const STRIDE = 6;
+        const STRIDE = 7;
         const reads = await redisPipeline(sids.flatMap((s) => [
           ['HGETALL', `pi:dwell:${s}`],
           ['HGETALL', `pi:dwellcnt:${s}`],
@@ -209,6 +214,7 @@ export default async function handler(req, res) {
           ['STRLEN', `pi:note:${s}`],
           ['STRLEN', `pi:prompt:${s}`],
           ['GET', `pi:fb:${s}`], // 取全文：從 pi:feedback 清單移除需要原始字串
+          ['GET', `pi:timing:${s}`],
         ]));
         const toObj = (arr) => {
           const o = {}; const a = arr || [];
@@ -247,6 +253,11 @@ export default async function handler(req, res) {
             freed += fbRaw.length + KEY_OVERHEAD + fbRaw.length + 16; // 字串 + 清單各一份
             cmds.push(['LREM', 'pi:feedback', '1', fbRaw]);
           }
+          const tmRaw = reads[i * STRIDE + 6].result || '';
+          if (tmRaw) {
+            freed += tmRaw.length + KEY_OVERHEAD + tmRaw.length + 16;
+            cmds.push(['LREM', 'pi:timings', '1', tmRaw]);
+          }
           cmds.push(
             ['DEL', `pi:journey:${s}`],
             ['DEL', `pi:dwell:${s}`],
@@ -254,6 +265,7 @@ export default async function handler(req, res) {
             ['DEL', `pi:note:${s}`],
             ['DEL', `pi:prompt:${s}`],
             ['DEL', `pi:fb:${s}`],
+            ['DEL', `pi:timing:${s}`],
           );
         });
         cmds.push(['INCRBY', 'pi:agg:bytes', String(-Math.round(freed))]);
@@ -442,15 +454,45 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (view === 'timings') {
+      // 處理時間清單（新到舊）＋各階段的中位數與 P90。
+      // 中位數看「一般使用者的體驗」，P90 看「最慢的那些人有多慘」——兩個都要。
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit')) || 200));
+      const [listR] = await redisPipeline([['LRANGE', 'pi:timings', '0', String(limit - 1)]]);
+      const items = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
+
+      const FIELDS = ['weavingMs', 'analyzeMs', 'holdMs', 'requestMs', 'promptMs', 'recordMs',
+        'llmFirstMs', 'insightServerMs', 'astroRoundTripMs', 'astroGeocodeMs', 'astroEphemerisMs', 'astroServerMs'];
+      const valueOf = (f, it) => (f === 'llmFirstMs'
+        ? (Array.isArray(it.llmMs) && it.llmMs.length ? it.llmMs[0] : null)
+        : it[f]);
+      const pick = (arr, q) => (arr.length ? arr[Math.min(arr.length - 1, Math.floor(arr.length * q))] : null);
+      const stats = {};
+      for (const f of FIELDS) {
+        const vals = items.map((it) => valueOf(f, it)).filter((v) => typeof v === 'number').sort((a, b) => a - b);
+        stats[f] = { n: vals.length, p50: pick(vals, 0.5), p90: pick(vals, 0.9), max: vals.length ? vals[vals.length - 1] : null };
+      }
+      const [lenR] = await redisPipeline([['LLEN', 'pi:timings']]);
+      res.status(200).json({
+        ok: true,
+        total: Number(lenR.result || 0),
+        loaded: items.length,
+        stats,
+        items,
+      });
+      return;
+    }
+
     if (view === 'session') {
       const sid = String(url.searchParams.get('sid') || '').slice(0, 16).replace(/[^\w-]/g, '');
       if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
-      const [jR, dR, nR, pR, fR] = await redisPipeline([
+      const [jR, dR, nR, pR, fR, tR] = await redisPipeline([
         ['GET', `pi:journey:${sid}`],
         ['HGETALL', `pi:dwell:${sid}`],
         ['GET', `pi:note:${sid}`],
         ['GET', `pi:prompt:${sid}`],
         ['GET', `pi:fb:${sid}`],
+        ['GET', `pi:timing:${sid}`],
       ]);
       const dwell = {};
       const da = dR.result || [];
@@ -462,6 +504,7 @@ export default async function handler(req, res) {
         note: nR.result || '',
         prompt: pR.result ? parseJSON(pR.result, null) : null,
         feedback: fR.result ? parseJSON(fR.result, null) : null,
+        timing: tR.result ? parseJSON(tR.result, null) : null,
       });
       return;
     }

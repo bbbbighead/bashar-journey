@@ -89,6 +89,7 @@ async function enterDash() {
   exhausted = false;
   await loadMore();
   await refreshFeedback();
+  await refreshTimings();
 }
 
 // ---- 篩選 ----
@@ -320,6 +321,93 @@ function renderFeedback(d) {
   $('btnFbMore').style.display = (d.loaded < d.total && fbLimit < 500) ? 'inline-block' : 'none';
 }
 
+// ---- 處理時間 ----
+// 獨立的 pi:timings 清單，每筆帶 sid 對得回來訪紀錄。
+let tmLimit = 200;
+
+$('btnTmMore').addEventListener('click', async () => {
+  tmLimit = Math.min(500, tmLimit + 200);
+  await refreshTimings();
+});
+
+async function refreshTimings() {
+  try {
+    renderTimings(await api({ view: 'timings', limit: String(tmLimit) }));
+  } catch {
+    $('tmTable').querySelector('tbody').innerHTML = '<tr><td colspan="13" class="empty">（處理時間讀取失敗）</td></tr>';
+  }
+}
+
+// 階段名稱：與 API 的 stats 欄位一一對應
+const TM_LABEL = {
+  weavingMs: '使用者等待（分析中全程）',
+  analyzeMs: '解讀取得（含網路）',
+  holdMs: '動畫刻意等待',
+  requestMs: '/api/insight 往返',
+  promptMs: '組 prompt',
+  recordMs: '寫 prompt 紀錄（Redis）',
+  llmFirstMs: 'LLM 生成（第一次）',
+  insightServerMs: '/api/insight 伺服器全程',
+  astroRoundTripMs: '/api/astro 往返',
+  astroGeocodeMs: '查地點（對外 geocoding）',
+  astroEphemerisMs: '星曆計算（Swiss Ephemeris）',
+  astroServerMs: '/api/astro 伺服器全程',
+};
+
+function renderTimings(d) {
+  const tbody = $('tmTable').querySelector('tbody');
+  if (!d.total) {
+    $('tmStats').innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">（還沒有處理時間紀錄——完成一次解讀後才會產生）</td></tr>';
+    $('btnTmMore').style.display = 'none';
+    return;
+  }
+
+  const rows = Object.keys(TM_LABEL)
+    .filter((f) => d.stats[f] && d.stats[f].n)
+    .map((f) => {
+      const st = d.stats[f];
+      return `<tr>
+        <td>${esc(TM_LABEL[f])}</td>
+        <td class="tm-num">${fmtDur(st.p50)}</td>
+        <td class="tm-num">${fmtDur(st.p90)}</td>
+        <td class="tm-num dim">${fmtDur(st.max)}</td>
+        <td class="tm-num dim">${st.n}</td>
+      </tr>`;
+    }).join('');
+  $('tmStats').innerHTML = `
+    <div class="tm-stats-head">已載入 ${d.loaded} 筆／共 ${d.total} 筆</div>
+    <table class="a-table tm-summary">
+      <thead><tr><th>階段</th><th>中位數</th><th>P90</th><th>最慢</th><th>樣本</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  tbody.innerHTML = d.items.map((it) => {
+    const llm = Array.isArray(it.llmMs) && it.llmMs.length ? it.llmMs[0] : null;
+    // 網路差＝前端量到的往返 減 伺服器自己量到的處理時間
+    const netGap = (it.requestMs != null && it.insightServerMs != null)
+      ? Math.max(0, it.requestMs - it.insightServerMs) : null;
+    const cell = (v) => `<td class="tm-num">${v == null ? '<span class="dim-dash">—</span>' : fmtDur(v)}</td>`;
+    return `<tr>
+      <td>${fmtTime(it.ts)}</td>
+      <td><code>${esc(it.sid || '')}</code></td>
+      <td>${esc((it.tools || []).map((x) => TOOL_LABEL[x] || x).join('、'))}</td>
+      ${cell(it.weavingMs)}
+      ${cell(llm)}
+      <td class="tm-num">${it.attempts || 1}</td>
+      <td class="tm-num">${it.promptChars == null ? '<span class="dim-dash">—</span>' : it.promptChars}</td>
+      ${cell(it.recordMs)}
+      ${cell(netGap)}
+      ${cell(it.holdMs)}
+      ${cell(it.astroRoundTripMs)}
+      ${cell(it.astroGeocodeMs)}
+      ${cell(it.astroEphemerisMs)}
+    </tr>`;
+  }).join('');
+
+  $('btnTmMore').style.display = (d.loaded < d.total && tmLimit < 500) ? 'inline-block' : 'none';
+}
+
 // ---- 使用紀錄 ----
 $('btnMore').addEventListener('click', loadMore);
 
@@ -453,6 +541,7 @@ $('btnBulkDel').addEventListener('click', async () => {
     renderSessions();
     await refreshOverview();
     await refreshFeedback(); // 刪掉的紀錄，其回饋也一併移除了
+    await refreshTimings();
   } catch {
     alert('刪除失敗，請重試。');
   }
@@ -490,6 +579,7 @@ async function toggleDetail(tr, s) {
           d.feedback.text ? `<div class="d-msg-text fb-detail-text">${esc(d.feedback.text)}</div>` : '<span class="astro-sub">（沒有留下文字）</span>'}`
         : '（未回饋）'}</div>
       <div class="d-line"><b>停留</b>${dwell || '—'}</div>
+      <div class="d-line"><b>處理時間</b>${timingDetail(d.timing)}</div>
       ${d.prompt ? `
       <div class="d-line d-message"><b>Prompt</b>
         <div class="prompt-wrap">
@@ -647,6 +737,7 @@ async function toggleDetail(tr, s) {
         renderSessions();
         await refreshOverview(); // 刷新總覽（統計已回扣）
         await refreshFeedback();
+        await refreshTimings();
       } catch {
         alert('刪除失敗，請重試。');
       }
@@ -654,6 +745,32 @@ async function toggleDetail(tr, s) {
   } catch {
     detail.querySelector('td').textContent = '讀取失敗。';
   }
+}
+
+// 單筆的處理時間拆解（同一份資料也在上方「處理時間」表裡）
+function timingDetail(tm) {
+  if (!tm) return '（無紀錄——這筆是舊資料，或解讀沒有完成）';
+  const bit = (label, v) => (v == null ? '' : `${label} ${fmtDur(v)}`);
+  const llm = Array.isArray(tm.llmMs) && tm.llmMs.length ? tm.llmMs[0] : null;
+  const main = [
+    bit('使用者等待', tm.weavingMs),
+    bit('LLM', llm),
+    bit('組 prompt', tm.promptMs),
+    bit('寫紀錄', tm.recordMs),
+    bit('動畫等待', tm.holdMs),
+  ].filter(Boolean).join('｜');
+  const astro = [
+    bit('星盤往返', tm.astroRoundTripMs),
+    bit('查地點', tm.astroGeocodeMs),
+    bit('星曆', tm.astroEphemerisMs),
+  ].filter(Boolean).join('｜');
+  const meta = [
+    tm.model ? `模型 ${esc(tm.model)}` : '',
+    tm.attempts > 1 ? `重試 ${tm.attempts} 次` : '',
+    tm.promptChars ? `prompt ${tm.promptChars} 字` : '',
+  ].filter(Boolean).join('｜');
+  return `${main}${astro ? `<br><span class="astro-sub">占星：${astro}</span>` : ''}`
+    + `${meta ? `<br><span class="astro-sub">${meta}</span>` : ''}`;
 }
 
 // 星盤紀錄的詳情呈現：出生輸入 + 解析結果 + 三要點
@@ -685,6 +802,13 @@ function fmtTime(ts) {
   const d = new Date(ts);
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+// 處理時間專用：毫秒級的階段用「毫秒」才看得出差別（fmtMs 會全部變成 0.0 秒）
+function fmtDur(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return Math.round(ms) + ' ms';
+  if (ms < 60_000) return (ms / 1000).toFixed(1) + ' 秒';
+  return (ms / 60_000).toFixed(1) + ' 分';
 }
 function fmtMs(ms) {
   if (ms >= 60_000) return (ms / 60_000).toFixed(1) + ' 分';

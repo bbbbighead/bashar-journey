@@ -25,9 +25,12 @@ export async function callAI(action, payload) {
     if (!res.ok) throw Object.assign(new Error('proxy HTTP ' + res.status), { code: 'failed' });
     const json = await res.json();
     if (!json || json.ok !== true || !json.data) {
-      throw Object.assign(new Error('proxy could not produce a reading'), { code: 'unavailable' });
+      // 失敗也把伺服器端的分段時間帶出來，否則慢的那次反而查不到原因
+      throw Object.assign(new Error('proxy could not produce a reading'), {
+        code: 'unavailable', timing: json && json.timing,
+      });
     }
-    return json.data;
+    return { data: json.data, timing: json.timing || null };
   } catch (e) {
     // AbortError＝我方逾時；分開標記，畫面才能說「這次等太久了」而不是「連線失敗」
     if (e && e.name === 'AbortError') throw Object.assign(new Error('analyze timeout'), { code: 'timeout' });

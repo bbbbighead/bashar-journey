@@ -17,9 +17,9 @@ import { getLocale, dict } from '../i18n/index.js';
 async function callAnalyze(state, action, payload) {
   const t0 = Date.now();
   try {
-    const data = await callAI(action, payload);
+    const out = await callAI(action, payload);
     logAiCall(state, { action, ms: Date.now() - t0, ok: true });
-    return data;
+    return { ...out, requestMs: Date.now() - t0 };
   } catch (e) {
     logAiCall(state, { action, ms: Date.now() - t0, ok: false });
     throw e;
@@ -44,6 +44,7 @@ export function castMeihua(state, numbers) {
 
 // 西洋占星本命盤：呼叫 /api/astro（Swiss Ephemeris 實算；失敗 throw 附 code）
 export async function fetchAstroChart(payload) {
+  const t0 = Date.now();
   const res = await fetch('/api/astro', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,6 +53,8 @@ export async function fetchAstroChart(payload) {
   if (!res.ok) throw Object.assign(new Error('astro HTTP ' + res.status), { code: 'calc_failed' });
   const json = await res.json();
   if (!json || !json.ok || !json.chart) throw Object.assign(new Error(json && json.error), { code: (json && json.error) || 'calc_failed' });
+  // 前端量到的往返時間（含網路與冷啟動），與 meta.timing 的伺服器端數字並列才看得出差在哪
+  json.chart.roundTripMs = Date.now() - t0;
   return json.chart;
 }
 
@@ -104,7 +107,8 @@ export async function getAnalysis(state) {
     astro: state.tools.includes('astro') ? astroForAI(state.astro) : null,
   };
 
-  const data = await callAnalyze(state, 'analyze', payload);
+  const out = await callAnalyze(state, 'analyze', payload);
+  const data = out && out.data;
   if (!data || !Array.isArray(data.sections) || !data.sections.length) {
     throw Object.assign(new Error('empty analysis'), { code: 'failed' });
   }
@@ -113,6 +117,8 @@ export async function getAnalysis(state) {
     title: String(data.title || ''),
     sections: data.sections.map((s) => ({ tool: String(s.tool || ''), content: String(s.content || '') })),
   };
+  // 供後台的處理時間表使用：前端往返 ＋ 伺服器端分段
+  state.analyzeTiming = { requestMs: out.requestMs, server: out.timing || null };
   state.usedOffline = false;
   state.status = 'done';
   return state.analysis;

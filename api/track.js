@@ -1,6 +1,6 @@
 // api/track.js — 匿名埋點收集端點（sendBeacon POST）。
 // 事件：start（來訪：來源/UTM/裝置）、dwell（頁面停留）、journey（題目與產出）、
-//       feedback（結果頁的星等與選填文字）。
+//       feedback（結果頁的星等與選填文字）、timing（「分析中」各階段耗時）。
 // 寫入 Upstash Redis；未設定儲存後端時回 204 靜默丟棄。永不回傳錯誤內容給前端。
 //
 // 保存策略：資料不設時間過期。以 pi:agg:bytes 估算目前用量（邏輯大小＋每鍵固定開銷），
@@ -15,6 +15,8 @@
 //   pi:journey:<sid>       STRING JSON（opening/cards/numbers/title/message/closing/offline/ts）
 //   pi:fb:<sid>            STRING JSON（rating/text/topic/tools/ts）＝該次來訪的回饋
 //   pi:feedback            LIST  同一份 JSON（含 sid/vid），新的在左，供後台整批瀏覽
+//   pi:timing:<sid>        STRING JSON（各階段毫秒）＝該次來訪的處理時間
+//   pi:timings             LIST  同一份 JSON（含 sid），新的在左，供後台效能分析
 //   pi:agg:src / device    HASH  來源/裝置 → 次數
 //   pi:agg:dwell_sum/_cnt  HASH  畫面 → 停留毫秒總和／次數
 //   pi:agg:bytes           STRING 估算用量（bytes）
@@ -107,7 +109,7 @@ export function dwellBytes(dwell, dcnt) {
 // 刪除一批來訪紀錄（清單項已由呼叫端移出或將以 LREM 移出），回傳估算釋放的 bytes
 async function removeEntries(entries, useLrem) {
   if (!entries.length) return 0;
-  const STRIDE = 6;
+  const STRIDE = 7;
   const reads = await redisPipeline(entries.flatMap((e) => [
     ['STRLEN', `pi:journey:${e.sid}`],
     ['HGETALL', `pi:dwell:${e.sid}`],
@@ -115,6 +117,7 @@ async function removeEntries(entries, useLrem) {
     ['STRLEN', `pi:note:${e.sid}`],
     ['STRLEN', `pi:prompt:${e.sid}`],
     ['GET', `pi:fb:${e.sid}`], // 取全文而非長度：從 pi:feedback 清單移除需要原始字串
+    ['GET', `pi:timing:${e.sid}`],
   ]));
 
   const cmds = [];
@@ -135,6 +138,11 @@ async function removeEntries(entries, useLrem) {
       freed += fbRaw.length + KEY_OVERHEAD + fbRaw.length + 16; // 字串 + 清單各一份
       cmds.push(['LREM', 'pi:feedback', '1', fbRaw]);
     }
+    const tmRaw = reads[i * STRIDE + 6].result || '';
+    if (tmRaw) {
+      freed += tmRaw.length + KEY_OVERHEAD + tmRaw.length + 16;
+      cmds.push(['LREM', 'pi:timings', '1', tmRaw]);
+    }
 
     if (useLrem) cmds.push(['LREM', 'pi:sessions', '1', e.raw]);
     if (e.src) cmds.push(['HINCRBY', 'pi:agg:src', e.src, '-1']);
@@ -151,6 +159,7 @@ async function removeEntries(entries, useLrem) {
         ['DEL', `pi:note:${e.sid}`],
         ['DEL', `pi:prompt:${e.sid}`],
         ['DEL', `pi:fb:${e.sid}`],
+        ['DEL', `pi:timing:${e.sid}`],
       );
     }
   });
@@ -314,6 +323,51 @@ export default async function handler(req, res) {
       cmds.push(
         ['SET', `pi:fb:${sid}`, record],
         ['LPUSH', 'pi:feedback', record],
+        ['INCRBY', 'pi:agg:bytes', String(newSize - oldSize)],
+      );
+    } else if (body.type === 'timing') {
+      // 「分析中」的分段耗時。與 journey 分開存：它是效能資料，會隨優化不斷變動。
+      // 沒量到就是 null，不能寫成 0——否則沒用占星的那些次會把「查地點」
+      // 的中位數拉到 0，統計就失去意義
+      const ms = (v) => {
+        if (v == null || v === '') return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0 && n < 600_000 ? Math.round(n) : null;
+      };
+      const record = JSON.stringify({
+        sid,
+        ts: Date.now(),
+        tools: Array.isArray(body.tools) ? body.tools.slice(0, 6).map((x) => String(x).slice(0, 16)) : null,
+        lang: String(body.lang || '').slice(0, 12),
+        // 前端量到的
+        weavingMs: ms(body.weavingMs),
+        analyzeMs: ms(body.analyzeMs),
+        holdMs: ms(body.holdMs),
+        requestMs: ms(body.requestMs),
+        // /api/insight 伺服器端
+        promptMs: ms(body.promptMs),
+        recordMs: ms(body.recordMs),
+        llmMs: Array.isArray(body.llmMs) ? body.llmMs.slice(0, 3).map(ms).filter((x) => x != null) : null,
+        insightServerMs: ms(body.insightServerMs),
+        attempts: ms(body.attempts),
+        promptChars: ms(body.promptChars),
+        model: String(body.model || '').slice(0, 40),
+        provider: String(body.provider || '').slice(0, 12),
+        // /api/astro（Swiss Ephemeris）
+        astroRoundTripMs: ms(body.astroRoundTripMs),
+        astroGeocodeMs: ms(body.astroGeocodeMs),
+        astroEphemerisMs: ms(body.astroEphemerisMs),
+        astroServerMs: ms(body.astroServerMs),
+      });
+      // 同一次來訪重跑（重試）＝覆寫，並把舊的從清單移除
+      const [oldR] = await redisPipeline([['GET', `pi:timing:${sid}`]]);
+      const old = oldR.result || '';
+      if (old) cmds.push(['LREM', 'pi:timings', '1', old]);
+      const oldSize = old ? old.length + KEY_OVERHEAD + old.length + 16 : 0;
+      const newSize = record.length + KEY_OVERHEAD + record.length + 16;
+      cmds.push(
+        ['SET', `pi:timing:${sid}`, record],
+        ['LPUSH', 'pi:timings', record],
         ['INCRBY', 'pi:agg:bytes', String(newSize - oldSize)],
       );
     } else {

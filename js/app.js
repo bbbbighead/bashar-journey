@@ -16,7 +16,7 @@ import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
-import { trackVisit, trackScreen, trackJourney, sendFeedback } from './analytics.js';
+import { trackVisit, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
   initDocumentLang, LOCALE_LIST, localeName,
@@ -660,7 +660,9 @@ async function runAnalysis() {
     saveSession(state);
     saveAnalysisToHistory(state); // 存進瀏覽器歷史（localStorage，供日後回顧頁讀取）
     trackJourney(state);
-    const waitMs = Math.max(0, 2400 - (Date.now() - t0));
+    const analyzeMs = Date.now() - t0;
+    const waitMs = Math.max(0, 2400 - analyzeMs);
+    reportTiming(analyzeMs, waitMs);
     setTimeout(() => renderResult(analysis), waitMs);
   } catch (e) {
     // 維持 weaving 狀態：重整或按重試都能從同一組牌與資料再跑一次
@@ -668,6 +670,39 @@ async function runAnalysis() {
     saveSession(state);
     showAnalysisError((e && e.code) || 'failed');
   }
+}
+
+// 把「整合中」這段的時間拆開回報：前端等待、伺服器各階段、占星實算。
+// astroMs 只在這一輪有算星盤時才有（重試同一場不會重算）。
+function reportTiming(analyzeMs, holdMs) {
+  try {
+    const at = (state && state.analyzeTiming) || {};
+    const sv = at.server || {};
+    const astroMeta = (state && state.astro && state.astro.meta && state.astro.meta.timing) || null;
+    trackTiming({
+      tools: state.tools || null,
+      lang: getLocale(),
+      // 前端量到的
+      analyzeMs,                                  // getAnalysis 全程（含網路）
+      holdMs,                                     // 為了動畫刻意多等的時間
+      weavingMs: analyzeMs + holdMs,              // 使用者實際盯著「分析中」的時間
+      requestMs: at.requestMs || null,            // /api/insight 往返
+      // /api/insight 伺服器端
+      promptMs: sv.promptMs != null ? sv.promptMs : null,
+      recordMs: sv.recordMs != null ? sv.recordMs : null,
+      llmMs: Array.isArray(sv.llmMs) ? sv.llmMs : null,
+      insightServerMs: sv.serverMs != null ? sv.serverMs : null,
+      attempts: sv.attempts || null,
+      promptChars: sv.promptChars || null,
+      model: sv.model || '',
+      provider: sv.provider || '',
+      // /api/astro（Swiss Ephemeris）
+      astroRoundTripMs: (state && state.astro && state.astro.roundTripMs) || null,
+      astroGeocodeMs: astroMeta ? astroMeta.geocodeMs : null,
+      astroEphemerisMs: astroMeta ? astroMeta.ephemerisMs : null,
+      astroServerMs: astroMeta ? astroMeta.serverMs : null,
+    });
+  } catch { /* 計時回報失敗不影響體驗 */ }
 }
 
 function showAnalysisError(code) {

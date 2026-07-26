@@ -356,6 +356,9 @@ export default async function handler(req, res) {
     return;
   }
 
+  // 計時：把這支端點拆成「組 prompt」「寫紀錄」「呼叫模型」三段。
+  // 前端會把這些數字連同自己量到的時間一起送到 /api/track，後台才看得出時間花在哪。
+  const tEnter = Date.now();
   const segments = buildSegments(body);
   const prompt = buildPrompt(action, body, segments);
   const maxTokens = MAX_TOKENS[action];
@@ -364,9 +367,11 @@ export default async function handler(req, res) {
   // system prompt 依所選工具動態組裝（只納入被選到的章節；兩個以上工具才加「交叉比對綜合分析」）
   const systemPrompt = buildSystemPrompt(segments.tools, segments.lang);
   const sysHash = djb2(systemPrompt);
+  const promptMs = Date.now() - tEnter;
 
   // 記錄實際送出的 prompt 與各階段資料段（呼叫前寫入——模型失敗也留有紀錄可復盤）
   const sid = String((body && body.sid) || '').slice(0, 16).replace(/[^\w-]/g, '');
+  const tRecord = Date.now();
   await recordPrompt(
     sid,
     openaiKey ? 'openai' : 'anthropic',
@@ -376,18 +381,34 @@ export default async function handler(req, res) {
     prompt,
     segments,
   );
+  const recordMs = Date.now() - tRecord;
+
+  const timing = (extra) => ({
+    promptMs,
+    recordMs,
+    promptChars: prompt.length,
+    sysChars: systemPrompt.length,
+    provider: openaiKey ? 'openai' : 'anthropic',
+    model: openaiKey ? openaiModels()[action] : MODEL[action],
+    ...extra,
+    serverMs: Date.now() - tEnter,
+  });
 
   // 呼叫一次，失敗重試一次，再失敗回 fallback（兩者皆設時優先 OpenAI）
+  const llmMs = [];
   for (let attempt = 0; attempt < 2; attempt++) {
+    const tLlm = Date.now();
     try {
       const data = openaiKey
         ? await callOpenAI(openaiKey, openaiModels()[action], maxTokens, systemPrompt, prompt, schema, action)
         : await callAnthropic(anthropicKey, MODEL[action], maxTokens, systemPrompt, prompt, schema);
-      res.status(200).json({ ok: true, data });
+      llmMs.push(Date.now() - tLlm);
+      res.status(200).json({ ok: true, data, timing: timing({ llmMs, attempts: attempt + 1 }) });
       return;
     } catch (e) {
+      llmMs.push(Date.now() - tLlm);
       if (attempt === 1) {
-        res.status(200).json({ ok: false, fallback: true });
+        res.status(200).json({ ok: false, fallback: true, timing: timing({ llmMs, attempts: 2, failed: true }) });
         return;
       }
     }

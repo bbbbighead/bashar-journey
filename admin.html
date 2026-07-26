@@ -73,6 +73,23 @@
       <div class="chart-host" id="dwellChart"></div>
     </div>
 
+    <!-- 處理時間（「分析中」花在哪裡） -->
+    <div class="a-block">
+      <h3>處理時間</h3>
+      <div class="a-hint">「分析中」這一段的耗時拆解，每一列對得回一筆來訪紀錄。中位數看一般體驗，P90 看最慢的那些人有多久。<b>LLM</b> 是模型生成、<b>星曆</b> 是 Swiss Ephemeris 實算、<b>查地點</b> 是對外的 geocoding、<b>動畫等待</b> 是為了動畫刻意多等的時間。</div>
+      <div class="tm-stats" id="tmStats"></div>
+      <table class="a-table timings" id="tmTable">
+        <thead><tr>
+          <th>時間</th><th>來訪</th><th>工具</th>
+          <th>使用者等待</th><th>LLM</th><th>次數</th><th>Prompt 字數</th>
+          <th>寫紀錄</th><th>網路差</th><th>動畫等待</th>
+          <th>星盤往返</th><th>查地點</th><th>星曆</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="a-actions"><button class="btn" id="btnTmMore" style="display:none">載入更多</button></div>
+    </div>
+
     <!-- 使用者回饋 -->
     <div class="a-block">
       <h3>使用者回饋</h3>
