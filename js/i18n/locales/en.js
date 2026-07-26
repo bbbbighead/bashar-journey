@@ -182,6 +182,12 @@ export default {
     },
   },
 
+  // Natal chart wheel, at the top of the astrology section
+  chartWheel: {
+    aria: 'Natal chart wheel: zodiac signs, planetary placements and major aspects',
+    approxNote: 'You didn’t give a birth time, so this wheel is calculated for noon that day: planetary positions are broadly usable, but the Moon may be off by several degrees and a sign boundary could fall either way. The Ascendant and houses can’t be determined, so no house lines are drawn.',
+  },
+
   weaving: {
     label: 'Reading the signs',
     // Elapsed-time stages — there's no real progress signal from the model,
