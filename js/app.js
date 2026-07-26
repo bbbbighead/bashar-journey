@@ -14,7 +14,7 @@ import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines } from './engine/meihua.js';
-import { chartWheelSvg, glyphAudit } from './chartWheel.js';
+import { chartWheelSvg } from './chartWheel.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
@@ -835,9 +835,15 @@ function meihuaGridHtml(cast) {
   </div>`;
 }
 
+// 星盤輪暫時不上前台：站主還要調整視覺，確認後把這個開關改回 true 就會顯示。
+// 渲染程式（js/chartWheel.js）、符號表、四語系文案與後端的 cuspLon 都保留著，
+// 不必重做——這裡只是不要把圖畫出來。
+const SHOW_CHART_WHEEL = false;
+
 // 占星段落最上方的本命盤星盤輪。出生時間不確定時 chartWheelSvg 會自動改畫
 // 「只有黃道環與行星」的近似盤，並在圖下標明原因（不畫宮位與上升，見該模組註解）。
 function chartWheelHtml(chart) {
+  if (!SHOW_CHART_WHEEL) return '';
   if (!chart || !Array.isArray(chart.points) || !chart.points.length) return '';
   return chartWheelSvg(chart, dict().chartWheel || {});
 }
