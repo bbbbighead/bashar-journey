@@ -71,19 +71,26 @@ trackVisit();
 trackScreen('screenIntake');
 
 // ---- 螢幕切換 ----
-// 「分析中」畫面：等超過 SLOW_HINT_MS 才顯示說明與回首頁的出口，
-// 免得使用者以為畫面卡死了（正常情況分析約需 20–60 秒）
-const SLOW_HINT_MS = 20000;
-let slowTimer = null;
+// 「分析中」的階段進度：等待期間唯一的遠端動作就是 /api/insight 一次呼叫
+// （星盤在上一頁就算完了），而 LLM 沒有 streaming，所以**拿不到真實進度**。
+// 因此這裡是依經過時間推進的階段描述，刻意不顯示百分比、不宣稱「快完成了」。
+// 時間點是初版估計，等後台「處理時間」面板累積實測 p50/p90 後再校準。
+const WEAVE_STAGES = [
+  { at: 0, key: 'prep' },       // 整理資料、送出請求
+  { at: 2500, key: 'sent' },    // 請求已在路上
+  { at: 9000, key: 'reading' },   // 最久的一段：模型在寫
+  { at: 40000, key: 'longer' }, // 比平常久，只說事實不說剩多久
+];
+const TIP_ROTATE_MS = 6500;
+let stageTimers = [];
+let tipTimer = null;
+let tipIdx = 0;
+let stageIdx = 0;     // 供切換語言時原地重畫
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
-  // 離開「分析中」就收掉等待提示（見 SLOW_HINT_MS）
-  if (id !== 'screenWeaving') {
-    clearTimeout(slowTimer);
-    $('weavingSlow').hidden = true;
-  }
+  if (id !== 'screenWeaving') stopWeaveProgress();
   trackScreen(id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -91,9 +98,70 @@ function showScreen(id) {
 function showWeaving(text) {
   if (text) $('weavingText').innerHTML = text;
   showScreen('screenWeaving');
-  $('weavingSlow').hidden = true;
-  clearTimeout(slowTimer);
-  slowTimer = setTimeout(() => { $('weavingSlow').hidden = false; }, SLOW_HINT_MS);
+  startWeaveProgress();
+}
+
+function stopWeaveProgress() {
+  stageTimers.forEach(clearTimeout);
+  stageTimers = [];
+  clearInterval(tipTimer);
+  tipTimer = null;
+  $('weaveTip').hidden = true;
+}
+
+function startWeaveProgress() {
+  stopWeaveProgress();
+  $('weaveDots').innerHTML = WEAVE_STAGES
+    .map((_, i) => `<span class="weave-dot${i === 0 ? ' on' : ''}"></span>`).join('');
+  paintStage(0);
+  WEAVE_STAGES.forEach((s, i) => {
+    if (!s.at) return;
+    stageTimers.push(setTimeout(() => paintStage(i), s.at));
+  });
+  tipIdx = 0;
+  paintTip();
+  tipTimer = setInterval(paintTip, TIP_ROTATE_MS);
+}
+
+function paintStage(i) {
+  stageIdx = i;
+  const s = WEAVE_STAGES[i];
+  // prep 這段點名使用者選的工具（「正在整理你的梅花易數資料」）
+  const tools = (state && state.tools) || [];
+  const label = tools.length ? tools.map(toolLabel).join(t('listSep')) : '';
+  $('weaveStageText').textContent = s.key === 'prep' && label
+    ? t('weaving.stage.prep', label)
+    : t(`weaving.stage.${s.key}`);
+  const sub = dict().weaving && dict().weaving.sub && dict().weaving.sub[s.key];
+  $('weaveStageSub').textContent = sub || '';
+  $('weaveDots').querySelectorAll('.weave-dot')
+    .forEach((d, n) => d.classList.toggle('on', n <= i));
+}
+
+// 切換語言時原地重畫（階段文字與提示都是 JS 寫入，applyStaticText 管不到）
+function repaintWeaving() {
+  if (!stageTimers.length && !tipTimer) return;
+  paintStage(stageIdx);
+  tipIdx = Math.max(0, tipIdx - 1); // 停在同一則，只換語言
+  paintTip();
+}
+
+function paintTip() {
+  const tips = (dict().weaving && dict().weaving.tips) || [];
+  if (!tips.length) return;
+  const box = $('weaveTip');
+  const tip = tips[tipIdx % tips.length];
+  tipIdx += 1;
+  const draw = () => {
+    $('weaveTipLabel').textContent = tip.label || '';
+    $('weaveTipText').textContent = tip.text || '';
+    box.hidden = false;
+    // 讓瀏覽器先套用 hidden 解除後的初始狀態，再淡入
+    requestAnimationFrame(() => box.classList.add('show'));
+  };
+  if (box.hidden) { draw(); return; }
+  box.classList.remove('show');
+  setTimeout(draw, 260); // 對齊 CSS 的 opacity transition
 }
 
 // ---- 左上角選單 ----
@@ -717,8 +785,6 @@ function showAnalysisError(code) {
 $('btnErrRetry').addEventListener('click', () => { if (state) runAnalysis(); else restart(); });
 $('btnErrHome').addEventListener('click', restart);
 
-$('btnWeavingHome').addEventListener('click', restart);
-
 // 舊格式（.message）相容：包成單一 section
 function sectionsOf(a) {
   if (Array.isArray(a.sections) && a.sections.length) return a.sections;
@@ -1147,6 +1213,7 @@ function repaintCurrentScreen() {
   if (id === 'screenHistory') { renderHistory(); return; }
   if (id === 'screenGuide') { renderGuide(); return; }
   if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
+  if (id === 'screenWeaving') { repaintWeaving(); return; }
   if (id === 'screenNumbers') {
     const lede = active.querySelector('.divine-lede');
     if (lede) lede.textContent = `${stepPrefix()}${t('numbers.lede')}`;

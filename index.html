@@ -163,10 +163,16 @@
         </div>
         <p id="weavingText" class="orbit-label" data-i18n="weaving.label">分析中</p>
       </div>
-      <!-- 等太久時才出現的出口：不讓使用者以為自己卡死了 -->
-      <div class="weaving-slow" id="weavingSlow" hidden>
-        <p class="weaving-slow-text" data-i18n="weaving.slow">分析有時需要將近一分鐘，請再等一下。</p>
-        <button type="button" class="link-btn" id="btnWeavingHome" data-i18n="weaving.leave">先回首頁</button>
+      <!-- 階段進度：依經過時間推進，讓使用者知道還在跑、不是當掉 -->
+      <div class="weave-stage">
+        <p class="weave-stage-text" id="weaveStageText" aria-live="polite"></p>
+        <div class="weave-dots" id="weaveDots" aria-hidden="true"></div>
+        <p class="weave-stage-sub" id="weaveStageSub"></p>
+      </div>
+      <!-- 等待中輪播的小提示：工具怎麼選、網站怎麼用、支持創作者 -->
+      <div class="weave-tip" id="weaveTip" hidden>
+        <div class="weave-tip-label" id="weaveTipLabel"></div>
+        <p class="weave-tip-text" id="weaveTipText"></p>
       </div>
     </div>
   </section>

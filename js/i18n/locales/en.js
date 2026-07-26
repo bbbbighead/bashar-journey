@@ -184,8 +184,27 @@ export default {
 
   weaving: {
     label: 'Reading the signs',
-    slow: 'A reading can take up to a minute. Hold on a moment longer.',
-    leave: 'Back to home for now',
+    // Elapsed-time stages — there's no real progress signal from the model,
+    // so these only say what's happening, never a percentage or "almost done".
+    stage: {
+      prep: (tools) => `Gathering your ${tools} material`,
+      sent: 'Sent — the reading has begun',
+      reading: 'Writing your reading, section by section',
+      longer: 'This one is taking longer than usual',
+    },
+    sub: {
+      reading: 'This is the slow part — usually another 20–40 seconds.',
+      longer: 'Hold on a little longer; it’s still being written.',
+    },
+    tips: [
+      { label: 'Lenormand grid', text: 'Best for how a situation is unfolding — how it got here, and where it may go next.' },
+      { label: 'Meihua Yishu', text: 'Best for timing and decisions — is now the moment to act, and in which direction.' },
+      { label: 'Western astrology', text: 'Best for your own nature, gifts and life themes — who you are, what suits you.' },
+      { label: 'Not sure which to pick?', text: 'There’s no wrong choice. The same question read through different tools gives you different angles — they complement each other rather than compete.' },
+      { label: 'Good to know', text: 'The menu at top left keeps every reading you’ve done under "My readings" — you can go back and reread any of them.' },
+      { label: 'Good to know', text: 'The menu also switches language, and opens the guide to all three tools.' },
+      { label: 'About this site', text: 'This is free to use and runs on readers’ goodwill. If it helped, there’s a way to buy the author a slice of cake at the end.' },
+    ],
   },
 
   // When the reading fails — there is no offline template, so we invite a retry
