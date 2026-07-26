@@ -207,6 +207,12 @@ export default {
     copyFull: '複製完整內容',
     copied: '已複製 ✓',
     copyFail: '複製失敗',
+    // 分享的是網站本身，不含使用者的主題與解析內容
+    share: '分享給朋友',
+    shareTitle: 'Intuitive Notes · 直覺筆記',
+    shareText: '我用 Intuitive Notes 的牌卡、卦象與星盤整理自己的想法，你也可以試試。',
+    shareCopied: '已複製分享連結 ✓',
+    shareFail: '分享失敗',
     home: '回到首頁',
     continueTitle: '想繼續聊下去？',
     continueHint: '選一個你慣用的 AI，內容會自動帶入。',

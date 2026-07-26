@@ -209,6 +209,12 @@ export default {
     copyFull: '全文をコピー',
     copied: 'コピーしました ✓',
     copyFail: 'コピーできませんでした',
+    // 共有するのはサイトそのもの。相談内容や鑑定結果は含めない
+    share: '友だちにシェア',
+    shareTitle: 'Intuitive Notes',
+    shareText: 'Intuitive Notes のカード・卦・ホロスコープで考えを整理しています。よかったら試してみてください。',
+    shareCopied: 'リンクをコピーしました ✓',
+    shareFail: 'シェアできませんでした',
     home: 'ホームにもどる',
     continueTitle: 'さらに話してみますか？',
     continueHint: 'ふだん使う AI を選ぶと、鑑定の内容が引きつがれます。',
