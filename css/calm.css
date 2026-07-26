@@ -560,7 +560,8 @@ input.num:focus { outline: 1px solid var(--line); outline-offset: 3px; border-co
 input.num::placeholder { color: var(--ink-faint); }
 
 /* ---- 分析中：星軌（三層軌道繞著文字運行） ---- */
-.weaving { text-align: center; padding-top: 20vh; color: var(--ink-dim); font-family: var(--serif); font-size: 16px; }
+/* 下方多了階段進度與輪播提示，上緣留白收窄才放得進一個螢幕 */
+.weaving { text-align: center; padding-top: 8vh; padding-bottom: 40px; color: var(--ink-dim); font-family: var(--serif); font-size: 16px; }
 .orbit-stage {
   position: relative; width: 300px; height: 300px; margin: 0 auto;
   display: grid; place-items: center;
@@ -1129,18 +1130,42 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .menu-item-coffee:hover { background: rgba(211, 181, 120, .12); }
 
 /* ---- 分析中的等待提示 ／ 解讀失敗頁 ---- */
-.weaving-slow {
-  margin-top: 34px; text-align: center; display: flex;
-  flex-direction: column; align-items: center; gap: 10px;
-  animation: fadein .6s ease both;
+/* ---- 分析中：階段進度 ---- */
+.weave-stage { margin-top: 26px; text-align: center; }
+.weave-stage-text {
+  font-family: var(--serif); font-size: 14.5px; line-height: 1.8;
+  color: var(--ink-dim); max-width: 22em; margin: 0 auto; min-height: 1.8em;
 }
-.weaving-slow-text {
-  font-family: var(--sans); font-size: 12.5px; line-height: 1.8;
-  color: var(--ink-faint); max-width: 22em;
+.weave-dots { display: flex; justify-content: center; gap: 7px; margin: 12px 0 8px; }
+.weave-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(214, 183, 122, .22); transition: background .5s, box-shadow .5s;
 }
-/* display:flex 會蓋掉 hidden 屬性，這行讓還沒等久時真的不顯示 */
-.weaving-slow[hidden] { display: none; }
-@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.weave-dot.on { background: var(--accent-dim); box-shadow: 0 0 7px rgba(224, 193, 132, .45); }
+.weave-stage-sub {
+  font-family: var(--sans); font-size: 12px; line-height: 1.7;
+  color: var(--ink-faint); max-width: 20em; margin: 0 auto; min-height: 1.7em;
+}
+
+/* ---- 分析中：輪播小提示 ---- */
+.weave-tip {
+  max-width: 22em; margin: 26px auto 0; padding: 16px 18px;
+  border: 1px solid rgba(214, 183, 122, .18); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 15, 24, .68), rgba(8, 12, 20, .78));
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, .4);
+  opacity: 0; transition: opacity .26s ease;
+}
+.weave-tip.show { opacity: 1; }
+/* 未輪播到第一則前真的不顯示（避免 hidden 被 padding/border 撐出空框） */
+.weave-tip[hidden] { display: none; }
+.weave-tip-label {
+  font-family: var(--sans); font-size: 10.5px; letter-spacing: .16em;
+  color: var(--accent-dim); margin-bottom: 7px;
+}
+.weave-tip-text {
+  font-family: var(--serif); font-size: 13.5px; line-height: 1.85;
+  color: var(--ink-dim); text-wrap: balance;
+}
 
 .err-wrap { padding-top: 12vh; }
 .err-wrap .lede { max-width: 24em; margin: 0 auto 26px; }
