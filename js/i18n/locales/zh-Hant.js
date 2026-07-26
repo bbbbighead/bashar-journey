@@ -233,6 +233,10 @@ export default {
     shareText: '我用 Intuitive Notes 的牌卡、卦象與星盤整理自己的想法，你也可以試試。',
     shareCopied: '已複製分享連結 ✓',
     shareFail: '分享失敗',
+    // 追蹤社群：方向與「分享給朋友」相反，是把使用者帶回來
+    followTitle: '追蹤最新消息',
+    followHint: '這個網站還在持續長大。新的探索工具、新功能開放時，都會先發在這裡。',
+    followBtn: '到 Threads 追蹤',
     home: '回到首頁',
     continueTitle: '想繼續聊下去？',
     continueHint: '選一個你慣用的 AI，內容會自動帶入。',

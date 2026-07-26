@@ -66,6 +66,8 @@ function renderLangRow() {
 
 // Buy Me a Coffee 贊助連結——點擊於新分頁開啟；留空則點擊顯示「即將開放」
 const BMC_URL = 'https://buymeacoffee.com/intuitivenotes';
+// 社群：網站更新會先發在這裡，結果頁最後導引使用者追蹤
+const THREADS_URL = 'https://www.threads.com/@intuitive.notes';
 
 trackVisit();
 trackScreen('screenIntake');
@@ -1042,6 +1044,11 @@ function renderResult(a) {
       <button class="btn" id="btnAdvanced">${esc(t('result.advanced'))}</button>
       <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
+    </div>
+    <div class="r-follow">
+      <div class="r-follow-title">${esc(t('result.followTitle'))}</div>
+      <p class="r-follow-hint">${esc(t('result.followHint'))}</p>
+      <a class="btn" href="${esc(THREADS_URL)}" target="_blank" rel="noopener noreferrer">${esc(t('result.followBtn'))}</a>
     </div>`;
   bindFeedback();
   $('btnRestart').addEventListener('click', restart);

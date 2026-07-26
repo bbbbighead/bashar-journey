@@ -234,6 +234,10 @@ export default {
     shareText: 'I use Intuitive Notes to think things through with cards, hexagrams and birth charts. Worth a try.',
     shareCopied: 'Link copied ✓',
     shareFail: 'Could not share',
+    // Following runs the other way from sharing: it brings the reader back
+    followTitle: 'Follow along',
+    followHint: 'This site is still growing. New tools and features get announced here first.',
+    followBtn: 'Follow on Threads',
     home: 'Back to home',
     continueTitle: 'Keep going?',
     continueHint: 'Pick the AI you use — the reading carries over.',
