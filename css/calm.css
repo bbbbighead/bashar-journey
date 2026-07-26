@@ -18,6 +18,9 @@
   /* 預設＝繁體中文。其他語系在下方依 html[lang] 覆寫這兩個變數 */
   --serif: 'Songti TC', 'Noto Serif TC', 'PMingLiU', Georgia, 'Times New Roman', serif;
   --sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, sans-serif;
+  /* 占星符號（☉☽♀⚷…）專用：CJK 字體多半沒有這些字符，要另外指定符號字型。
+     js/chartWheel.js 的缺字偵測會讀這個變數，兩邊必須是同一組堆疊才量得準。 */
+  --symbol: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
 }
 
 /* ---- 各語系字型 ----
@@ -299,6 +302,42 @@ textarea::placeholder { color: var(--ink-faint); }
   .mh-cell { padding: 8px 5px 6px; }
   .mh-name { font-size: 11.5px; }
   .mh-role { font-size: 9.5px; letter-spacing: .1em; }
+}
+
+/* ---- 結果頁：本命盤星盤輪 ---- */
+/* 與雷諾曼牌卡、梅花卦象卡同一套語言：同樣的框線、底色與內陰影 */
+.cw-wrap { margin: 0 auto 22px; max-width: 420px; }
+.cw-canvas {
+  padding: 10px; border: 1px solid rgba(214, 183, 122, .28); border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, .5), 0 0 12px rgba(214, 183, 122, .05);
+}
+.cw-canvas svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cw-ring { fill: none; stroke: rgba(214, 183, 122, .26); stroke-width: 1; }
+.cw-cusp { stroke: rgba(214, 183, 122, .16); stroke-width: 1; }
+.cw-axis { stroke: rgba(224, 193, 132, .5); stroke-width: 1.4; }
+.cw-tick { stroke: rgba(224, 193, 132, .45); stroke-width: 1; }
+/* 緊密的相位由 SVG 的 style 逐條調透明度，這裡只定基調 */
+.cw-asp-soft { stroke: var(--accent-dim); stroke-width: .8; }
+.cw-asp-hard { stroke: #9fb4cf; stroke-width: .8; }
+.cw-sign, .cw-planet, .cw-house, .cw-axis-label, .cw-retro {
+  text-anchor: middle; dominant-baseline: central;
+  font-family: var(--symbol);
+  /* 與 JS 附加的 U+FE0E 同一個目的：要文字形，不要彩色 emoji。
+     支援這個屬性的瀏覽器不多，所以兩道保險並用。 */
+  font-variant-emoji: text;
+}
+.cw-sign { font-size: 16px; fill: var(--accent-dim); }
+.cw-planet { font-size: 19px; fill: var(--accent); }
+/* 退回拉丁縮寫時字要小一點，才塞得進同一個位置 */
+.cw-planet.cw-abbr { font-size: 12px; letter-spacing: .02em; }
+.cw-house { font-size: 10px; fill: var(--ink-faint); }
+.cw-axis-label { font-size: 9.5px; fill: var(--accent-dim); letter-spacing: .06em; }
+.cw-retro { font-size: 8.5px; fill: var(--ink-faint); }
+.cw-note {
+  margin-top: 12px; padding: 0 4px;
+  font-family: var(--sans); font-size: 12px; line-height: 1.75;
+  color: var(--ink-faint); text-align: center; text-wrap: balance;
 }
 
 /* ---- 結果頁：贊助創作者 ---- */

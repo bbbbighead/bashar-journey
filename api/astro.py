@@ -801,6 +801,9 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
             h = {
                 'house': i + 1,
                 'cuspPosition': pos_str,
+                # 宮頭的絕對黃經。原本只輸出排版好的字串（cuspPosition），
+                # 前端要畫星盤輪就得反解字串——這裡直接給數值。
+                'cuspLon': round(norm(cusps[i]), 4),
                 'cuspSign': SIGNS[sign_idx],
                 'rulerTraditional': ruler,
                 'rulerModernCo': MODERN_CO.get(sign_idx),

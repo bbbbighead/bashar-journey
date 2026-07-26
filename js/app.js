@@ -14,6 +14,7 @@ import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines } from './engine/meihua.js';
+import { chartWheelSvg, glyphAudit } from './chartWheel.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
@@ -834,6 +835,13 @@ function meihuaGridHtml(cast) {
   </div>`;
 }
 
+// 占星段落最上方的本命盤星盤輪。出生時間不確定時 chartWheelSvg 會自動改畫
+// 「只有黃道環與行星」的近似盤，並在圖下標明原因（不畫宮位與上升，見該模組註解）。
+function chartWheelHtml(chart) {
+  if (!chart || !Array.isArray(chart.points) || !chart.points.length) return '';
+  return chartWheelSvg(chart, dict().chartWheel || {});
+}
+
 // 全形數字轉半形
 function normDigits(s) {
   return String(s).replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
@@ -1009,6 +1017,7 @@ function renderResult(a) {
       <h3 class="r-sec-head">${esc(toolLabel(s.tool))}</h3>
       ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
       ${s.tool === 'meihua' ? meihuaGridHtml(state.meihua) : ''}
+      ${s.tool === 'astro' ? chartWheelHtml(state.astro) : ''}
       <div class="r-block">${s.tool === 'lenormand'
         ? lenormandContentHtml(s.content, state.lenormand)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
