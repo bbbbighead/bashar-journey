@@ -49,6 +49,15 @@ export default {
     astro: 'Self-discovery',
   },
 
+  // The hexagram figures at the top of the I Ching section
+  meihuaGrid: {
+    ben: 'Primary',
+    hu: 'Inner',
+    bian: 'Changed',
+    moving: 'Moving line',
+    aria: 'Hexagrams: primary, inner, changed',
+  },
+
   // The practices guide (menu page): the differences at a glance, then the detail
   guide: {
     title: 'About the practices',

@@ -93,6 +93,13 @@ export const RELATION_MEANING = {
   pressure: { label: '外壓當道', sentence: '此刻外在的壓力大於你的施力點——先求站穩、保全自己，等壓力的週期過去再圖進取' },
 };
 
+// 卦的六爻（由下而上，1＝陽、0＝陰）。
+// 卦本身只存了上下卦編號，六爻由此還原——舊的歷史紀錄也畫得出來。
+export function hexagramLines(hex) {
+  if (!hex || !TRIGRAM_LINES[hex.lower] || !TRIGRAM_LINES[hex.upper]) return [];
+  return [...TRIGRAM_LINES[hex.lower], ...TRIGRAM_LINES[hex.upper]];
+}
+
 // 產出給 AI 的內部敘述
 export function meihuaForAI(cast) {
   return {
