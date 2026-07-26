@@ -937,12 +937,39 @@ function renderResult(a) {
 }
 
 // 完整內容（複製與導流共用）：主題 + 各節解析 + 結語
+// 九張牌的文字清單＋位置對照，供複製與帶給 AI 用。
+// 為什麼需要：結果頁的九宮格是圖，複製貼上帶不走；而 prompt 又刻意要求解讀
+// 內文「不要逐一列出牌名」，所以少了這一段，接手的 AI 根本不知道抽到哪九張牌。
+function spreadTextForAI(spread) {
+  if (!Array.isArray(spread) || !spread.length) return '';
+  const g = dict().groups || {};
+  const sep = t('listSep');
+  const cards = spread
+    .map(({ card }, i) => `${i + 1}. ${cardName(card.id, card.name)}`)
+    .join('\n');
+  // 每個閱讀角度各佔一行（直式），讓 AI 一眼對得起來
+  const legend = ['past', 'present', 'future', 'conscious', 'material', 'subconscious', 'heart', 'cross', 'corners']
+    .filter((k) => g[k])
+    .map((k) => `${g[k]}${t('labelSep')}${GROUP_POS[k].join(sep)}`)
+    .join('\n');
+  return [
+    t('result.cardsTitle'),
+    cards,
+    '',
+    t('result.gridLegend'),
+    t('result.gridLayout'),
+    legend,
+  ].join('\n');
+}
+
 function fullText(a) {
   const sections = sectionsOf(a);
+  const spreadInfo = state.tools && state.tools.includes('lenormand')
+    ? spreadTextForAI(state.lenormand) : '';
   return [
     t('result.myTopic', state.opening),
-    '',
-    ...sections.map((s) => `【${toolLabel(s.tool)}】\n${String(s.content || '')}`),
+    spreadInfo,
+    ...sections.map((s) => `${t('secLabel', toolLabel(s.tool))}\n${String(s.content || '')}`),
     '\n' + t('result.signature'),
   ].filter((s) => s !== '').join('\n\n');
 }

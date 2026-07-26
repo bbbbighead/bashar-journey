@@ -8,6 +8,8 @@ export default {
   meta: { title: 'Intuitive Notes · 직관의 기록' },
 
   listSep: ', ',
+  labelSep: ': ',       // '과거: 1, 4, 7' 처럼 라벨 뒤의 구분
+  secLabel: (name) => `[${name}]`,
 
   menu: {
     home: '홈',
@@ -206,6 +208,9 @@ export default {
     advancedSoon: '1:1 음성 상담은 준비 중입니다. 곧 열립니다.',
     myTopic: (topic) => `들여다보고 싶은 것: ${topic}`,
     signature: '— Intuitive Notes',
+    cardsTitle: '[제가 뽑은 아홉 장]',
+    gridLegend: '[스프레드 위치가 가리키는 것]',
+    gridLayout: '아홉 장은 3×3으로 놓입니다. 위치 1, 2, 3이 첫째 줄, 4, 5, 6이 둘째 줄, 7, 8, 9가 셋째 줄입니다. 각 읽기 방식이 보는 위치는 다음과 같습니다:',
     handoffPrefix: '아래는 ‘Intuitive Notes’에서 받은 풀이입니다. 먼저 읽어 주세요:',
     handoffSuffix: '따뜻하고 정직한 안내자가 되어 주세요. 위의 주제와 풀이를 바탕으로 더 깊이 들여다보도록 도와주세요. 이제 내용에 대해 질문하겠습니다.',
     aiPrefilled: '풀이 내용을 가져왔습니다. 바로 질문해 주세요.',

@@ -6,6 +6,8 @@ export default {
   meta: { title: 'Intuitive Notes · 直覺筆記' },
 
   listSep: '、',
+  labelSep: '：',        // 「過去：1、4、7」這類標籤後的分隔
+  secLabel: (name) => `【${name}】`,
 
   menu: {
     home: '首頁',
@@ -204,6 +206,9 @@ export default {
     advancedSoon: '一對一語音諮詢正在建構中——此服務即將開放，敬請期待。',
     myTopic: (topic) => `我的主題：${topic}`,
     signature: '— Intuitive Notes',
+    cardsTitle: '【我抽到的九張牌】',
+    gridLegend: '【牌陣位置的對照方式】',
+    gridLayout: '九張牌排成 3×3：位置 1、2、3 是第一列，4、5、6 是第二列，7、8、9 是第三列。各個閱讀角度分別看以下位置：',
     handoffPrefix: '以下是我剛在「Intuitive Notes」完成的一次分析，請你先讀完：',
     handoffSuffix: '請你扮演一位溫暖而誠實的引導者，基於以上的主題與分析，陪我繼續深入探討——我接下來會針對其中的內容提問。',
     aiPrefilled: '已為你帶入這則分析——直接提問即可。',

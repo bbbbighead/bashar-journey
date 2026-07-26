@@ -8,6 +8,8 @@ export default {
   meta: { title: 'Intuitive Notes · 直感のノート' },
 
   listSep: '・',
+  labelSep: '：',        // 「過去：1・4・7」のようなラベルのあとの区切り
+  secLabel: (name) => `【${name}】`,
 
   menu: {
     home: 'ホーム',
@@ -206,6 +208,9 @@ export default {
     advancedSoon: '1対1の音声セッションは準備中です。近日公開予定です。',
     myTopic: (topic) => `見つめたいこと：${topic}`,
     signature: '— Intuitive Notes',
+    cardsTitle: '【引いた9枚のカード】',
+    gridLegend: '【グリッドの位置が示すもの】',
+    gridLayout: '9枚は3×3に並びます。位置 1・2・3 が1段目、4・5・6 が2段目、7・8・9 が3段目です。それぞれの読み方が見る位置は次のとおりです：',
     handoffPrefix: '以下は「Intuitive Notes」で受けた鑑定の内容です。まず読んでください：',
     handoffSuffix: 'あたたかく、そして誠実な導き手としてふるまってください。上のテーマと鑑定をふまえ、さらに深く見ていくのを手伝ってください。これから内容について質問します。',
     aiPrefilled: '鑑定の内容を引きつぎました。そのまま質問してください。',

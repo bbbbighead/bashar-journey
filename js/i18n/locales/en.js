@@ -8,6 +8,8 @@ export default {
   meta: { title: 'Intuitive Notes' },
 
   listSep: ', ',
+  labelSep: ': ',       // separator after a label, as in "Past: 1, 4, 7"
+  secLabel: (name) => `[${name}]`,
 
   menu: {
     home: 'Home',
@@ -206,6 +208,9 @@ export default {
     advancedSoon: 'One-to-one voice sessions are still being built — opening soon.',
     myTopic: (topic) => `What I’m exploring: ${topic}`,
     signature: '— Intuitive Notes',
+    cardsTitle: '[The nine cards I drew]',
+    gridLegend: '[What the grid positions map to]',
+    gridLayout: 'The nine cards sit in a 3×3 grid: positions 1, 2, 3 are the top row, 4, 5, 6 the middle row, 7, 8, 9 the bottom row. Each way of reading looks at these positions:',
     handoffPrefix: 'Below is a reading I just completed on “Intuitive Notes”. Please read it through first:',
     handoffSuffix: 'Please be a warm, honest guide: working from the theme and the reading above, help me go deeper — I’ll ask about specific parts of it next.',
     aiPrefilled: 'Your reading has been carried over — just ask your question.',
