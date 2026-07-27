@@ -13,7 +13,7 @@ import {
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
-import { hexagramLines } from './engine/meihua.js';
+import { hexagramLines, meihuaForAI } from './engine/meihua.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
@@ -1082,10 +1082,10 @@ function renderResult(a) {
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 3200);
   });
-  const handoff = buildHandoff(a);
+  const handoffUrlText = buildHandoff(a, true); // 網址用精簡版，避免被截斷
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
     const provider = b.dataset.ai;
-    b.href = aiHandoffUrl(provider, handoff); // 透過 query param 預先帶入內容
+    b.href = aiHandoffUrl(provider, handoffUrlText); // 透過 query param 預先帶入內容
     b.addEventListener('click', () => continueWithAI(a, provider));
   });
   showScreen('screenResult');
@@ -1117,13 +1117,86 @@ function spreadTextForAI(spread) {
   ].join('\n');
 }
 
-function fullText(a) {
+// 卦象的文字版。九張牌早就有這一段，梅花與占星卻沒有——結果頁的卦象圖與
+// 星盤圖都是圖，複製貼上帶不走，接手的 AI 根本不知道起出什麼卦、什麼盤。
+function meihuaTextForAI(cast) {
+  if (!cast || !cast.ben) return '';
+  const g = dict().meihuaGrid || {};
+  const sep = t('labelSep');
+  const yao = (hex) => {
+    const lines = hexagramLines(hex);
+    if (!lines.length) return '';
+    // 由下而上寫（初爻在前），與傳統讀法一致。
+    // 陽／陰 不隨語系翻譯——卦名本身在四語系也都是中文（已知限制），
+    // 而且這一段是給 AI 讀的，用通行的漢字術語比翻譯更不容易誤解。
+    return `（${t('result.yaoOrder')}${sep}${lines.map((v) => (v ? '陽' : '陰')).join(' ')}）`;
+  };
+  const line = (hex, role) => (hex ? `${role}${sep}${hex.name || ''}${yao(hex)}` : '');
+  const ai = meihuaForAI(cast);
+  return [
+    t('result.hexTitle'),
+    line(cast.ben, g.ben),
+    line(cast.hu, g.hu),
+    line(cast.bian, g.bian),
+    cast.moving ? `${g.moving}${sep}${t('result.movingNth', cast.moving)}` : '',
+    ai.dynamics,
+  ].filter(Boolean).join('\n');
+}
+
+// 星盤的文字版。刻意只帶「實算出來的位置」，不帶任何詮釋——
+// 詮釋是解讀內文的事，這一段的作用是讓 AI 有正確的盤可以依據。
+//
+// compact：給 AI 連結的 query param 用的精簡版。中文百分比編碼後一個字要 9 個
+// 字元，完整版會把網址推到兩萬字以上，有被對方截斷的風險——而星盤資料排在
+// 解讀前面，一截就是把「解讀」截掉、留下原始資料，剛好是最糟的順序。
+// 精簡版只留十顆主星與四軸、六條相位。複製到剪貼簿的版本仍然是完整的。
+const CORE_POINTS = ['太陽', '月亮', '水星', '金星', '火星', '木星', '土星',
+  '天王星', '海王星', '冥王星', '上升點', '下降點', '天頂', '天底', '北交點'];
+
+function astroTextForAI(chart, compact = false) {
+  if (!chart || !Array.isArray(chart.points) || !chart.points.length) return '';
+  const sep = t('labelSep');
+  const meta = chart.meta || {};
+  const input = meta.input || {};
+  const born = [input.date, input.timeUnknown ? t('result.timeUnknown') : input.time,
+    input.city].filter(Boolean).join(' ');
+  const places = chart.points
+    .filter((p) => typeof p.position === 'string')
+    .filter((p) => !compact || CORE_POINTS.includes(p.name))
+    .map((p) => `${p.name}${sep}${p.position}`
+      + (p.house ? ` / ${t('result.nthHouse', p.house)}` : '')
+      + (p.retrograde ? ` ${t('result.retro')}` : ''))
+    .join('\n');
+  // 相位只帶主相位、依緊密度取前幾條，否則光相位就比解讀還長。
+  // 精簡版連相位也只留兩端都有列出位置的——否則會出現「天王星 對分 Vertex」
+  // 卻沒給 Vertex 位置，AI 讀到的是一張自相矛盾的盤。
+  const asp = (Array.isArray(chart.aspects) ? chart.aspects : [])
+    .filter((x) => x.major)
+    .filter((x) => !compact || (CORE_POINTS.includes(x.a) && CORE_POINTS.includes(x.b)))
+    .slice(0, compact ? 6 : 10)
+    .map((x) => `${x.a} ${x.type} ${x.b}（${x.orb}）`)
+    .join('\n');
+  return [
+    t('result.chartTitle'),
+    born ? `${t('result.bornAt')}${sep}${born}` : '',
+    places,
+    asp ? `\n${t('result.aspTitle')}\n${asp}` : '',
+    !compact && meta.systems ? `\n${meta.systems}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function fullText(a, compact = false) {
   const sections = sectionsOf(a);
-  const spreadInfo = state.tools && state.tools.includes('lenormand')
-    ? spreadTextForAI(state.lenormand) : '';
+  const tools = state.tools || [];
+  // 三個工具各自把「實際抽到／起到／算出來的東西」補成文字
+  const casts = [
+    tools.includes('lenormand') ? spreadTextForAI(state.lenormand) : '',
+    tools.includes('meihua') ? meihuaTextForAI(state.meihua) : '',
+    tools.includes('astro') ? astroTextForAI(state.astro, compact) : '',
+  ].filter(Boolean);
   return [
     t('result.myTopic', state.opening),
-    spreadInfo,
+    ...casts,
     ...sections.map((s) => `${t('secLabel', toolLabel(s.tool))}\n${String(s.content || '')}`),
     '\n' + t('result.signature'),
   ].filter((s) => s !== '').join('\n\n');
@@ -1168,11 +1241,13 @@ function shareSite() {
 }
 
 // 導流用文字：內容 ＋ 接續提問引導（複製與 query param 帶入共用同一份）
-function buildHandoff(a) {
+// compact：只給 AI 連結的 query param 用（見 astroTextForAI 的註解）。
+// 剪貼簿一律拿完整版。
+function buildHandoff(a, compact = false) {
   return [
     t('result.handoffPrefix'),
     '',
-    fullText(a),
+    fullText(a, compact),
     '',
     t('result.handoffSuffix'),
   ].join('\n');

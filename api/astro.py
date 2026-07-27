@@ -842,6 +842,11 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
                         applying = abs(sep2 - angle) < abs(sep - angle)
                         om = int(orb)
                         os_ = int(round((orb - om) * 60))
+                        # 分進位：0.997° 會算出 60 分，印成「0°60′」。
+                        # fmt_pos() 早就處理了同樣的進位，這裡漏掉。
+                        if os_ == 60:
+                            os_ = 0
+                            om += 1
                         aspects.append({
                             'a': a['name'], 'b': b['name'], 'type': aname,
                             'angle': angle, 'actual': round(sep, 2),
