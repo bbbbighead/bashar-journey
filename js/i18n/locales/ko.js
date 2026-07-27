@@ -239,7 +239,7 @@ export default {
     // 공유되는 것은 사이트 자체입니다 — 주제나 풀이 내용은 포함하지 않습니다
     share: '친구에게 공유',
     shareTitle: 'Intuitive Notes',
-    shareText: 'Intuitive Notes의 카드와 괘, 출생 차트로 생각을 정리하고 있어요. 한번 써 보세요.',
+    shareText: 'Intuitive Notes에 살펴보고 싶은 주제를 적고, 카드와 괘, 출생 차트가 어떤 새로운 시각을 데려오는지 보세요👀🌟',
     shareCopied: '링크를 복사했습니다 ✓',
     shareFail: '공유하지 못했습니다',
     // 팔로우는 공유와 반대 방향 — 읽는 분을 다시 데려오는 길

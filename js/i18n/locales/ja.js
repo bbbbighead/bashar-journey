@@ -239,7 +239,7 @@ export default {
     // 共有するのはサイトそのもの。相談内容や鑑定結果は含めない
     share: '友だちにシェア',
     shareTitle: 'Intuitive Notes',
-    shareText: 'Intuitive Notes のカード・卦・ホロスコープで考えを整理しています。よかったら試してみてください。',
+    shareText: 'Intuitive Notes に見つめたいテーマを書いて、カード・卦・ホロスコープがどんな新しい視点を運んでくるか見てみてください👀🌟',
     shareCopied: 'リンクをコピーしました ✓',
     shareFail: 'シェアできませんでした',
     // フォローはシェアと逆方向——読者をここへ連れもどす導線

@@ -5,17 +5,27 @@
 const ENDPOINT = '/api/track';
 const VID_KEY = 'pi_visitor_id';
 
-// 持久訪客 ID（同一瀏覽器跨次來訪不變）
+// 持久訪客 ID（同一瀏覽器跨次來訪不變）。
+// 純隨機、不含任何個人資訊——只能認出「同一個瀏覽器」，不能認出「同一個人」。
+// 已知會斷掉的情況：換裝置／換瀏覽器／無痕／清資料，
+// 以及 iOS Safari 的 ITP（7 天未回訪就清掉 localStorage）。
+const newVid = () => (crypto.randomUUID
+  ? crypto.randomUUID()
+  : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 8);
+
 function visitorId() {
   try {
     let v = localStorage.getItem(VID_KEY);
     if (!v) {
-      v = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)).slice(0, 8);
+      v = newVid();
       localStorage.setItem(VID_KEY, v);
     }
     return v;
   } catch {
-    return 'anon';
+    // localStorage 被封鎖時仍給隨機值。原本回傳固定的 'anon'，
+    // 結果所有這類使用者共用同一個標籤，在後台看起來像一個超級活躍的訪客，
+    // 把不重複訪客數也算少了。認不出回訪沒關係，不要把不同人併成一個。
+    return newVid();
   }
 }
 

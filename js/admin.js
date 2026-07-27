@@ -19,7 +19,7 @@ const SCREEN_LABELS = {
 let allSessions = [];
 let sessOffset = 0;
 let exhausted = false;
-const filters = { scope: 'complete', device: '', source: '' };
+const filters = { scope: 'complete', device: '', source: '', vid: '' };
 const selected = new Set(); // 已勾選的 sid
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
@@ -145,7 +145,17 @@ function matchesFilters(s) {
   if (filters.scope === 'incomplete' && s.hasJourney) return false;
   if (filters.device && s.device !== filters.device) return false;
   if (filters.source && s.src !== filters.source) return false;
+  if (filters.vid && s.vid !== filters.vid) return false;
   return true;
+}
+
+// 只看某一位訪客：點列表裡的訪客 ID 就會套用。
+// 注意這是在「已載入的紀錄」上過濾，所以會自動往後多抓幾頁
+// （onFilterChange 會補抓），但若該訪客最早的紀錄還沒載入就看不到，
+// 所以下面的提示會標明目前載入了幾筆。
+function setVidFilter(vid) {
+  filters.vid = filters.vid === vid ? '' : vid;
+  onFilterChange();
 }
 
 // 工具代碼 → 中文標籤（後台一律繁體中文）
@@ -169,6 +179,8 @@ const SORT_VALUE = {
   topic: (s) => String(s.topic || ''),
   tools: (s) => toolText(s),
   hasJourney: (s) => (s.hasJourney ? 1 : 0),
+  // 先按該訪客的總來訪次數，再按這是第幾次——回訪最多的人會聚在一起
+  visitNo: (s) => (Number(s.visitTotal) || 1) * 1000 + (Number(s.visitNo) || 1),
   // 沒回饋的排在最後（遞減時最高分在前、遞增時 0 在前）
   feedback: (s) => (s.feedback ? Number(s.feedback.rating) || 0 : 0),
   note: (s) => String(s.note || ''),
@@ -203,9 +215,13 @@ function renderOverview(o) {
   const u = o.usage || { bytes: 0, limitBytes: 1, pct: 0, prunedTotal: 0, prunedAt: null };
   const capCls = u.pct >= 95 ? 'crit' : u.pct >= 85 ? 'warn' : '';
   const scopeLabel = { complete: '有題目的來訪', incomplete: '未完成的來訪' }[o.scope] || '累計來訪';
+  const v = o.visitors || { unique: 0, returning: 0, repeatPct: 0 };
   $('statRow').innerHTML = `
     <div class="stat"><b>${o.totalSessions}</b><span>${scopeLabel}</span></div>
-    <div class="stat"><b>${Object.values(o.devices).reduce((a, b) => a + b, 0)}</b><span>裝置事件</span></div>
+    <div class="stat"><b>${v.unique}</b><span>不重複訪客</span></div>
+    <div class="stat" title="vid 只認得出「同一個瀏覽器」：換裝置、無痕、清資料，以及 iOS Safari 7 天未回訪清掉 localStorage，都會讓回訪者看起來像新訪客。所以這是下限。">
+      <b>${v.repeatPct}%</b><span>回訪率（${v.returning} 人回訪過）<br><i class="stat-note">下限，實際更高</i></span>
+    </div>
     <div class="stat"><b>${Object.keys(o.sources).length}</b><span>來源管道數</span></div>
     <div class="stat cap-stat">
       <b class="${capCls}">${u.pct}%</b>
@@ -468,8 +484,11 @@ function bindSortHeaders() {
     th.dataset.bound = '1';
     th.addEventListener('click', () => {
       const key = th.dataset.sort;
+      // 第一次點某欄時的方向：數量型的欄位從大到小才有意義
+      // （點「回訪」是想找回頭客，不是想看一堆「首次」）
+      const DESC_FIRST = new Set(['ts', 'visitNo', 'feedback']);
       if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
-      else sort = { key, dir: key === 'ts' ? 'desc' : 'asc' };
+      else sort = { key, dir: DESC_FIRST.has(key) ? 'desc' : 'asc' };
       renderSessions();
     });
   });
@@ -493,7 +512,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="11" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -510,7 +529,11 @@ function renderSessions() {
     tr.innerHTML = `
       <td class="chk-col"><input type="checkbox" class="row-chk" ${selected.has(s.sid) ? 'checked' : ''}></td>
       <td>${fmtTime(s.ts)}</td>
-      <td><code>${esc(s.vid)}</code></td>
+      <td><button type="button" class="vid-btn${filters.vid === s.vid ? ' on' : ''}"
+        title="只看這位訪客的紀錄（再點一次取消）"><code>${esc(s.vid)}</code></button></td>
+      <td class="visit-cell">${s.visitTotal > 1
+        ? `<span class="badge repeat" title="這位訪客共有 ${s.visitTotal} 次來訪">第 ${s.visitNo} 次</span>`
+        : '<span class="dim-dash">首次</span>'}</td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)}${
         s.os ? ` · ${esc(s.os)}` : ''}</td>
@@ -524,6 +547,12 @@ function renderSessions() {
       }</td>
       <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
 
+    const vidBtn = tr.querySelector('.vid-btn');
+    vidBtn.addEventListener('click', (e) => {
+      e.stopPropagation();                // 點訪客不展開詳情
+      setVidFilter(s.vid);
+    });
+
     const chk = tr.querySelector('.row-chk');
     chk.addEventListener('click', (e) => e.stopPropagation()); // 勾選不展開詳情
     chk.addEventListener('change', () => {
@@ -534,7 +563,10 @@ function renderSessions() {
     tbody.appendChild(tr);
   }
 
-  $('fltCount').textContent = `顯示 ${visible.length} 筆／已載入 ${allSessions.length} 筆`;
+  // 訪客過濾時要說清楚只在已載入的紀錄裡找——不然會誤以為這就是他的全部紀錄
+  $('fltCount').textContent = filters.vid
+    ? `只看訪客 ${filters.vid}：${visible.length} 筆（在已載入的 ${allSessions.length} 筆之中${exhausted ? '，已是全部' : '，可按「載入更多」往前找'}）`
+    : `顯示 ${visible.length} 筆／已載入 ${allSessions.length} 筆`;
   $('btnMore').style.display = exhausted ? 'none' : 'inline-block';
   updateBulkBar();
 }
@@ -587,7 +619,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="10" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="11" class="detail-cell">讀取中……</td>';
   tr.after(detail);
 
   try {

@@ -977,10 +977,13 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .a-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
 @media (max-width: 700px) { .a-cols { grid-template-columns: 1fr; } }
 
-/* 固定四欄：原本用 flex-wrap，數字卡會隨內容長度變寬變窄，看起來歪 */
-.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-@media (max-width: 860px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 460px) { .stat-row { grid-template-columns: 1fr; } }
+/* 等寬自動換行：原本用 flex-wrap，卡片會隨內容長度變寬變窄看起來歪；
+   改用 auto-fit 之後增減卡片不必回來改欄數。 */
+.stat-row {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.stat-note { font-style: normal; font-size: 10.5px; color: var(--accent-dim); opacity: .8; }
 /* 容量卡多了一條進度條與按鈕，grid 會把其他卡拉到一樣高留下大片空白，
    所以內容垂直居中，看起來才是同一組卡片而不是四個空盒子。 */
 .stat {
@@ -1104,6 +1107,19 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .a-table th.sortable.asc::after { content: '↑'; opacity: 1; color: var(--accent); }
 .a-table th.sortable.desc::after { content: '↓'; opacity: 1; color: var(--accent); }
 .a-table th.sorted { color: var(--accent); }
+
+/* 訪客 ID：可點，用來只看這位訪客的紀錄 */
+.vid-btn {
+  font: inherit; background: none; border: none; padding: 2px 4px; margin: -2px -4px;
+  border-radius: 2px; cursor: pointer; color: inherit;
+  transition: background .2s, color .2s;
+}
+.vid-btn:hover { background: rgba(214, 183, 122, .12); }
+.vid-btn:hover code { color: var(--accent); }
+.vid-btn.on { background: rgba(214, 183, 122, .18); }
+.vid-btn.on code { color: var(--accent); }
+.visit-cell { white-space: nowrap; }
+.badge.repeat { color: var(--accent); border-color: rgba(214, 183, 122, .45); }
 
 /* 工具標籤 */
 .tool-tag {
