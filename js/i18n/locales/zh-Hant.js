@@ -148,11 +148,13 @@ export default {
   },
 
   numbers: {
-    lede: '請憑直覺輸入 3 個個位數（1–9）。',
+    lede: '請憑直覺滑動選出 3 個個位數（1–9）。',
     done: '就是這三個數',
     random: '請幫我隨機選',
     byTime: '讓此刻的時間替我決定',
     chosen: (nums) => `此刻為你選出——${nums.join('、')}`,
+    digitAria: (n) => `第 ${n} 個數字，上下滑動選取`,
+    blank: '尚未選擇',
   },
 
   astro: {

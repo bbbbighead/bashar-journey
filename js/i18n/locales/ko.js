@@ -150,11 +150,13 @@ export default {
   },
 
   numbers: {
-    lede: '직관으로 한 자리 숫자(1~9)를 세 개 적어 주세요.',
+    lede: '직관으로 한 자리 숫자(1~9)를 세 개 넘겨서 골라 주세요.',
     done: '이 세 숫자로',
     random: '알아서 골라 주세요',
     byTime: '지금 이 순간에 맡기기',
     chosen: (nums) => `지금 당신에게 온 숫자 —— ${nums.join(' · ')}`,
+    digitAria: (n) => `${n}번째 숫자 — 위아래로 넘겨서 선택`,
+    blank: '아직 고르지 않음',
   },
 
   astro: {

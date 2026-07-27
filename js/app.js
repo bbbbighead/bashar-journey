@@ -462,24 +462,95 @@ function runSpread() {
 }
 
 // ---- 占卜二：梅花易數報數起卦（單一數字 1–9） ----
+// 三個數字用「滑動選取」：原生 scroll-snap，慣性與回彈都交給瀏覽器，
+// 手機上不彈鍵盤。每一格同時是按鈕，點擊也能選；方向鍵同樣可以調。
+const PICK_ITEM_H = 46;   // 每一格的高度，需與 CSS 的 .np-opt 一致
+
+function buildPickers() {
+  const row = $('numRow');
+  if (row.dataset.built) return;
+  row.dataset.built = '1';
+  row.innerHTML = [0, 1, 2].map((i) => {
+    // 第一格是空白：不預選任何數字，維持「憑直覺自己選」
+    const opts = ['', 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `
+      <button type="button" class="np-opt${n === '' ? ' np-blank' : ''}"
+        data-n="${n === '' ? 0 : n}" tabindex="-1"
+        aria-hidden="${n === '' ? 'true' : 'false'}">${n === '' ? '—' : n}</button>`).join('');
+    // 中央標示帶（.np-band）必須放在捲動容器**外面**：放在裡面的話它是相對
+    // 捲動內容定位，會跟著數字一起捲走，只有 scrollTop=0 時才在正確位置。
+    return `<div class="num-cell">
+      <div class="num-pick" id="num${i + 1}" data-idx="${i}" data-value="0"
+        role="spinbutton" tabindex="0" aria-valuemin="1" aria-valuemax="9"
+        aria-label="${esc(t('numbers.digitAria', i + 1))}">
+        <div class="np-track">${opts}</div>
+      </div>
+      <div class="np-band" aria-hidden="true"></div>
+    </div>`;
+  }).join('');
+}
+
+function pickerValue(el) { return Number(el.dataset.value) || 0; }
+
+// 把某一欄捲到指定數字（0＝空白）。smooth 只在使用者操作時用，
+// 初始化時要瞬間定位，否則會看到畫面自己滑一下。
+//
+// quietUntil：程式觸發的捲動也會叫醒 onscroll，而 onscroll 會清掉「此刻為你選出
+// ——9、1、7」那行字。所以這裡標一段靜音期，讓 onscroll 只更新值、不清訊息，
+// 否則「請幫我隨機選」會被自己造成的捲動把提示抹掉。
+function setPickerValue(el, n, smooth = true) {
+  const idx = Math.max(0, Math.min(9, n));
+  el.dataset.quietUntil = String(Date.now() + (smooth ? 700 : 60));
+  el.style.scrollBehavior = smooth ? 'smooth' : 'auto';
+  el.scrollTop = idx * PICK_ITEM_H;
+  syncPicker(el, idx);
+}
+
+const pickerQuiet = (el) => Date.now() < Number(el.dataset.quietUntil || 0);
+
+// 依目前捲動位置決定選中哪一格，並更新樣式與 aria
+function syncPicker(el, forceIdx) {
+  const idx = forceIdx != null ? forceIdx : Math.round(el.scrollTop / PICK_ITEM_H);
+  const n = Math.max(0, Math.min(9, idx));
+  el.dataset.value = String(n);
+  el.setAttribute('aria-valuenow', String(n || ''));
+  el.setAttribute('aria-valuetext', n ? String(n) : t('numbers.blank'));
+  el.querySelectorAll('.np-opt').forEach((o, i) => o.classList.toggle('on', i === n));
+}
+
 function runNumbers() {
-  const inputs = [$('num1'), $('num2'), $('num3')];
+  buildPickers();
+  const picks = [$('num1'), $('num2'), $('num3')];
   const doneBtn = $('btnNumbersDone');
-  const randomBtn = $('btnNumbersRandom');
   const picked = $('numPicked');
   $('screenNumbers').querySelector('.divine-lede').textContent = `${stepPrefix()}${t('numbers.lede')}`;
 
-  const valid = (el) => {
-    const v = Number(el.value);
-    return Number.isInteger(v) && v >= 1 && v <= 9;
-  };
-  const refresh = () => { doneBtn.disabled = !inputs.every(valid); };
-  inputs.forEach((el) => {
-    el.value = '';
-    el.oninput = () => {
-      // 只留最後輸入的一位數（1–9）
-      const digits = el.value.replace(/[^1-9]/g, '');
-      el.value = digits.slice(-1);
+  const refresh = () => { doneBtn.disabled = !picks.every((el) => pickerValue(el) >= 1); };
+
+  picks.forEach((el) => {
+    setPickerValue(el, 0, false);
+    let t0 = null;
+    el.onscroll = () => {
+      // 捲動停下來才判定（原生 snap 會自己對位，這裡只是收尾）
+      clearTimeout(t0);
+      const quiet = pickerQuiet(el);
+      t0 = setTimeout(() => {
+        syncPicker(el);
+        if (!quiet) picked.textContent = ''; // 使用者自己滑的才清提示
+        refresh();
+      }, 90);
+    };
+    el.onclick = (e) => {
+      const opt = e.target.closest('.np-opt');
+      if (!opt) return;
+      setPickerValue(el, Number(opt.dataset.n));
+      picked.textContent = '';
+      refresh();
+    };
+    el.onkeydown = (e) => {
+      const step = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+      if (!step) return;
+      e.preventDefault();
+      setPickerValue(el, pickerValue(el) + step);
       picked.textContent = '';
       refresh();
     };
@@ -492,14 +563,16 @@ function runNumbers() {
     saveSession(state);
     collectNext();
   };
-  doneBtn.onclick = () => { if (inputs.every(valid)) proceed(inputs.map((el) => Number(el.value))); };
+  doneBtn.onclick = () => {
+    if (picks.every((el) => pickerValue(el) >= 1)) proceed(picks.map(pickerValue));
+  };
 
-  // 隨機選三個 1–9 的數字（結果填入輸入框並列出，讓使用者看見後再確認）
-  randomBtn.onclick = () => {
+  // 隨機選三個 1–9 的數字（捲到該位置並列出，讓使用者看見後再確認）
+  $('btnNumbersRandom').onclick = () => {
     const rand = new Uint32Array(3);
     crypto.getRandomValues(rand);
     const nums = [...rand].map((r) => (r % 9) + 1);
-    inputs.forEach((el, i) => { el.value = String(nums[i]); });
+    picks.forEach((el, i) => setPickerValue(el, nums[i]));
     picked.textContent = t('numbers.chosen', nums);
     refresh();
   };
@@ -508,7 +581,6 @@ function runNumbers() {
   $('btnNumbersSkip').onclick = () => proceed(null);
 
   showScreen('screenNumbers');
-  setTimeout(() => inputs[0].focus(), 200);
 }
 
 // ---- 占卜三：西洋占星本命盤（Swiss Ephemeris 精算） ----
@@ -1314,6 +1386,11 @@ function repaintCurrentScreen() {
   if (id === 'screenNumbers') {
     const lede = active.querySelector('.divine-lede');
     if (lede) lede.textContent = `${stepPrefix()}${t('numbers.lede')}`;
+    // 滑動選取器的 aria 文字也要換語言，但不能重建（會清掉已選的數字）
+    active.querySelectorAll('.num-pick').forEach((el) => {
+      el.setAttribute('aria-label', t('numbers.digitAria', Number(el.dataset.idx) + 1));
+      syncPicker(el, pickerValue(el));
+    });
   }
 }
 
