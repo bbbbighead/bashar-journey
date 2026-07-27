@@ -150,11 +150,13 @@ export default {
   },
 
   numbers: {
-    lede: 'let your intuition give three single digits (1–9).',
+    lede: 'let your intuition swipe to three single digits (1–9).',
     done: 'These three numbers',
     random: 'Choose for me',
     byTime: 'Let this moment decide',
     chosen: (nums) => `Drawn for you at this moment — ${nums.join(' · ')}`,
+    digitAria: (n) => `Digit ${n} — swipe up or down to choose`,
+    blank: 'not chosen yet',
   },
 
   astro: {

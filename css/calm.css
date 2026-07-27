@@ -633,25 +633,60 @@ select.flt-select {
 .combo-picked { margin-top: 6px; font-size: 12px; color: var(--accent-dim); min-height: 1.5em; font-family: var(--sans); }
 
 .num-row { display: flex; justify-content: center; gap: 16px; }
-/* 報數格＝儀器讀數窗：金屬凹面＋底部刻度尺 */
-input.num {
-  width: 92px; text-align: center;
+
+/* 報數格＝儀器讀數窗：金屬凹面＋底部刻度尺。
+   改為滑動選取後仍是同一個外觀，只是內容變成可捲動的數字帶。
+   高度＝3 格（1 個選中 + 上下各露一格），讓人一眼看出「這是可以撥的」。
+   外框與中央標示帶做在 .num-cell 上，捲動只發生在裡面的 .num-pick。 */
+.num-cell {
+  position: relative; width: 92px; height: 138px;
   background:
     repeating-linear-gradient(90deg, rgba(194, 168, 105, .35) 0 1px, transparent 1px 9px) bottom / 100% 5px no-repeat,
     linear-gradient(180deg, rgba(17, 24, 38, .92), rgba(12, 18, 28, .92));
-  color: var(--ink);
   border: 1px solid var(--line-strong); border-radius: 0;
   box-shadow: inset 0 0 16px rgba(0, 0, 0, .4);
-  padding: 16px 8px 20px; font: inherit; font-size: 26px; font-family: var(--serif);
-  -moz-appearance: textfield; appearance: textfield;
 }
-input.num::-webkit-outer-spin-button, input.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-pick {
+  width: 100%; height: 100%;
+  overflow-y: scroll; overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  cursor: grab;
+}
+.num-pick::-webkit-scrollbar { display: none; }
+.num-pick:focus-visible { outline: 1px solid var(--accent-dim); outline-offset: -2px; }
+/* 上下留白：讓第一格與最後一格也能捲到正中央（46px 格高、138px 視窗） */
+.np-track { padding: 46px 0; }
+.np-opt {
+  display: block; width: 100%; height: 46px;
+  scroll-snap-align: center;
+  font: inherit; font-family: var(--serif); font-size: 26px; line-height: 46px;
+  color: var(--ink-faint); background: none; border: none; padding: 0;
+  cursor: pointer;
+  transition: color .2s, opacity .2s, transform .2s;
+  opacity: .45;
+}
+/* 選中的那一格才是亮的；其餘壓暗，視覺上自然指向中央 */
+.np-opt.on { color: var(--accent); opacity: 1; transform: scale(1.06); }
+.np-blank { color: var(--ink-faint); }
+/* 中央的兩條髮絲線：標出「這一格才是你選的」。
+   放在 .num-cell 裡、.num-pick 外，才不會跟著內容捲走。 */
+.np-band {
+  position: absolute; left: 0; right: 0; top: 50%; height: 46px;
+  transform: translateY(-50%); pointer-events: none;
+  border-top: 1px solid rgba(214, 183, 122, .34);
+  border-bottom: 1px solid rgba(214, 183, 122, .34);
+  background: rgba(214, 183, 122, .045);
+}
 .num-picked {
   margin-top: 18px; min-height: 1.8em;
   font-family: var(--serif); font-size: 15px; color: var(--accent); letter-spacing: .1em;
 }
-input.num:focus { outline: 1px solid var(--line); outline-offset: 3px; border-color: var(--accent-dim); }
-input.num::placeholder { color: var(--ink-faint); }
+@media (max-width: 400px) {
+  .num-row { gap: 10px; }
+  .num-cell { width: 82px; }
+}
 
 /* ---- 分析中：星軌（三層軌道繞著文字運行） ---- */
 /* 下方多了階段進度與輪播提示，上緣留白收窄才放得進一個螢幕 */

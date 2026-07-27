@@ -95,11 +95,12 @@
     <div class="numbers">
       <p class="divine-lede">接著，請憑直覺輸入 3 個個位數（1–9）。</p>
       <div class="rule-orn" aria-hidden="true"></div>
-      <div class="num-row">
-        <input type="number" min="1" max="9" inputmode="numeric" class="num" id="num1" placeholder="—">
-        <input type="number" min="1" max="9" inputmode="numeric" class="num" id="num2" placeholder="—">
-        <input type="number" min="1" max="9" inputmode="numeric" class="num" id="num3" placeholder="—">
-      </div>
+      <!-- 三個數字改用「滑動選取」：手機上不再彈出鍵盤，直接撥動即可。
+           每一欄是原生 scroll-snap 捲動容器，所以滑動慣性由瀏覽器負責；
+           每一格數字同時也是按鈕，點一下也能選（桌機與輔助工具用）。
+           選項由 js/app.js 的 buildPickers() 產生，第一格刻意留空——
+           預先幫使用者選一個數字，就不是「憑直覺」了。 -->
+      <div class="num-row" id="numRow"></div>
       <div class="num-picked" id="numPicked"></div>
       <div class="divine-actions">
         <button class="btn primary" id="btnNumbersDone" disabled data-i18n="numbers.done">就是這三個數</button>
