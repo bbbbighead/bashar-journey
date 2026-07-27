@@ -239,7 +239,7 @@ export default {
     // Shares the site itself — never the user's topic or reading
     share: 'Share with a friend',
     shareTitle: 'Intuitive Notes',
-    shareText: 'I use Intuitive Notes to think things through with cards, hexagrams and birth charts. Worth a try.',
+    shareText: 'Put whatever you want to explore into Intuitive Notes, and see what a new angle the cards, hexagrams or birth chart bring 👀🌟',
     shareCopied: 'Link copied ✓',
     shareFail: 'Could not share',
     // Following runs the other way from sharing: it brings the reader back

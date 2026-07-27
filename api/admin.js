@@ -24,6 +24,48 @@ function dwellBytesOf(dwell, dcnt) {
   return events * 100;
 }
 
+// 訪客統計。vid 認的是「同一個瀏覽器」而不是「同一個人」：換裝置、換瀏覽器、
+// 無痕、清資料，以及 iOS Safari 的 ITP（7 天未回訪就清掉 localStorage）都會斷掉，
+// 所以「回訪」算出來的是**下限**，真實回訪一定比這個數字多。
+// 反向誤差也有：共用裝置會把不同人併成同一個 vid。
+function visitorStats(entries) {
+  const perVid = new Map();
+  for (const e of entries) {
+    if (e && e.vid) perVid.set(e.vid, (perVid.get(e.vid) || 0) + 1);
+  }
+  const unique = perVid.size;
+  let returning = 0;
+  for (const n of perVid.values()) if (n > 1) returning += 1;
+  return {
+    unique,
+    returning,
+    repeatPct: unique ? +((returning / unique) * 100).toFixed(1) : 0,
+  };
+}
+
+// 每筆來訪是「這位訪客的第幾次」（1＝最早的一次）。
+// 刻意依 ts 排序而不是依清單位置推算：序數是對「時間先後」的斷言，
+// 綁在清單順序上是隱性耦合——只要有一筆順序不對（補寫的紀錄、時鐘偏移），
+// 標出來的次數就會默默錯掉。
+function visitOrdinals(entries) {
+  const byVid = new Map();
+  for (const e of entries) {
+    if (!e || !e.sid || !e.vid) continue;
+    if (!byVid.has(e.vid)) byVid.set(e.vid, []);
+    byVid.get(e.vid).push(e);
+  }
+  const out = new Map();   // sid → { visitNo, visitTotal }
+  for (const list of byVid.values()) {
+    list.sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));  // 舊 → 新
+    list.forEach((e, i) => out.set(e.sid, { visitNo: i + 1, visitTotal: list.length }));
+  }
+  // 沒有 vid 的紀錄（極舊的資料）一律當單次
+  for (const e of entries) {
+    if (e && e.sid && !out.has(e.sid)) out.set(e.sid, { visitNo: 1, visitTotal: 1 });
+  }
+  return out;
+}
+
 // 防暴力嘗試：每 IP 每小時最多 60 次未授權嘗試
 const RATE = new Map();
 function rateLimited(ip) {
@@ -358,12 +400,15 @@ export default async function handler(req, res) {
       };
 
       if (scope === 'all') {
-        const [srcR, devR, sumR, cntR, lenR] = await redisPipeline([
+        // 來源／裝置／停留走預先累加的 pi:agg:*，但訪客數必須逐筆看 vid，
+        // 所以多讀一次清單（單一 LRANGE，比 complete 那條路徑的 N 次 EXISTS 便宜）
+        const [srcR, devR, sumR, cntR, lenR, listR] = await redisPipeline([
           ['HGETALL', 'pi:agg:src'],
           ['HGETALL', 'pi:agg:device'],
           ['HGETALL', 'pi:agg:dwell_sum'],
           ['HGETALL', 'pi:agg:dwell_cnt'],
           ['LLEN', 'pi:sessions'],
+          ['LRANGE', 'pi:sessions', '0', '-1'],
         ]);
         const sum = toObj(sumR.result), cnt = toObj(cntR.result);
         const dwellAvg = {};
@@ -374,6 +419,7 @@ export default async function handler(req, res) {
           sources: toObj(srcR.result),
           devices: toObj(devR.result),
           dwellAvgMs: dwellAvg,
+          visitors: visitorStats((listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean)),
           usage,
         });
         return;
@@ -396,6 +442,7 @@ export default async function handler(req, res) {
         if (e.src) sources[e.src] = (sources[e.src] || 0) + 1;
         if (e.device) devices[e.device] = (devices[e.device] || 0) + 1;
       }
+      const visitors = visitorStats(wanted);
       const sum = {}, cnt = {};
       for (let i = 0; i < wanted.length; i += 100) {
         const chunk = wanted.slice(i, i + 100);
@@ -419,6 +466,7 @@ export default async function handler(req, res) {
         sources,
         devices,
         dwellAvgMs: dwellAvg,
+        visitors,
         usage,
       });
       return;
@@ -426,10 +474,19 @@ export default async function handler(req, res) {
 
     if (view === 'sessions') {
       const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
-      const [listR] = await redisPipeline([
+      // 這一頁的 50 筆，加上整份清單——「這是第幾次來訪」必須看該 vid 的全部
+      // 紀錄才算得出來，只看本頁會把每個人都算成第 1 次。
+      const [listR, allR] = await redisPipeline([
         ['LRANGE', 'pi:sessions', String(offset), String(offset + 49)],
+        ['LRANGE', 'pi:sessions', '0', '-1'],
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
+      const ordinals = visitOrdinals((allR.result || []).map((r) => parseJSON(r, null)).filter(Boolean));
+      sessions.forEach((s) => {
+        const o = ordinals.get(s.sid);
+        s.visitNo = o ? o.visitNo : null;
+        s.visitTotal = o ? o.visitTotal : null;
+      });
       // 附註每筆是否留有題目（journey）、使用的工具、標註內容與回饋。
       // 取 journey 全文（而非只 EXISTS）是為了帶出 tools 讓清單直接顯示工具。
       if (sessions.length) {
