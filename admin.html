@@ -8,8 +8,9 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='14' y='14' width='72' height='72' rx='14' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/calm.css">
 </head>
-<body>
-<!-- 星圖背景（縱向星圖攝影，較深的塗層） -->
+<body class="admin-body">
+<!-- 星圖背景（縱向星圖攝影，較深的塗層）。
+     後台的星圖壓得比前台更暗——這裡是看數字的工具，可讀性優先於氣氛。 -->
 <div class="sky sky-admin" aria-hidden="true"></div>
 <div class="app">
 
@@ -29,101 +30,120 @@
 
   <!-- 儀表板 -->
   <section class="screen admin-screen" id="adminDash">
-    <header class="admin-head">
-      <div class="admin-title">靈感訊息 · 管理儀表板</div>
-      <button class="btn ghost" id="btnLogout">登出</button>
-    </header>
+    <!-- 頁首與分頁固定在最上方，切換分頁不必先滑回頂部 -->
+    <div class="admin-bar">
+      <header class="admin-head">
+        <div class="admin-brand">
+          <span class="admin-title">靈感訊息</span>
+          <span class="admin-sub">管理儀表板</span>
+        </div>
+        <button class="btn ghost small" id="btnLogout">登出</button>
+      </header>
+      <!-- 分頁順序＝使用頻率。處理時間放最後：偶爾才看的除錯用資料 -->
+      <nav class="a-tabs" id="aTabs" role="tablist">
+        <button class="a-tab-btn on" data-tab="overview" role="tab">總覽</button>
+        <button class="a-tab-btn" data-tab="sessions" role="tab">使用紀錄</button>
+        <button class="a-tab-btn" data-tab="feedback" role="tab">使用者回饋</button>
+        <button class="a-tab-btn" data-tab="timings" role="tab">處理時間</button>
+      </nav>
+    </div>
 
     <!-- 容量警示 -->
     <div class="cap-banner" id="capBanner" style="display:none"></div>
 
-    <!-- 資料範圍：套用到總覽、來源/裝置、停留時間與使用紀錄 -->
-    <div class="filter-bar scope-bar">
+    <!-- 資料範圍：只有總覽與使用紀錄吃這個設定，其他分頁會自動隱藏 -->
+    <div class="filter-bar scope-bar" id="scopeBar">
       <label class="scope-label" for="fltScope">資料範圍</label>
       <select class="flt-select" id="fltScope">
         <option value="complete">僅有題目的來訪（完成體驗）</option>
         <option value="all">全部來訪（含未完成）</option>
         <option value="incomplete">僅未完成的來訪（沒有題目）</option>
       </select>
-      <span class="flt-count" id="scopeHint">套用到下方所有統計與紀錄清單</span>
+      <span class="flt-count" id="scopeHint">套用到統計與紀錄清單</span>
     </div>
 
-    <!-- 總覽 -->
-    <div class="a-block">
-      <h3>總覽</h3>
-      <div class="stat-row" id="statRow"></div>
-    </div>
-
-    <div class="a-cols">
-      <!-- 來源 -->
+    <!-- ── 分頁一：總覽 ── -->
+    <div class="a-pane on" data-pane="overview">
       <div class="a-block">
-        <h3>登入管道（來源）</h3>
-        <div class="chart-host" id="srcChart"></div>
+        <div class="stat-row" id="statRow"></div>
       </div>
-      <!-- 裝置 -->
+
+      <div class="a-cols">
+        <div class="a-block a-card">
+          <h3>登入管道（來源）</h3>
+          <div class="chart-host" id="srcChart"></div>
+        </div>
+        <div class="a-block a-card">
+          <h3>裝置平台</h3>
+          <div class="chart-host" id="devChart"></div>
+        </div>
+      </div>
+
+      <div class="a-block a-card">
+        <h3>各頁面平均停留時間</h3>
+        <div class="chart-host" id="dwellChart"></div>
+      </div>
+    </div>
+
+    <!-- ── 分頁二：使用紀錄 ── -->
+    <div class="a-pane" data-pane="sessions">
       <div class="a-block">
-        <h3>裝置平台</h3>
-        <div class="chart-host" id="devChart"></div>
+        <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。顯示範圍由上方「資料範圍」控制——選「僅未完成」即可全選後批次刪除。</div>
+        <div class="filter-bar">
+          <select class="flt-select" id="fltDevice">
+            <option value="">全部裝置</option>
+            <option value="mobile">手機</option>
+            <option value="desktop">電腦</option>
+            <option value="tablet">平板</option>
+          </select>
+          <select class="flt-select" id="fltSource">
+            <option value="">全部來源</option>
+          </select>
+          <span class="flt-count" id="fltCount"></span>
+        </div>
+        <div class="bulk-bar" id="bulkBar" style="display:none">
+          <span id="bulkCount"></span>
+          <button class="btn small danger" id="btnBulkDel">刪除選取的紀錄</button>
+        </div>
+        <!-- 這張表 10 欄，1180px 放得下，所以不套 .a-scroll——
+             有了橫向捲動容器，表頭的 sticky 就會失效（overflow-x:auto 會連帶
+             讓垂直方向變成捲動容器）。寬表格（處理時間）才需要那層。 -->
+        <table class="a-table sessions" id="sessTable">
+            <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="topic">主題</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>
       </div>
     </div>
 
-    <!-- 停留時間 -->
-    <div class="a-block">
-      <h3>各頁面平均停留時間</h3>
-      <div class="chart-host" id="dwellChart"></div>
-    </div>
-
-    <!-- 處理時間（「分析中」花在哪裡） -->
-    <div class="a-block">
-      <h3>處理時間</h3>
-      <div class="a-hint">「分析中」這一段的耗時拆解，每一列對得回一筆來訪紀錄。中位數看一般體驗，P90 看最慢的那些人有多久。<b>LLM</b> 是模型生成、<b>星曆</b> 是 Swiss Ephemeris 實算、<b>查地點</b> 是對外的 geocoding、<b>動畫等待</b> 是為了動畫刻意多等的時間。</div>
-      <div class="tm-stats" id="tmStats"></div>
-      <table class="a-table timings" id="tmTable">
-        <thead><tr>
-          <th>時間</th><th>來訪</th><th>工具</th>
-          <th>使用者等待</th><th>LLM</th><th>次數</th><th>Prompt 字數</th>
-          <th>寫紀錄</th><th>網路差</th><th>動畫等待</th>
-          <th>星盤往返</th><th>查地點</th><th>星曆</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="a-actions"><button class="btn" id="btnTmMore" style="display:none">載入更多</button></div>
-    </div>
-
-    <!-- 使用者回饋 -->
-    <div class="a-block">
-      <h3>使用者回饋</h3>
-      <div class="a-hint">結果頁上使用者自己送出的星等與文字。每筆都帶著當時的主題與工具，即使原來訪紀錄被刪除也讀得到。</div>
-      <div class="fb-summary" id="fbSummary"></div>
-      <div class="fb-list" id="fbList"></div>
-      <div class="a-actions"><button class="btn" id="btnFbMore" style="display:none">載入更多回饋</button></div>
-    </div>
-
-    <!-- 使用紀錄 -->
-    <div class="a-block">
-      <h3>使用者歷史紀錄</h3>
-      <div class="a-hint">點任一列展開該次的題目、選牌、報數與停留細節。顯示範圍由上方「資料範圍」控制——選「僅未完成」即可全選後批次刪除。</div>
-      <div class="filter-bar">
-        <select class="flt-select" id="fltDevice">
-          <option value="">全部裝置</option>
-          <option value="mobile">手機</option>
-          <option value="desktop">電腦</option>
-          <option value="tablet">平板</option>
-        </select>
-        <select class="flt-select" id="fltSource">
-          <option value="">全部來源</option>
-        </select>
-        <span class="flt-count" id="fltCount"></span>
+    <!-- ── 分頁三：使用者回饋 ── -->
+    <div class="a-pane" data-pane="feedback">
+      <div class="a-block">
+        <div class="a-hint">結果頁上使用者自己送出的星等與文字。每筆都帶著當時的主題與工具，即使原來訪紀錄被刪除也讀得到。不受「資料範圍」影響。</div>
+        <div class="fb-summary" id="fbSummary"></div>
+        <div class="fb-list" id="fbList"></div>
+        <div class="a-actions"><button class="btn" id="btnFbMore" style="display:none">載入更多回饋</button></div>
       </div>
-      <div class="bulk-bar" id="bulkBar" style="display:none">
-        <span id="bulkCount"></span>
-        <button class="btn small danger" id="btnBulkDel">刪除選取的紀錄</button>
+    </div>
+
+    <!-- ── 分頁四：處理時間（「分析中」花在哪裡；偶爾除錯才看） ── -->
+    <div class="a-pane" data-pane="timings">
+      <div class="a-block">
+        <div class="a-hint">「分析中」這一段的耗時拆解，每一列對得回一筆來訪紀錄。中位數看一般體驗，P90 看最慢的那些人有多久。<b>LLM</b> 是模型生成、<b>星曆</b> 是 Swiss Ephemeris 實算、<b>查地點</b> 是對外的 geocoding、<b>動畫等待</b> 是為了動畫刻意多等的時間。不受「資料範圍」影響。</div>
+        <div class="tm-stats" id="tmStats"></div>
+        <div class="a-scroll">
+          <table class="a-table timings" id="tmTable">
+            <thead><tr>
+              <th>時間</th><th>來訪</th><th>工具</th>
+              <th>使用者等待</th><th>LLM</th><th>次數</th><th>Prompt 字數</th>
+              <th>寫紀錄</th><th>網路差</th><th>動畫等待</th>
+              <th>星盤往返</th><th>查地點</th><th>星曆</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="a-actions"><button class="btn" id="btnTmMore" style="display:none">載入更多</button></div>
       </div>
-      <table class="a-table sessions" id="sessTable">
-        <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="topic">主題</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>
     </div>
   </section>
 

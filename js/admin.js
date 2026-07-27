@@ -88,9 +88,41 @@ async function enterDash() {
   sessOffset = 0;
   exhausted = false;
   await loadMore();
-  await refreshFeedback();
-  await refreshTimings();
+  // 回饋與處理時間改為「第一次打開該分頁才抓」——見 showTab()
 }
+
+// ---- 分頁 ----
+// 只有總覽與使用紀錄吃「資料範圍」，其他分頁把那條列隱藏起來，
+// 免得使用者以為切了範圍卻沒反應。
+const SCOPED_TABS = new Set(['overview', 'sessions']);
+const tabLoaded = { feedback: false, timings: false };
+
+function showTab(name) {
+  document.querySelectorAll('.a-tab-btn').forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.a-pane').forEach((p) => {
+    p.classList.toggle('on', p.dataset.pane === name);
+  });
+  $('scopeBar').hidden = !SCOPED_TABS.has(name);
+  // 第一次打開才抓資料：開後台不必等這兩支 API
+  if (name === 'feedback' && !tabLoaded.feedback) {
+    tabLoaded.feedback = true;
+    refreshFeedback();
+  }
+  if (name === 'timings' && !tabLoaded.timings) {
+    tabLoaded.timings = true;
+    refreshTimings();
+  }
+}
+
+$('aTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.a-tab-btn');
+  if (btn) showTab(btn.dataset.tab);
+});
+
 
 // ---- 篩選 ----
 // 資料範圍：一次切換總覽統計、三張圓餅圖與使用紀錄清單
@@ -480,7 +512,8 @@ function renderSessions() {
       <td>${fmtTime(s.ts)}</td>
       <td><code>${esc(s.vid)}</code></td>
       <td>${esc(s.src)}</td>
-      <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)} · ${esc(s.os)}</td>
+      <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)}${
+        s.os ? ` · ${esc(s.os)}` : ''}</td>
       <td class="topic-cell" title="${esc(s.topic || '')}">${esc(truncate(s.topic, 12)) || '<span class="dim-dash">—</span>'}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>

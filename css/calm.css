@@ -23,6 +23,13 @@
   --symbol: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
 }
 
+/* hidden 屬性一定要贏。
+   任何寫了 display:flex／grid／block 的元件，都會蓋掉瀏覽器預設的
+   [hidden] { display:none }，於是「藏起來的東西還看得見」。這個 bug 在本專案
+   已經出現三次（.astro-saved、.weaving-slow、.filter-bar），每次都是各自補一條
+   `.x[hidden]{display:none}`。這裡一次擋掉，之後新元件不必再記得補。 */
+[hidden] { display: none !important; }
+
 /* ---- 各語系字型 ----
    為什麼要分：Songti TC 有漢字但沒有假名，也沒有諺文。日文頁面若用繁中堆疊，
    漢字由 Songti TC 畫（而且是中文字形）、假名 fallback 到系統日文字體，
@@ -78,10 +85,14 @@ body {
 }
 /* 後台：縱向星圖＋較深的塗層（資料密度高，可讀性優先） */
 .sky-admin { background-image: url('../assets/bg-portrait.jpg'); }
+/* 後台把星圖壓得比前台重得多：這裡是密集表格與數字，可讀性優先於氣氛。
+   星圖仍看得見（還是同一個產品），但不再跟資料搶注意力。 */
 .sky-admin::after {
   background:
-    linear-gradient(180deg, rgba(5, 8, 13, .62), rgba(5, 8, 13, .52) 40%, rgba(5, 8, 13, .62));
+    linear-gradient(180deg, rgba(5, 8, 13, .9), rgba(5, 8, 13, .86) 40%, rgba(5, 8, 13, .92));
 }
+/* 後台不需要那層為照片背景加的文字陰影，數字反而變糊 */
+.admin-body .screen { text-shadow: none; }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
 
@@ -847,8 +858,57 @@ input.num::placeholder { color: var(--ink-faint); }
 .r-actions { display: flex; justify-content: center; gap: 14px; padding-bottom: 30px; }
 
 /* ---- Admin 後台 ---- */
-.admin-screen { max-width: 860px; font-family: var(--sans); }
+/* 860px 對「處理時間」那張 13 欄的表太窄，欄位全被擠扁；放寬到 1180px。
+   登入畫面維持窄版（見 .admin-screen#adminLogin）。 */
+.admin-screen { max-width: 1180px; font-family: var(--sans); }
+#adminLogin.admin-screen { max-width: 660px; }
 .admin-screen .intake h1, .admin-title { font-family: var(--serif); }
+
+/* 頁首＋分頁固定在頂端：資料很長，切分頁不該先滑回最上面 */
+.admin-bar {
+  position: sticky; top: 0; z-index: 20;
+  margin: 0 -22px 20px; padding: 0 22px;
+  background: linear-gradient(180deg, rgba(6, 10, 16, .97) 0%, rgba(6, 10, 16, .95) 72%, rgba(6, 10, 16, 0) 100%);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.admin-brand { display: flex; align-items: baseline; gap: 12px; }
+.admin-sub {
+  font-family: var(--sans); font-size: 11.5px; letter-spacing: .24em;
+  color: var(--ink-faint);
+}
+
+.a-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+.a-tab-btn {
+  font: inherit; font-size: 13px; letter-spacing: .14em;
+  color: var(--ink-faint); background: none; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: 9px 18px 10px; cursor: pointer;
+  transition: color .25s, border-color .25s, background .25s;
+}
+.a-tab-btn:hover { color: var(--ink-dim); background: rgba(214, 183, 122, .05); }
+.a-tab-btn.on {
+  color: var(--accent); border-bottom-color: var(--accent);
+  background: rgba(214, 183, 122, .06);
+}
+
+.a-pane { display: none; }
+.a-pane.on { display: block; animation: fadein-soft .35s ease both; }
+
+/* 只淡入、不位移。切分頁時滑一下 8px 會顯得晃，資料工具不需要。
+   另外附帶一個好處：fadein 的 keyframe 有 translateY，配上 fill-mode: both
+   之後 computed transform 會停在 matrix(1,0,0,1,0,0)——單位矩陣仍然會建立
+   包含區塊，讓內部所有 position:sticky／fixed 的定位基準跑掉。純淡入沒這問題。 */
+@keyframes fadein-soft { from { opacity: 0; } to { opacity: 1; } }
+.admin-body .screen.active { animation: fadein-soft .5s ease both; }
+
+/* 面板：把每一組資料收進一張卡，區塊之間才有呼吸 */
+.a-card {
+  padding: 18px 20px 20px;
+  border: 1px solid rgba(214, 183, 122, .16); border-radius: 3px;
+  background: rgba(11, 17, 27, .5);
+}
+/* 寬表格在窄螢幕上自己橫向捲，不要撐破版面 */
+.a-scroll { overflow-x: auto; }
 .admin-login-box { max-width: 380px; margin: 0 auto 30px; }
 input.admin-pw {
   width: 100%; color: var(--ink);
@@ -882,15 +942,23 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .a-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
 @media (max-width: 700px) { .a-cols { grid-template-columns: 1fr; } }
 
-.stat-row { display: flex; gap: 14px; flex-wrap: wrap; }
+/* 固定四欄：原本用 flex-wrap，數字卡會隨內容長度變寬變窄，看起來歪 */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 860px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px) { .stat-row { grid-template-columns: 1fr; } }
+/* 容量卡多了一條進度條與按鈕，grid 會把其他卡拉到一樣高留下大片空白，
+   所以內容垂直居中，看起來才是同一組卡片而不是四個空盒子。 */
 .stat {
-  flex: 1; min-width: 140px; text-align: center;
-  border: 1px solid rgba(214, 183, 122, .24); border-radius: 3px; padding: 16px 10px;
-  background: rgba(13, 20, 31, .58);
-  box-shadow: 0 0 14px rgba(214, 183, 122, .06);
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: center;
+  border: 1px solid rgba(214, 183, 122, .18); border-radius: 3px; padding: 18px 12px 16px;
+  background: rgba(11, 17, 27, .5);
 }
-.stat b { display: block; font-family: var(--serif); font-size: 30px; color: var(--accent); }
-.stat span { font-size: 12px; color: var(--ink-dim); }
+.stat b {
+  display: block; font-family: var(--serif); font-size: 34px; line-height: 1.15;
+  color: var(--accent); font-variant-numeric: tabular-nums; margin-bottom: 8px;
+}
+.stat span { font-size: 12px; line-height: 1.6; color: var(--ink-faint); letter-spacing: .04em; }
 .stat b.warn { color: #cba95e; }
 .stat b.crit { color: #c47f7f; }
 .cap-bar {
@@ -914,8 +982,21 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 
 .a-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .a-table td, .a-table th { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
-.a-table th { font-size: 11.5px; color: var(--ink-faint); letter-spacing: .15em; font-weight: 500; }
-.a-table .num { text-align: right; color: var(--accent); font-family: var(--serif); }
+.a-table th {
+  font-size: 11.5px; color: var(--ink-faint); letter-spacing: .15em; font-weight: 500;
+  border-bottom-color: var(--line-strong);
+}
+/* 這裡原本想讓表頭跟著捲，試過 th 與 thead、也排除了祖先的 transform
+   （見下方 fadein-soft 的註解），實測都黏不住——sticky 在表格元素上受限於
+   自己所在的列，沒有可位移的空間。與其留一條沒有作用的規則，直接不做。
+   要往上看欄位名的話，上方的 .admin-bar 是真的固定住的，捲回去很快。 */
+/* 隔列淡底：一列橫跨十幾欄時，眼睛才不會跳行 */
+.a-table tbody tr:nth-child(even of :not([hidden])) { background: rgba(255, 255, 255, .014); }
+/* 數字等寬對齊才比得出大小 */
+.a-table .num, .a-table .tm-num {
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.a-table .num { color: var(--accent); font-family: var(--serif); }
 .a-table .empty, .empty { color: var(--ink-faint); font-size: 13px; padding: 12px 4px; }
 .a-table code { font-size: 12px; color: var(--ink-dim); }
 
