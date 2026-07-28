@@ -186,8 +186,23 @@ export default {
 
   // Natal chart wheel, at the top of the astrology section
   chartWheel: {
-    aria: 'Natal chart wheel: zodiac signs, planetary placements and major aspects',
+    aria: 'Natal chart wheel: zodiac signs, houses, planetary degrees and aspects',
     approxNote: 'You didn’t give a birth time, so this wheel is calculated for noon that day: planetary positions are broadly usable, but the Moon may be off by several degrees and a sign boundary could fall either way. The Ascendant and houses can’t be determined, so no house lines are drawn.',
+    // Keyed by exact angle: the backend returns Chinese aspect names, so each
+    // locale translates from the number instead of matching strings.
+    aspect: {
+      0: 'Conjunction', 60: 'Sextile', 90: 'Square', 120: 'Trine', 180: 'Opposition',
+      30: 'Semisextile', 45: 'Semisquare', 72: 'Quintile',
+      135: 'Sesquiquadrate', 144: 'Biquintile', 150: 'Quincunx',
+    },
+    showMinor: 'Show minor aspects too',
+    zoomOpen: 'Tap the wheel to zoom in on degrees and glyphs',
+    zoomTitle: 'Natal chart',
+    zoomHint: 'Pinch to zoom · drag to move · double-tap to enlarge',
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    zoomReset: 'Reset',
+    zoomClose: 'Close',
   },
 
   weaving: {
