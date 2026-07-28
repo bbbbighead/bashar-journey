@@ -1136,21 +1136,35 @@ button.badge.repeat:hover {
 .vl-list { list-style: none; margin: 0 0 10px; padding: 0; }
 .vl-item {
   display: grid; gap: 12px; align-items: center; padding: 7px 10px;
-  grid-template-columns: 62px 118px 1fr auto auto;
+  /* 第一欄要放得下「第 100 / 128 次」——只寫「第 N 次」時 62px 就夠，
+     加上總次數之後不加寬會換行。 */
+  grid-template-columns: 96px 118px 1fr auto auto;
   border-left: 2px solid transparent;
   font-size: 13px; color: var(--ink-dim);
 }
 .vl-item + .vl-item { border-top: 1px solid var(--line); }
-/* 標出「你現在點的就是這一次」，才知道自己在時間軸上的哪裡 */
+/* 每一次都可以點開，所以要看得出是可互動的 */
+.vl-item { cursor: pointer; transition: background .18s, border-color .18s; }
+.vl-item:hover { background: rgba(214, 183, 122, .09); }
+.vl-item:focus-visible { outline: 1px solid var(--accent-dim); outline-offset: -2px; }
+/* 標出「你從哪一列點進來的」，才知道自己在時間軸上的哪裡 */
 .vl-item.now {
   background: rgba(224, 193, 132, .07); border-left-color: var(--accent-dim);
+}
+/* 目前展開的那一次 */
+.vl-item.open { border-left-color: var(--accent); background: rgba(224, 193, 132, .12); }
+.vl-detail { list-style: none; padding: 0; }
+.vl-detail .detail-cell {
+  padding: 12px 14px; margin: 0 0 4px;
+  border-left: 2px solid var(--accent-dim);
+  background: rgba(6, 10, 17, .5);
 }
 .vl-no { color: var(--accent); font-variant-numeric: tabular-nums; }
 .vl-time { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .vl-topic { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vl-foot { font-size: 12px; color: var(--ink-faint); }
 @media (max-width: 760px) {
-  .vl-item { grid-template-columns: 56px 1fr; }
+  .vl-item { grid-template-columns: 96px 1fr; }
   .vl-time, .vl-tool, .vl-fb { grid-column: 2; }
 }
 
