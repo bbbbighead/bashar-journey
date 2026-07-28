@@ -1120,6 +1120,39 @@ input.admin-pw:focus { outline: none; border-color: var(--accent-dim); }
 .vid-btn.on code { color: var(--accent); }
 .visit-cell { white-space: nowrap; }
 .badge.repeat { color: var(--accent); border-color: rgba(214, 183, 122, .45); }
+button.badge.repeat {
+  font: inherit; font-size: 11.5px; cursor: pointer;
+  background: rgba(224, 193, 132, .07);
+  transition: background .2s, border-color .2s;
+}
+button.badge.repeat:hover {
+  background: rgba(224, 193, 132, .18); border-color: var(--accent-dim);
+}
+
+/* 展開的「這位訪客歷次來訪」 */
+.vl-head { font-size: 13px; color: var(--ink-dim); margin-bottom: 10px; }
+.vl-head code { color: var(--accent); }
+.vl-scope { color: var(--ink-faint); font-size: 12px; }
+.vl-list { list-style: none; margin: 0 0 10px; padding: 0; }
+.vl-item {
+  display: grid; gap: 12px; align-items: center; padding: 7px 10px;
+  grid-template-columns: 62px 118px 1fr auto auto;
+  border-left: 2px solid transparent;
+  font-size: 13px; color: var(--ink-dim);
+}
+.vl-item + .vl-item { border-top: 1px solid var(--line); }
+/* 標出「你現在點的就是這一次」，才知道自己在時間軸上的哪裡 */
+.vl-item.now {
+  background: rgba(224, 193, 132, .07); border-left-color: var(--accent-dim);
+}
+.vl-no { color: var(--accent); font-variant-numeric: tabular-nums; }
+.vl-time { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.vl-topic { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vl-foot { font-size: 12px; color: var(--ink-faint); }
+@media (max-width: 760px) {
+  .vl-item { grid-template-columns: 56px 1fr; }
+  .vl-time, .vl-tool, .vl-fb { grid-column: 2; }
+}
 
 /* 工具標籤 */
 .tool-tag {

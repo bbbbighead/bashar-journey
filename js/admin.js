@@ -128,8 +128,15 @@ $('aTabs').addEventListener('click', (e) => {
 // 資料範圍：一次切換總覽統計、三張圓餅圖與使用紀錄清單
 $('fltScope').addEventListener('change', async (e) => {
   filters.scope = e.target.value;
-  onFilterChange();
+  // 來訪次數是伺服器依 scope 算出來的，所以換範圍要重抓，不能只在本地重新過濾——
+  // 否則 badge 會停在舊範圍的次數，跟清單對不起來。
+  allSessions = [];
+  sessOffset = 0;
+  exhausted = false;
+  selected.clear();
+  renderSessions();
   try { await refreshOverview(); } catch { /* 保留原統計 */ }
+  await loadMore();
 });
 $('fltDevice').addEventListener('change', (e) => { filters.device = e.target.value; onFilterChange(); });
 $('fltSource').addEventListener('change', (e) => { filters.source = e.target.value; onFilterChange(); });
@@ -460,7 +467,10 @@ function renderTimings(d) {
 $('btnMore').addEventListener('click', loadMore);
 
 async function fetchPage() {
-  const { sessions } = await api({ view: 'sessions', offset: String(sessOffset) });
+  // 帶上 scope：來訪次數要依使用者選的資料範圍計算（見 api/admin.js 的 inScope）
+  const { sessions } = await api({
+    view: 'sessions', offset: String(sessOffset), scope: filters.scope,
+  });
   sessOffset += 50;
   if (sessions.length < 50) exhausted = true;
   allSessions.push(...sessions);
@@ -532,7 +542,8 @@ function renderSessions() {
       <td><button type="button" class="vid-btn${filters.vid === s.vid ? ' on' : ''}"
         title="只看這位訪客的紀錄（再點一次取消）"><code>${esc(s.vid)}</code></button></td>
       <td class="visit-cell">${s.visitTotal > 1
-        ? `<span class="badge repeat" title="這位訪客共有 ${s.visitTotal} 次來訪">第 ${s.visitNo} 次</span>`
+        ? `<button type="button" class="badge repeat visit-btn"
+            title="展開這位訪客的 ${s.visitTotal} 次來訪，看每次聊了什麼">第 ${s.visitNo} 次</button>`
         : '<span class="dim-dash">首次</span>'}</td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)}${
@@ -552,6 +563,14 @@ function renderSessions() {
       e.stopPropagation();                // 點訪客不展開詳情
       setVidFilter(s.vid);
     });
+
+    const visitBtn = tr.querySelector('.visit-btn');
+    if (visitBtn) {
+      visitBtn.addEventListener('click', (e) => {
+        e.stopPropagation();              // 點次數不展開該筆的詳情
+        toggleVisitList(tr, s);
+      });
+    }
 
     const chk = tr.querySelector('.row-chk');
     chk.addEventListener('click', (e) => e.stopPropagation()); // 勾選不展開詳情
@@ -613,9 +632,53 @@ $('btnBulkDel').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
+// 點「第 N 次」展開這位訪客的每一次來訪與各次的題目。
+// 資料是向伺服器另外抓的（view=visitor），所以拿得到的是**全部**來訪，
+// 不像列表的訪客過濾只在已載入的幾頁裡找。範圍跟著目前的「資料範圍」。
+async function toggleVisitList(tr, s) {
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('visit-list-row')) { next.remove(); return; }
+  // 同一列若已展開「單筆詳情」，先收掉，免得兩塊疊在一起
+  if (next && next.classList.contains('sess-detail')) next.remove();
+
+  const row = document.createElement('tr');
+  row.className = 'visit-list-row';
+  row.innerHTML = '<td colspan="11" class="detail-cell">讀取中……</td>';
+  tr.after(row);
+
+  let d;
+  try {
+    d = await api({ view: 'visitor', vid: s.vid, scope: filters.scope });
+  } catch {
+    row.innerHTML = '<td colspan="11" class="detail-cell">（讀取失敗）</td>';
+    return;
+  }
+
+  const scopeNote = { complete: '僅計有題目的來訪', incomplete: '僅計未完成的來訪' }[d.scope]
+    || '計入全部來訪';
+  const items = d.visits.map((v) => `
+    <li class="vl-item${v.sid === s.sid ? ' now' : ''}">
+      <span class="vl-no">第 ${v.visitNo} 次</span>
+      <span class="vl-time">${fmtTime(v.ts)}</span>
+      <span class="vl-topic" title="${esc(v.topic || '')}">${
+        v.topic ? esc(truncate(v.topic, 28)) : '<span class="dim-dash">（沒有留下題目）</span>'}</span>
+      <span class="vl-tool">${toolText(v) ? `<span class="tool-tag">${esc(toolText(v))}</span>` : ''}</span>
+      <span class="vl-fb">${v.feedback ? `<span class="fb-stars-cell">${STARS(v.feedback.rating)}</span>` : ''}</span>
+    </li>`).join('');
+
+  row.innerHTML = `<td colspan="11" class="detail-cell">
+    <div class="vl-head">訪客 <code>${esc(d.vid)}</code> 共 ${d.total} 次來訪
+      <span class="vl-scope">（${scopeNote}）</span></div>
+    <ol class="vl-list">${items}</ol>
+    <div class="vl-foot">目前這一列是<b>第 ${s.visitNo} 次</b>。點任一列可展開該次的完整內容。</div>
+  </td>`;
+}
+
 async function toggleDetail(tr, s) {
   const existing = tr.nextElementSibling;
   if (existing && existing.classList.contains('sess-detail')) { existing.remove(); return; }
+  // 若這一列正展開「訪客的來訪清單」，先收掉再換成單筆詳情
+  if (existing && existing.classList.contains('visit-list-row')) existing.remove();
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
