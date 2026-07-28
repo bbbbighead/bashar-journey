@@ -543,7 +543,7 @@ function renderSessions() {
         title="只看這位訪客的紀錄（再點一次取消）"><code>${esc(s.vid)}</code></button></td>
       <td class="visit-cell">${s.visitTotal > 1
         ? `<button type="button" class="badge repeat visit-btn"
-            title="展開這位訪客的 ${s.visitTotal} 次來訪，看每次聊了什麼">第 ${s.visitNo} 次</button>`
+            title="展開這位訪客的 ${s.visitTotal} 次來訪，看每次聊了什麼">第 ${s.visitNo} / ${s.visitTotal} 次</button>`
         : '<span class="dim-dash">首次</span>'}</td>
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)}${
@@ -657,8 +657,9 @@ async function toggleVisitList(tr, s) {
   const scopeNote = { complete: '僅計有題目的來訪', incomplete: '僅計未完成的來訪' }[d.scope]
     || '計入全部來訪';
   const items = d.visits.map((v) => `
-    <li class="vl-item${v.sid === s.sid ? ' now' : ''}">
-      <span class="vl-no">第 ${v.visitNo} 次</span>
+    <li class="vl-item${v.sid === s.sid ? ' now' : ''}" data-sid="${esc(v.sid)}"
+      role="button" tabindex="0" title="展開這一次的完整內容">
+      <span class="vl-no">第 ${v.visitNo} / ${d.total} 次</span>
       <span class="vl-time">${fmtTime(v.ts)}</span>
       <span class="vl-topic" title="${esc(v.topic || '')}">${
         v.topic ? esc(truncate(v.topic, 28)) : '<span class="dim-dash">（沒有留下題目）</span>'}</span>
@@ -670,8 +671,17 @@ async function toggleVisitList(tr, s) {
     <div class="vl-head">訪客 <code>${esc(d.vid)}</code> 共 ${d.total} 次來訪
       <span class="vl-scope">（${scopeNote}）</span></div>
     <ol class="vl-list">${items}</ol>
-    <div class="vl-foot">目前這一列是<b>第 ${s.visitNo} 次</b>。點任一列可展開該次的完整內容。</div>
+    <div class="vl-foot">目前你點開的是<b>第 ${s.visitNo} / ${d.total} 次</b>。點上面任一次即可在這裡直接展開該次的完整內容，不必回主清單找。</div>
   </td>`;
+
+  // 這裡的每一次都可以直接展開，不必回主清單翻
+  row.querySelectorAll('.vl-item').forEach((li) => {
+    const open = (e) => { e.stopPropagation(); toggleVisitDetail(li, li.dataset.sid); };
+    li.addEventListener('click', open);
+    li.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
+    });
+  });
 }
 
 async function toggleDetail(tr, s) {
@@ -684,7 +694,29 @@ async function toggleDetail(tr, s) {
   detail.className = 'sess-detail';
   detail.innerHTML = '<td colspan="11" class="detail-cell">讀取中……</td>';
   tr.after(detail);
+  await renderSessionDetail(detail.querySelector('td'), s);
+}
 
+// 展開「訪客歷次來訪」清單裡的某一次。
+// 內容與主表格展開的單筆詳情完全相同——共用 renderSessionDetail()，
+// 差別只在外層容器（表格是 <tr><td>，這裡是 <li><div>）。
+async function toggleVisitDetail(li, sid) {
+  const next = li.nextElementSibling;
+  if (next && next.classList.contains('vl-detail')) { next.remove(); return; }
+  // 同一份清單裡一次只展開一筆，免得整塊越長越亂
+  li.closest('.vl-list').querySelectorAll('.vl-detail').forEach((x) => x.remove());
+  li.parentElement.querySelectorAll('.vl-item.open').forEach((x) => x.classList.remove('open'));
+  li.classList.add('open');
+
+  const host = document.createElement('li');
+  host.className = 'vl-detail';
+  host.innerHTML = '<div class="detail-cell">讀取中……</div>';
+  li.after(host);
+  await renderSessionDetail(host.querySelector('.detail-cell'), { sid });
+}
+
+// 把單筆來訪的完整內容畫進 cell（表格列與訪客清單共用）
+async function renderSessionDetail(cell, s) {
   try {
     const d = await api({ view: 'session', sid: s.sid });
     const j = d.journey;
@@ -692,7 +724,7 @@ async function toggleDetail(tr, s) {
       .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `${SCREEN_LABELS[k] || k}：${fmtMs(v)}`)
       .join('｜');
-    detail.querySelector('td').innerHTML = `
+    cell.innerHTML = `
       ${j ? `
         <div class="d-line"><b>題目</b>${esc(j.opening)}</div>
         <div class="d-line"><b>選牌</b>${(j.cards || []).map(esc).join('、') || '—'}</div>
@@ -743,9 +775,9 @@ async function toggleDetail(tr, s) {
 
     // Prompt 操作：分段檢視 / 複製目前段。
     // 「完整 Prompt」＝最後丟給模型的整串文字：System Prompt ＋ User Prompt 接續呈現。
-    const copyPromptBtn = detail.querySelector('.btn-copy-prompt');
+    const copyPromptBtn = cell.querySelector('.btn-copy-prompt');
     if (copyPromptBtn) {
-      const promptBox = detail.querySelector('.prompt-text');
+      const promptBox = cell.querySelector('.prompt-text');
       const segs = d.prompt.segments || {};
       let fullText = null; // 快取組合後的完整文字
 
@@ -774,11 +806,11 @@ async function toggleDetail(tr, s) {
       let curSeg = 'full';
       const show = async (key) => {
         curSeg = key;
-        detail.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t.dataset.seg === key));
+        cell.querySelectorAll('.seg-tab').forEach((t) => t.classList.toggle('on', t.dataset.seg === key));
         promptBox.textContent = key === 'full' ? '讀取中……' : segText(key);
         if (key === 'full') promptBox.textContent = await buildFull();
       };
-      detail.querySelectorAll('.seg-tab').forEach((tab) => {
+      cell.querySelectorAll('.seg-tab').forEach((tab) => {
         tab.addEventListener('click', (e) => { e.stopPropagation(); show(tab.dataset.seg); });
       });
       show('full');
@@ -793,9 +825,9 @@ async function toggleDetail(tr, s) {
       });
 
       // 除錯問答：帶著當時的 prompt 與產出脈絡，直接問 LLM
-      const askLog = detail.querySelector('.ask-log');
-      const askInput = detail.querySelector('.ask-input');
-      const askBtn = detail.querySelector('.btn-ask');
+      const askLog = cell.querySelector('.ask-log');
+      const askInput = cell.querySelector('.ask-input');
+      const askBtn = cell.querySelector('.btn-ask');
       const askHistory = [];
       const appendMsg = (role, text) => {
         const div = document.createElement('div');
@@ -836,9 +868,9 @@ async function toggleDetail(tr, s) {
     }
 
     // 儲存標註
-    const noteInput = detail.querySelector('.note-input');
-    const saveBtn = detail.querySelector('.btn-save-note');
-    const savedTag = detail.querySelector('.note-saved');
+    const noteInput = cell.querySelector('.note-input');
+    const saveBtn = cell.querySelector('.btn-save-note');
+    const savedTag = cell.querySelector('.note-saved');
     saveBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       saveBtn.disabled = true;
@@ -856,7 +888,7 @@ async function toggleDetail(tr, s) {
     });
 
     // 刪除紀錄
-    detail.querySelector('.btn-del').addEventListener('click', async (e) => {
+    cell.querySelector('.btn-del').addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm('確定刪除這筆紀錄？（清單、題目、訊息、停留與標註都會移除，統計數字同步扣除）')) return;
       try {
@@ -871,7 +903,7 @@ async function toggleDetail(tr, s) {
       }
     });
   } catch {
-    detail.querySelector('td').textContent = '讀取失敗。';
+    cell.textContent = '讀取失敗。';
   }
 }
 
