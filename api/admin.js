@@ -66,6 +66,32 @@ function visitOrdinals(entries) {
   return out;
 }
 
+const scopeOf = (url) => {
+  const s = url.searchParams.get('scope');
+  return ['complete', 'incomplete', 'all'].includes(s) ? s : 'complete';
+};
+
+// 依資料範圍過濾來訪紀錄。complete／incomplete 要看「有沒有留下題目」，
+// 所以得逐筆問 pi:journey 是否存在。
+// onlyVids：只在乎這幾個訪客時就先砍掉其他人，EXISTS 的次數會少很多
+// （一頁 50 筆最多 50 個 vid，通常遠少於整份清單）。
+async function inScope(entries, scope, onlyVids) {
+  const pool = onlyVids && onlyVids.size
+    ? entries.filter((e) => e && onlyVids.has(e.vid))
+    : entries.filter(Boolean);
+  if (scope === 'all') return pool;
+  const out = [];
+  for (let i = 0; i < pool.length; i += 200) {
+    const chunk = pool.slice(i, i + 200);
+    const flags = await redisPipeline(chunk.map((e) => ['EXISTS', `pi:journey:${e.sid}`]));
+    chunk.forEach((e, j) => {
+      const has = flags[j].result === 1;
+      if ((scope === 'complete') === has) out.push(e);
+    });
+  }
+  return out;
+}
+
 // 防暴力嘗試：每 IP 每小時最多 60 次未授權嘗試
 const RATE = new Map();
 function rateLimited(ip) {
@@ -481,7 +507,11 @@ export default async function handler(req, res) {
         ['LRANGE', 'pi:sessions', '0', '-1'],
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
-      const ordinals = visitOrdinals((allR.result || []).map((r) => parseJSON(r, null)).filter(Boolean));
+      // 次數要跟著使用者選的資料範圍算：選「僅有題目的來訪」時，
+      // 標成「第 3 次」卻只在清單裡看到 2 筆就對不上了。
+      const all = (allR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
+      const counted = await inScope(all, scopeOf(url), new Set(sessions.map((s) => s.vid)));
+      const ordinals = visitOrdinals(counted);
       sessions.forEach((s) => {
         const o = ordinals.get(s.sid);
         s.visitNo = o ? o.visitNo : null;
@@ -508,6 +538,42 @@ export default async function handler(req, res) {
         });
       }
       res.status(200).json({ ok: true, offset, sessions });
+      return;
+    }
+
+    // 單一訪客的全部來訪（含每次的題目）——後台點「第 N 次」時展開用。
+    // 這裡是掃整份清單而不是只看已載入的幾頁，所以拿得到的是「全部」，
+    // 不像列表的訪客過濾只在已載入的紀錄裡找。
+    if (view === 'visitor') {
+      const vid = String(url.searchParams.get('vid') || '').slice(0, 40);
+      if (!vid) { res.status(400).json({ ok: false, error: 'vid_required' }); return; }
+      const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '-1']]);
+      const all = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
+      const mine = await inScope(all, scopeOf(url), new Set([vid]));
+      mine.sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));   // 舊 → 新
+      const visits = mine.slice(0, 200);
+      if (visits.length) {
+        const STRIDE = 2;
+        const extras = await redisPipeline(visits.flatMap((s) => [
+          ['GET', `pi:journey:${s.sid}`],
+          ['GET', `pi:fb:${s.sid}`],
+        ]));
+        visits.forEach((s, i) => {
+          const j = extras[i * STRIDE].result ? parseJSON(extras[i * STRIDE].result, null) : null;
+          s.hasJourney = !!j;
+          s.topic = j ? String(j.opening || '') : '';
+          s.tools = (j && Array.isArray(j.tools)) ? j.tools : null;
+          const fb = extras[i * STRIDE + 1].result ? parseJSON(extras[i * STRIDE + 1].result, null) : null;
+          s.feedback = fb ? { rating: fb.rating, text: fb.text || '' } : null;
+        });
+      }
+      res.status(200).json({
+        ok: true, vid, scope: scopeOf(url), total: mine.length,
+        visits: visits.map((s, i) => ({
+          visitNo: i + 1, sid: s.sid, ts: s.ts, src: s.src, device: s.device,
+          topic: s.topic, tools: s.tools, hasJourney: s.hasJourney, feedback: s.feedback,
+        })),
+      });
       return;
     }
 
