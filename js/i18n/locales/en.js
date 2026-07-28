@@ -201,7 +201,7 @@ export default {
       longer: 'This one is taking longer than usual',
     },
     sub: {
-      reading: 'This is the slow part — usually another 20–40 seconds.',
+      reading: 'This is the slow part — usually another 30–45 seconds.',
       longer: 'Hold on a little longer; it’s still being written.',
     },
     tips: [
