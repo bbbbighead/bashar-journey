@@ -15,6 +15,7 @@ import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI } from './engine/meihua.js';
 import { chartWheelSvg } from './chartWheel.js';
+import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
@@ -100,6 +101,9 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
   if (id !== 'screenWeaving') stopWeaveProgress();
+  // 放大檢視是 body 層的浮層，換頁不會自動收掉——換語言重繪結果頁時也一樣，
+  // 不關的話會蓋著新畫面，而且蓋著的是舊的那張圖
+  closeChartZoom();
   trackScreen(id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -913,10 +917,8 @@ function meihuaGridHtml(cast) {
   </div>`;
 }
 
-// 星盤輪暫時不上前台：站主還要調整視覺，確認後把這個開關改回 true 就會顯示。
-// 渲染程式（js/chartWheel.js）、符號表、四語系文案與後端的 cuspLon 都保留著，
-// 不必重做——這裡只是不要把圖畫出來。
-const SHOW_CHART_WHEEL = false;
+// 星盤輪的開關。留著這個常數是為了出事時能一行關掉，不必回滾整支渲染程式。
+const SHOW_CHART_WHEEL = true;
 
 // 占星段落最上方的本命盤星盤輪。出生時間不確定時 chartWheelSvg 會自動改畫
 // 「只有黃道環與行星」的近似盤，並在圖下標明原因（不畫宮位與上升，見該模組註解）。
@@ -1166,6 +1168,8 @@ function renderResult(a) {
     b.href = aiHandoffUrl(provider, handoffUrlText); // 透過 query param 預先帶入內容
     b.addEventListener('click', () => continueWithAI(a, provider));
   });
+  // 星盤輪的放大檢視。用事件委派掛在容器上，所以每次重繪都還有效
+  mountChartZoom($('resultHost'), () => dict().chartWheel || {});
   showScreen('screenResult');
 }
 

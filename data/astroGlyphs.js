@@ -51,5 +51,35 @@ export const POINT_GLYPH = {
   天底: { glyph: '', abbr: 'IC', axis: true },
 };
 
-// 畫在盤面上的十顆主星（相位線只取這些之間的主相位，否則線會多到看不清）
+// 十顆主星。盤面上這十顆的相位線畫得比較實，其餘點位的線畫細畫淡，
+// 這樣一眼看到的是主結構，放大之後才去讀細節。
 export const MAIN_TEN = ['太陽', '月亮', '水星', '金星', '火星', '木星', '土星', '天王星', '海王星', '冥王星'];
+
+// 四軸裡只有上升點與天頂參與相位：下降點與天底永遠是它們的 180° 對點，
+// 畫出來會是同一條線疊兩次（後端的 aspect_bodies 也是同樣的理由排除它們）。
+export const ASPECT_AXES = ['上升點', '天頂'];
+
+// 相位對照表。鍵是精確角度（與 api/astro.py 的 MAJOR_ASPECTS／MINOR_ASPECTS 一致），
+// 用角度當鍵而不是用後端回傳的中文名，這樣四語系可以各自翻譯而不必比對字串。
+//
+// tone：warm＝金（和諧向），cool＝藍灰（張力向），key＝合相（最強，單獨一色）。
+// dash：線型。不只靠顏色區分——顏色相近的兩種相位（三分／六分）另外用虛實分開，
+// 色弱的人與黑白列印都還讀得出來。
+// glyph 缺字時退回 abbr，判斷方式與點位符號共用同一套點陣偵測。
+export const ASPECT_META = {
+  0: { glyph: '☌', abbr: 'Cnj', major: true, tone: 'key', dash: '' },
+  60: { glyph: '⚹', abbr: 'Sxt', major: true, tone: 'warm', dash: '5 3' },
+  90: { glyph: '□', abbr: 'Sqr', major: true, tone: 'cool', dash: '' },
+  120: { glyph: '△', abbr: 'Tri', major: true, tone: 'warm', dash: '' },
+  180: { glyph: '☍', abbr: 'Opp', major: true, tone: 'cool', dash: '' },
+  30: { glyph: '⚺', abbr: 'SSx', major: false, tone: 'warm', dash: '1 3' },
+  45: { glyph: '∠', abbr: 'SSq', major: false, tone: 'cool', dash: '1 3' },
+  // 五分相與雙五分相沒有通行的 Unicode 碼位，直接用縮寫
+  72: { glyph: '', abbr: 'Qui', major: false, tone: 'warm', dash: '1 3' },
+  135: { glyph: '⚼', abbr: 'Ssq', major: false, tone: 'cool', dash: '1 3' },
+  144: { glyph: '', abbr: 'bQu', major: false, tone: 'warm', dash: '1 3' },
+  150: { glyph: '⚻', abbr: 'Qcx', major: false, tone: 'cool', dash: '1 3' },
+};
+
+// 相位圖例與說明的排列順序（主相位由強到弱，再接次要相位）
+export const ASPECT_ORDER = [0, 180, 90, 120, 60, 30, 45, 135, 150, 72, 144];

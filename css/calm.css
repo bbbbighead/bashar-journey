@@ -317,38 +317,197 @@ textarea::placeholder { color: var(--ink-faint); }
 
 /* ---- 結果頁：本命盤星盤輪 ---- */
 /* 與雷諾曼牌卡、梅花卦象卡同一套語言：同樣的框線、底色與內陰影 */
-.cw-wrap { margin: 0 auto 22px; max-width: 420px; }
+.cw-wrap { margin: 0 auto 22px; max-width: 460px; }
 .cw-canvas {
-  padding: 10px; border: 1px solid rgba(214, 183, 122, .28); border-radius: 3px;
+  position: relative; padding: 10px;
+  border: 1px solid rgba(214, 183, 122, .28); border-radius: 3px;
   background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
   box-shadow: inset 0 0 26px rgba(0, 0, 0, .5), 0 0 12px rgba(214, 183, 122, .05);
+  /* 整塊是可點的（開啟放大檢視），所以要看得出來 */
+  cursor: zoom-in; transition: border-color .2s, box-shadow .2s;
 }
+.cw-canvas:hover, .cw-canvas:focus-visible {
+  border-color: var(--accent-dim);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, .5), 0 0 16px rgba(214, 183, 122, .16);
+}
+.cw-canvas:focus-visible { outline: 1px solid var(--accent-dim); outline-offset: 2px; }
 .cw-canvas svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* 右上角的放大鏡：靜態的可點提示，不必等使用者去猜 */
+.cw-zoom-badge {
+  position: absolute; top: 8px; right: 8px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: 1px solid rgba(214, 183, 122, .38);
+  background: rgba(8, 12, 20, .82);
+}
+.cw-zoom-badge svg {
+  width: 15px; height: 15px; fill: none;
+  stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round;
+}
+.cw-hint {
+  margin: 8px 0 0; font-family: var(--sans); font-size: 11.5px;
+  color: var(--ink-faint); text-align: center; letter-spacing: .02em;
+}
+
+/* 環線與刻度 */
 .cw-ring { fill: none; stroke: rgba(214, 183, 122, .26); stroke-width: 1; }
 .cw-cusp { stroke: rgba(214, 183, 122, .16); stroke-width: 1; }
 .cw-axis { stroke: rgba(224, 193, 132, .5); stroke-width: 1.4; }
-.cw-tick { stroke: rgba(224, 193, 132, .45); stroke-width: 1; }
-/* 緊密的相位由 SVG 的 style 逐條調透明度，這裡只定基調 */
-.cw-asp-soft { stroke: var(--accent-dim); stroke-width: .8; }
-.cw-asp-hard { stroke: #9fb4cf; stroke-width: .8; }
-.cw-sign, .cw-planet, .cw-house, .cw-axis-label, .cw-retro {
+/* 1°／5°／10° 度數刻度：越粗的節點越亮，才數得出度數 */
+.cw-g1 { stroke: rgba(214, 183, 122, .2); stroke-width: .5; }
+.cw-g5 { stroke: rgba(214, 183, 122, .32); stroke-width: .6; }
+.cw-g10 { stroke: rgba(214, 183, 122, .46); stroke-width: .8; }
+/* 行星的真實度數刻度與指示線：符號可以被推開，度數不會 */
+.cw-btick { stroke: rgba(224, 193, 132, .62); stroke-width: 1.1; }
+.cw-lead { stroke: rgba(224, 193, 132, .32); stroke-width: .7; }
+
+/* 相位線。tone 決定顏色（暖＝和諧、冷＝張力、key＝合相），
+   粗細與虛實由 major/aux/weak 疊上去；逐條的透明度由 SVG 的 style 給。 */
+.cw-asp { stroke-linecap: round; }
+.cw-asp-warm { stroke: var(--accent-dim); }
+.cw-asp-cool { stroke: #9fb4cf; }
+.cw-asp-key { stroke: #e6c98a; }
+.cw-asp-major { stroke-width: 1.1; }
+.cw-asp-major.cw-asp-weak { stroke-width: .7; }
+.cw-asp-aux { stroke-width: .6; }
+/* 次要相位預設收起：一次看七十條線讀不出結構。開關就在圖例裡。 */
+.cw-wrap:not(.show-aux) .cw-asp-aux { display: none; }
+
+.cw-sign, .cw-planet, .cw-house, .cw-deg, .cw-cusp-deg {
   text-anchor: middle; dominant-baseline: central;
   font-family: var(--symbol);
   /* 與 JS 附加的 U+FE0E 同一個目的：要文字形，不要彩色 emoji。
      支援這個屬性的瀏覽器不多，所以兩道保險並用。 */
   font-variant-emoji: text;
 }
-.cw-sign { font-size: 16px; fill: var(--accent-dim); }
-.cw-planet { font-size: 19px; fill: var(--accent); }
+.cw-sign { font-size: 17px; fill: var(--accent-dim); }
+.cw-planet { font-size: 20px; fill: var(--accent); }
+/* 小行星、交點、莉莉絲、福點、Vertex：畫，但不搶主星的視覺重量 */
+.cw-planet.cw-minor-body { font-size: 16px; fill: rgba(214, 183, 122, .72); }
 /* 退回拉丁縮寫時字要小一點，才塞得進同一個位置 */
 .cw-planet.cw-abbr { font-size: 12px; letter-spacing: .02em; }
-.cw-house { font-size: 10px; fill: var(--ink-faint); }
-.cw-axis-label { font-size: 9.5px; fill: var(--accent-dim); letter-spacing: .06em; }
-.cw-retro { font-size: 8.5px; fill: var(--ink-faint); }
+.cw-planet.cw-abbr.cw-minor-body { font-size: 10.5px; }
+.cw-house { font-size: 11px; fill: var(--ink-faint); }
+/* 沿半徑書寫的度數：起點就是錨點，所以基線要中線對齊 */
+.cw-deg, .cw-cusp-deg { dominant-baseline: middle; }
+.cw-deg { font-size: 9px; fill: rgba(224, 193, 132, .78); letter-spacing: .01em; }
+/* 逆行的度數換色標出來。用的是相位線那組藍灰，不另外引入第三種色調 */
+.cw-deg.retro { fill: #a9b6cd; }
+.cw-cusp-deg { font-size: 8.5px; fill: rgba(214, 183, 122, .42); }
+.cw-cusp-deg.strong { fill: rgba(224, 193, 132, .72); }
+
+/* 相位圖例 */
+.cw-legend-box { margin-top: 12px; }
+.cw-legend {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 5px 7px; justify-content: center;
+}
+.cw-legend.aux { margin-top: 7px; }
+.cw-wrap:not(.show-aux) .cw-legend.aux { display: none; }
+.cw-lg-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 2px;
+  border: 1px solid var(--line); background: rgba(10, 15, 24, .5);
+  font-family: var(--sans); font-size: 11px; color: var(--ink-dim);
+}
+.cw-lg-item.aux { opacity: .8; }
+.cw-lg-mark {
+  font-family: var(--symbol); font-size: 13px; line-height: 1;
+  font-variant-emoji: text;
+}
+.cw-lg-mark.abbr { font-size: 10px; letter-spacing: .02em; }
+.cw-lg-warm .cw-lg-mark { color: var(--accent-dim); }
+.cw-lg-cool .cw-lg-mark { color: #9fb4cf; }
+.cw-lg-key .cw-lg-mark { color: #e6c98a; }
+.cw-lg-n { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.cw-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 9px; cursor: pointer;
+  font-family: var(--sans); font-size: 11.5px; color: var(--ink-faint);
+}
+.cw-toggle input { accent-color: var(--accent-dim); }
+.cw-toggle-n {
+  margin-left: 5px; padding: 0 5px; border-radius: 8px;
+  border: 1px solid var(--line); font-variant-numeric: tabular-nums;
+}
 .cw-note {
   margin-top: 12px; padding: 0 4px;
   font-family: var(--sans); font-size: 12px; line-height: 1.75;
   color: var(--ink-faint); text-align: center; text-wrap: balance;
+}
+
+/* ---- 星盤輪的放大檢視（js/chartZoom.js）---- */
+body.cz-open { overflow: hidden; }
+.cz-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; flex-direction: column;
+  /* 必須是全不透明：留 4% 透明度時，底下結果頁的圖例與文字會透上來，
+     疊在放大的盤面上完全讀不出是什麼（實測踩到）。 */
+  background: #04070c;
+  animation: fadein-soft .18s ease both;
+}
+.cz-bar {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line);
+}
+.cz-title {
+  font-family: var(--serif); font-size: 13px; color: var(--ink-dim);
+  letter-spacing: .04em;
+}
+.cz-stage {
+  flex: 1 1 auto; overflow: hidden; position: relative;
+  display: grid; place-items: center;
+  /* 手勢要自己處理，不能讓瀏覽器先把觸控事件吃掉去滾頁面 */
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  cursor: grab;
+}
+.cz-overlay.zoomed .cz-stage { cursor: grab; }
+.cz-inner {
+  width: min(96vw, 96vh, 720px);
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.cz-inner svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* SVG 外面那層是 .cw-wrap（次要相位的顯示靠它決定），把它的版面設定歸零 */
+.cz-fig { max-width: none; margin: 0; }
+.cz-hint {
+  position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%);
+  margin: 0; padding: 8px 14px; border-radius: 3px; max-width: 88vw;
+  border: 1px solid rgba(214, 183, 122, .3); background: rgba(8, 12, 20, .92);
+  font-family: var(--sans); font-size: 12px; line-height: 1.6;
+  color: var(--ink-dim); text-align: center;
+  transition: opacity .6s;
+}
+.cz-hint.gone { opacity: 0; pointer-events: none; }
+.cz-tools {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; border-top: 1px solid var(--line);
+}
+.cz-readout {
+  min-width: 46px; text-align: center;
+  font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.cz-btn {
+  min-width: 44px; min-height: 40px; padding: 0 12px;
+  border: 1px solid rgba(214, 183, 122, .38); border-radius: 3px;
+  background: rgba(224, 193, 132, .07);
+  font-family: var(--sans); font-size: 14px; color: var(--accent);
+  cursor: pointer; transition: background .18s, border-color .18s;
+}
+.cz-btn:hover { background: rgba(224, 193, 132, .18); border-color: var(--accent); }
+.cz-btn:active { background: rgba(224, 193, 132, .26); }
+.cz-btn.cz-reset { font-size: 12.5px; }
+.cz-aux {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-family: var(--sans); font-size: 11.5px; color: var(--ink-faint);
+}
+.cz-aux input { accent-color: var(--accent-dim); }
+@media (max-width: 420px) {
+  /* 工具列在窄螢幕上會擠成兩行，提示語要讓開，不然會被壓住 */
+  .cz-tools { flex-wrap: wrap; gap: 6px; }
+  .cz-hint { bottom: 96px; font-size: 11.5px; }
+  .cz-aux { flex-basis: 100%; justify-content: center; }
 }
 
 /* ---- 結果頁：贊助創作者 ---- */
