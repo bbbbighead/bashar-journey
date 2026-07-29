@@ -226,7 +226,7 @@ export default {
       { label: 'Not sure which to pick?', text: 'There’s no wrong choice. The same question read through different tools gives you different angles — they complement each other rather than compete.' },
       { label: 'Good to know', text: 'The menu at top left keeps every reading you’ve done under "My readings" — you can go back and reread any of them.' },
       { label: 'Good to know', text: 'The menu also switches language, and opens the guide to all three tools.' },
-      { label: 'About this site', text: 'This is free to use and runs on readers’ goodwill. If it helped, there’s a way to buy the author a slice of cake at the end.' },
+      { label: 'About this site', text: 'If this reading helped, there’s a way to buy the author a slice of cake at the end.' },
     ],
   },
 
@@ -244,7 +244,6 @@ export default {
   result: {
     titleFallback: 'Your reading',
     about: (topic) => `On “${topic}”`,
-    sponsorAsk: 'This is free to use, and keeps going on readers’ goodwill.',
     sponsorBtn: '🍰 Buy me a slice of cake',
     sponsorSoon: 'The support link is opening soon — thank you for the thought ☕',
     copy: 'Copy this reading',

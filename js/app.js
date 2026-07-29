@@ -1116,7 +1116,6 @@ function renderResult(a) {
     ${secHtml}
     ${feedbackHtml()}
     <div class="r-sponsor">
-      <p class="r-sponsor-line">${esc(t('result.sponsorAsk'))}</p>
       <button class="btn bmc-btn" id="btnCoffee">${esc(t('result.sponsorBtn'))}</button>
       <div class="copy-toast" id="coffeeToast"></div>
     </div>
