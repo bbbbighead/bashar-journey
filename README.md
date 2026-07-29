@@ -31,7 +31,7 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 ## 西洋占星計算（api/astro.py）
 
-- **全部實算**：行星（日月水金火木土天海冥）、真北交/南交、凱龍、平均黑月莉莉絲、穀神/智神/婚神/灶神、鬥神星（Eris）、四軸（ASC/DSC/MC/IC）、福點、Vertex——由 Swiss Ephemeris（pyswisseph）計算，星曆檔（`api/ephe/`，含主小行星檔 seas_18.se1，放在函式目錄內確保隨 serverless 打包）；AI 只詮釋、不補造數據。
+- **全部實算**：行星（日月水金火木土天海冥）、真北交/南交、凱龍、平均黑月莉莉絲、穀神/智神/婚神/灶神、健神星（Hygiea）、鬥神星（Eris）、四軸（ASC/DSC/MC/IC）、福點、Vertex——由 Swiss Ephemeris（pyswisseph）計算，星曆檔（`api/ephe/`，含主小行星檔 seas_18.se1，放在函式目錄內確保隨 serverless 打包）；AI 只詮釋、不補造數據。
 - 十二宮（Placidus）宮頭與傳統宮主星（現代共管星補充）、主/次要相位（一致的容許度政策、入相出相依實際速度與逆行判斷）、四元素/三模式/陰陽/半球象限分布、尊貴、傳統定位星鏈（最終定位星/循環/互容）、格局偵測（大三角、T三角、大十字、上帝之指、群星、無主相位行星、攔截星座）。
 - **出生時間不確定**：以當地正午計算行星星座，明確標示上升/宮位/福點/Vertex/月亮精確度不可靠（不輸出宮位）。
 - 地點以 Open-Meteo 免費 geocoding 解析（含 IANA 時區），歷史日光節約時間由 zoneinfo 處理。出生資料（日期/時辰/城市＋解析出的地點/時區/UTC 與日月升星座）會隨紀錄匿名保存於後台供分析（前台已揭露）；不對外顯示。
@@ -108,6 +108,7 @@ api/astro.py             西洋占星本命盤計算＋城市搜尋（Python + p
 api/ephe/                Swiss Ephemeris 星曆檔。sepl/semo/seas_18.se1 是行星、月亮與
                          主小行星（凱龍/穀神/智神/婚神/灶神）；編號小行星另外放在
                          astN/ 子目錄，由 Swiss Ephemeris 依編號自己去找——目前有
+                         ast0/se00010s.se1（健神星 Hygiea）與
                          ast136/s136199s.se1（鬥神星 Eris）。要再加別的小行星就把對應
                          的 .se1 放進 astN/（N＝編號÷1000），並在 api/astro.py 的
                          EXTRA_IDS 加一行 (swe.AST_OFFSET + 編號, '名稱')。

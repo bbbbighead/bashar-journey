@@ -31,7 +31,7 @@ import swisseph as swe
 
 # 星曆檔目錄：多候選解析（部署環境的打包根目錄不一定等於 repo 根目錄）。
 # 以 seas_18.se1（主小行星檔：凱龍/穀神/智神/婚神/灶神）驗證是否真的找得到——
-# 鬥神星（Eris）另外放在 ast136/ 子目錄，由 Swiss Ephemeris 自己按編號去找。
+# 健神星（ast0/）與鬥神星（ast136/）另外放在子目錄，由 Swiss Ephemeris 按編號去找。
 # 行星在檔案缺失時會退回內建 Moshier 理論、不會報錯，小行星則會整批計算失敗。
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _EPHE_CANDIDATES = [
@@ -64,17 +64,19 @@ PLANET_IDS = [
 EXTRA_IDS = [
     (swe.TRUE_NODE, '北交點'), (swe.CHIRON, '凱龍星'), (swe.MEAN_APOG, '黑月莉莉絲'),
     (swe.CERES, '穀神星'), (swe.PALLAS, '智神星'), (swe.JUNO, '婚神星'), (swe.VESTA, '灶神星'),
-    # 鬥神星（Eris, 編號 136199）不在主小行星檔 seas_18.se1 裡，要另外的
-    # api/ephe/ast136/s136199s.se1。用的是短檔（1500–2100），2101 年之後的
-    # 日期算不出來——下面的迴圈本來就每個點位各自 try，算不出來就略去並記
-    # warning，不會讓整張盤失敗。
+    # 健神星（Hygiea, 編號 10）與鬥神星（Eris, 編號 136199）不在主小行星檔
+    # seas_18.se1 裡，各自要一個編號檔：api/ephe/ast0/se00010s.se1 與
+    # api/ephe/ast136/s136199s.se1（Swiss Ephemeris 依編號自己去 astN/ 找）。
+    # 兩個都是短檔（1500–2100），2101 年之後的日期算不出來——下面的迴圈本來
+    # 就每個點位各自 try，算不出來就略去該點並記 warning，不會讓整張盤失敗。
+    (swe.AST_OFFSET + 10, '健神星'),
     (swe.AST_OFFSET + 136199, '鬥神星'),
 ]
 TEN = [n for _, n in PLANET_IDS]
 LUMINARIES = {'太陽', '月亮'}
 ANGLE_NAMES = {'上升點', '下降點', '天頂', '天底'}
-MINOR_BODIES = {'凱龍星', '黑月莉莉絲', '穀神星', '智神星', '婚神星', '灶神星', '鬥神星',
-                '北交點', '南交點', '福點', 'Vertex'}
+MINOR_BODIES = {'凱龍星', '黑月莉莉絲', '穀神星', '智神星', '婚神星', '灶神星',
+                '健神星', '鬥神星', '北交點', '南交點', '福點', 'Vertex'}
 
 MAJOR_ASPECTS = [(0, '合相'), (60, '六分相'), (90, '四分相'), (120, '三分相'), (180, '對分相')]
 MINOR_ASPECTS = [(30, '半六分相'), (45, '半四分相'), (72, '五分相'),
