@@ -40,6 +40,9 @@ export const POINT_GLYPH = {
   智神星: { glyph: '⚴', abbr: 'Pa' },
   婚神星: { glyph: '⚵', abbr: 'Jn' },
   灶神星: { glyph: '⚶', abbr: 'Vs' },
+  // 鬥神星（Eris）的占星字符 U+2BF0 在 2016 年才進 Unicode，支援度比 ⚳–⚶ 更差，
+  // 幾乎一定會退回縮寫——留著字符是為了字型追上的那天。
+  鬥神星: { glyph: '⯰', abbr: 'Er' },
   // 福點沒有專屬碼位，⊗ 是占星界通用的替代寫法
   福點: { glyph: '⊗', abbr: 'Fo' },
   // Vertex 沒有通行字符，直接用縮寫

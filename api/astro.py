@@ -31,6 +31,7 @@ import swisseph as swe
 
 # 星曆檔目錄：多候選解析（部署環境的打包根目錄不一定等於 repo 根目錄）。
 # 以 seas_18.se1（主小行星檔：凱龍/穀神/智神/婚神/灶神）驗證是否真的找得到——
+# 鬥神星（Eris）另外放在 ast136/ 子目錄，由 Swiss Ephemeris 自己按編號去找。
 # 行星在檔案缺失時會退回內建 Moshier 理論、不會報錯，小行星則會整批計算失敗。
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _EPHE_CANDIDATES = [
@@ -63,11 +64,17 @@ PLANET_IDS = [
 EXTRA_IDS = [
     (swe.TRUE_NODE, '北交點'), (swe.CHIRON, '凱龍星'), (swe.MEAN_APOG, '黑月莉莉絲'),
     (swe.CERES, '穀神星'), (swe.PALLAS, '智神星'), (swe.JUNO, '婚神星'), (swe.VESTA, '灶神星'),
+    # 鬥神星（Eris, 編號 136199）不在主小行星檔 seas_18.se1 裡，要另外的
+    # api/ephe/ast136/s136199s.se1。用的是短檔（1500–2100），2101 年之後的
+    # 日期算不出來——下面的迴圈本來就每個點位各自 try，算不出來就略去並記
+    # warning，不會讓整張盤失敗。
+    (swe.AST_OFFSET + 136199, '鬥神星'),
 ]
 TEN = [n for _, n in PLANET_IDS]
 LUMINARIES = {'太陽', '月亮'}
 ANGLE_NAMES = {'上升點', '下降點', '天頂', '天底'}
-MINOR_BODIES = {'凱龍星', '黑月莉莉絲', '穀神星', '智神星', '婚神星', '灶神星', '北交點', '南交點', '福點', 'Vertex'}
+MINOR_BODIES = {'凱龍星', '黑月莉莉絲', '穀神星', '智神星', '婚神星', '灶神星', '鬥神星',
+                '北交點', '南交點', '福點', 'Vertex'}
 
 MAJOR_ASPECTS = [(0, '合相'), (60, '六分相'), (90, '四分相'), (120, '三分相'), (180, '對分相')]
 MINOR_ASPECTS = [(30, '半六分相'), (45, '半四分相'), (72, '五分相'),
@@ -767,8 +774,11 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
         try:
             res, _ = swe.calc_ut(jd, pid, iflag)
             points.append(make_point(name, res[0], res[3], cusps))
-        except Exception:
-            warnings.append(f'{name} 計算失敗（星曆檔缺漏），未輸出，不以概略位置代替。')
+        except Exception as e:
+            # 原因要講清楚：星曆檔缺漏與「日期超出該檔涵蓋範圍」是兩件事，
+            # 一律寫成「缺漏」會讓人去找根本沒問題的檔案。
+            reason = str(e).split(':')[-1].strip().rstrip(';').strip() or '原因不明'
+            warnings.append(f'{name} 計算失敗（{reason}），未輸出，不以概略位置代替。')
 
     by_name = {p['name']: p for p in points}
 
@@ -998,7 +1008,7 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
             'timezone': {'iana': tzname, 'utcOffsetHours': utc_offset, 'dstActive': dst},
             'utc': ut.strftime('%Y-%m-%d %H:%M'),
             'systems': '西洋占星｜熱帶黃道 Tropical｜Placidus 宮制｜True Node 真北交點｜Mean Black Moon Lilith｜地心盤 Geocentric｜Swiss Ephemeris',
-            'orbPolicy': '主相位：日月與四軸 8°、行星 6°、小行星/交點/莉莉絲/福點 3°（取兩者平均）；次要相位：依序 2.5°/2°/1.5°。入相出相依實際速度與逆行狀態計算。',
+            'orbPolicy': '主相位：日月與四軸 8°、行星 6°、小行星/矮行星/交點/莉莉絲/福點 3°（取兩者平均）；次要相位：依序 2.5°/2°/1.5°。入相出相依實際速度與逆行狀態計算。',
             'warnings': warnings,
             # 處理時間（毫秒）：geocode＝對外查地點；ephemeris＝Swiss Ephemeris 實算
             'timing': {
