@@ -512,12 +512,10 @@ body.cz-open { overflow: hidden; }
 
 /* ---- 結果頁：贊助創作者 ---- */
 .r-sponsor {
-  margin-top: 10px; padding: 28px 20px 40px; text-align: center;
+  /* 上緣的 padding 比原本多 6px：原本按鈕上方還有一句說明文字撐著，
+     那句拿掉之後按鈕會太貼近上面的分隔線。 */
+  margin-top: 10px; padding: 34px 20px 40px; text-align: center;
   border-top: 1px solid var(--line);
-}
-.r-sponsor-line {
-  font-size: 14px; color: var(--ink-dim); font-family: var(--serif);
-  margin-bottom: 18px; line-height: 1.9;
 }
 .bmc-btn {
   color: #241a06; text-shadow: none;
