@@ -947,16 +947,21 @@ function posGroupsInText(text) {
 
 // 九宮格閱讀組別 → 固定位置。依目前語系取標籤，AI 也被要求用同一組標籤。
 // 依字數由長到短排序，確保「潛意識層」先於「意識層」比對（日文的「潜在意識」對「意識」亦同）。
+// 小標題 → 對應牌位。前端據此把該組的牌卡小圖插在那一段上方。
+// 直欄是時間、橫排是三股力量；收束的兩段（值得注意的牌組、整體意義）
+// 不對應固定牌位，所以不列在這裡。
 const GROUP_POS = {
-  subconscious: [7, 8, 9], conscious: [1, 2, 3], material: [4, 5, 6],
   past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
-  heart: [5], cross: [2, 4, 6, 8], corners: [1, 3, 7, 9],
+  outer: [1, 2, 3], event: [4, 5, 6], inner: [7, 8, 9],
 };
+// 沒有固定牌位、但仍要當成小標題（獨立成塊、不插牌卡）的段落
+const PLAIN_GROUPS = ['combos', 'overall'];
 function groupLabels() {
   const g = dict().groups || {};
-  return Object.keys(GROUP_POS)
-    .map((k) => ({ label: g[k] || k, pos: GROUP_POS[k] }))
+  return [...Object.keys(GROUP_POS).map((k) => ({ label: g[k], pos: GROUP_POS[k] })),
+    ...PLAIN_GROUPS.map((k) => ({ label: g[k], pos: [] }))]
     .filter((x) => x.label)
+    // 長的先比：否則「過去」會先吃掉「過去的想法」這類較長的標題
     .sort((a, b) => b.label.length - a.label.length);
 }
 
@@ -994,8 +999,12 @@ function cardStripHtml(spread, positions) {
 // 需完全等於組名（可帶尾端標點），避免「十字法」這種章節標題被誤判為「十字」。
 function exactGroupLabel(text) {
   const txt = String(text).trim().replace(/[：:。，,、\s]+$/, '');
-  if (txt.length > 5) return null;
-  return groupLabels().find((g) => g.label === txt) || null;
+  const labels = groupLabels();
+  // 上限由實際標題長度算出，不寫死數字：寫死 5 會讓「值得注意的牌組」這種
+  // 較長的標題被當成內文（實測踩到）。+2 留一點餘裕給各語系。
+  const max = labels.reduce((n, g) => Math.max(n, g.label.length), 0) + 2;
+  if (!txt || txt.length > max) return null;
+  return labels.find((g) => g.label === txt) || null;
 }
 
 // 雷諾曼解析內文：逐段落渲染。
@@ -1012,13 +1021,18 @@ function lenormandContentHtml(content, spread) {
     const b = blocks[i];
     const g = exactGroupLabel(b);
     if (g) {
-      // 組別小標題：帶上牌卡，並把下一段內文併進同一塊面板
+      // 組別小標題：帶上牌卡，並把後面所有內文段落併進同一塊面板。
+      // 必須吃掉「所有」後續段落而不只是下一段——只吃一段的話，模型寫成
+      // 兩段的內容會有第二段掉出面板、自成一塊無標題的框，看起來像另一節。
       const strip = hasSpread ? cardStripHtml(spread, g.pos) : '';
-      const next = blocks[i + 1];
-      const body = (next && !exactGroupLabel(next)) ? next : '';
-      if (body) i += 1;
-      out.push(`<div class="lg-para"><div class="lg-sub">${esc(g.label)}</div>${strip}`
-        + (body ? `<p>${esc(body)}</p>` : '') + `</div>`);
+      const body = [];
+      while (i + 1 < blocks.length && !exactGroupLabel(blocks[i + 1])) {
+        body.push(blocks[i + 1]);
+        i += 1;
+      }
+      const cls = g.pos.length ? 'lg-para' : 'lg-para lg-close';
+      out.push(`<div class="${cls}"><div class="lg-sub">${esc(g.label)}</div>${strip}`
+        + body.map((t) => `<p>${esc(t)}</p>`).join('') + `</div>`);
       continue;
     }
     const strip = hasSpread

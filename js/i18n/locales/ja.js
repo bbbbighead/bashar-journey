@@ -316,10 +316,13 @@ export default {
     delAria: 'この記録を削除',
   },
 
+  // 九枚読みの八つの小見出し。前三つは縦列（時間）、次の三つは横列（三つの力）、
+  // 最後の二つは締めの段（対応する札位置がないのでカードは出さない）。
+  // ⚠ この文字列は前端がカードを差し込むアンカーでもある——言い換えると対応が崩れる。
   groups: {
     past: '過去', present: '現在', future: 'これから',
-    conscious: '意識', material: '現実', subconscious: '潜在意識',
-    heart: '中心', cross: '十字', corners: '四隅',
+    outer: '外の状況', event: '事の現状', inner: '自分の心境',
+    combos: '注目したい組みあわせ', overall: '全体の意味',
   },
 
 

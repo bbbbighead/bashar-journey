@@ -315,10 +315,15 @@ export default {
     delAria: '이 기록 삭제',
   },
 
+  // 아홉 장 리딩의 여덟 소제목. 앞 세 개는 세로줄(시간), 다음 세 개는
+  // 가로줄(세 가지 힘), 마지막 두 개는 마무리 단락(고정된 카드 위치가 없어
+  // 카드를 넣지 않는다).
+  // ⚠ 이 문자열은 프런트엔드가 카드를 끼워 넣는 기준점이기도 하다 —— 문구를
+  // 바꾸면 카드가 맞지 않는다.
   groups: {
     past: '과거', present: '현재', future: '앞으로',
-    conscious: '의식', material: '현실', subconscious: '무의식',
-    heart: '중심', cross: '십자', corners: '네 모서리',
+    outer: '바깥 상황', event: '일의 현재', inner: '나의 마음',
+    combos: '눈여겨볼 조합', overall: '전체의 의미',
   },
 
 

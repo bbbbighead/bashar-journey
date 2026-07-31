@@ -314,10 +314,13 @@ export default {
   },
 
   // 九宮格閱讀組別——同時用於顯示與解析 AI 輸出的小標題
+  // 九宮格解讀的八個小標題。前三個是直欄（時間），中三個是橫排（三股力量），
+  // 後兩個是收束段落（沒有固定牌位，不插牌卡）。
+  // ⚠ 這些字樣同時是前端插牌卡的錨點：改字就要一起改，否則牌卡對不上。
   groups: {
     past: '過去', present: '現在', future: '未來',
-    conscious: '意識層', material: '現實層', subconscious: '潛意識層',
-    heart: '核心', cross: '十字', corners: '四角',
+    outer: '外在環境', event: '事件現況', inner: '個人心境',
+    combos: '值得注意的牌組', overall: '整體意義',
   },
 
 

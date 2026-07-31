@@ -1023,18 +1023,35 @@ select.flt-select {
   background: rgba(13, 20, 31, .48);
   backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
-  padding: 20px 18px;
+  padding: 18px 18px 20px;
 }
-.r-section .r-block .lg-para + .lg-para { margin-top: 16px; }
+.r-section .r-block .lg-para + .lg-para { margin-top: 14px; }
 .r-section .r-block .lg-para p { /* 面板已由 .lg-para 提供，內層文字不再自帶底色 */
   margin: 0; background: none; border: none; padding: 0;
   backdrop-filter: none; -webkit-backdrop-filter: none;
+  line-height: 1.95;                 /* 中文長段落要比預設更鬆才讀得下去 */
 }
+/* 同一段裡的第二段起要有呼吸。沒有這條，模型寫成兩段會黏成一大塊 */
+.r-section .r-block .lg-para p + p { margin-top: 1.1em; }
 .r-section .r-block .lg-para .lg-strip { margin: 0 0 14px; }
-/* 組別小標題（過去／現在／未來、意識層…）：與牌卡、內文同在一塊面板內 */
+
+/* 組別小標題。加一條細底線：八個面板長得一樣時，眼睛需要一個明確的起點才好掃。 */
 .r-section .r-block .lg-para .lg-sub {
-  font-family: var(--sans); font-size: 12.5px; letter-spacing: .26em;
-  color: var(--accent); margin-bottom: 12px;
+  font-family: var(--sans); font-size: 13px; letter-spacing: .22em;
+  color: var(--accent); margin: 0 0 14px; padding-bottom: 9px;
+  border-bottom: 1px solid rgba(214, 183, 122, .18);
+}
+/* 收束的兩段（值得注意的牌組、整體意義）沒有對應牌卡，改用左側金線標出
+   「這裡開始是收攏，不是新的一組牌」，讀者才知道報告要結束了。 */
+.r-section .r-block .lg-para.lg-close {
+  border-left: 2px solid rgba(214, 183, 122, .42);
+  background: rgba(16, 24, 36, .52);
+}
+.r-section .r-block .lg-para.lg-close + .lg-para.lg-close { margin-top: 12px; }
+@media (max-width: 420px) {
+  .r-section .r-block .lg-para { padding: 16px 14px 18px; }
+  .r-section .r-block .lg-para p { line-height: 1.9; }
+  .r-section .r-block .lg-para .lg-sub { font-size: 12.5px; letter-spacing: .18em; }
 }
 .r-questions { list-style: none; }
 .r-questions li {
