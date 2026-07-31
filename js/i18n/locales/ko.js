@@ -146,7 +146,6 @@ export default {
     reset: '다시 뽑기',
     cardBack: '카드 (뒷면)',
     gridAria: '르노르망 9카드 스프레드',
-    stripAria: '이 단락에 해당하는 카드',
   },
 
   numbers: {

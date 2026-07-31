@@ -146,7 +146,6 @@ export default {
     reset: 'Start over',
     cardBack: 'A card, face down',
     gridAria: 'Lenormand nine-card grid',
-    stripAria: 'Cards for this passage',
   },
 
   numbers: {

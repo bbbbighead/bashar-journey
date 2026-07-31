@@ -146,7 +146,6 @@ export default {
     reset: '引きなおす',
     cardBack: 'カード（裏向き）',
     gridAria: 'ルノルマン9枚グリッド',
-    stripAria: 'この段に対応するカード',
   },
 
   numbers: {

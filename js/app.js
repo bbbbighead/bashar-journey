@@ -928,71 +928,21 @@ function chartWheelHtml(chart) {
   return chartWheelSvg(chart, dict().chartWheel || {});
 }
 
-// 全形數字轉半形
-function normDigits(s) {
-  return String(s).replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
-}
-
-// 從段落文字中的「（1、4、7）」抓出所有位置群組（數字 1–9，每組 1–5 個）
-function posGroupsInText(text) {
-  const groups = [];
-  const re = /[（(]\s*([0-9０-９][0-9０-９\s、，,和及]*)\s*[）)]/g;
-  let m;
-  while ((m = re.exec(text))) {
-    const nums = [...new Set((normDigits(m[1]).match(/[1-9]/g) || []).map(Number))];
-    if (nums.length >= 1 && nums.length <= 5) groups.push(nums);
-  }
-  return groups;
-}
-
-// 九宮格閱讀組別 → 固定位置。依目前語系取標籤，AI 也被要求用同一組標籤。
-// 依字數由長到短排序，確保「潛意識層」先於「意識層」比對（日文的「潜在意識」對「意識」亦同）。
-// 小標題 → 對應牌位。前端據此把該組的牌卡小圖插在那一段上方。
-// 直欄是時間、橫排是三股力量；收束的兩段（值得注意的牌組、整體意義）
-// 不對應固定牌位，所以不列在這裡。
-const GROUP_POS = {
-  past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
-  outer: [1, 2, 3], event: [4, 5, 6], inner: [7, 8, 9],
-};
-// 沒有固定牌位、但仍要當成小標題（獨立成塊、不插牌卡）的段落
-const PLAIN_GROUPS = ['combos', 'overall'];
+// 解讀的八個小標題。前六個是牌組（直欄＝時間、橫排＝三股力量），
+// 後兩個是收束段落（畫法不同，見 lenormandContentHtml）。
+//
+// 這裡刻意不再存「小標題 → 牌位」的對應：抽到的九張牌在該節最上方的九宮格
+// 已經完整呈現一次，每一段再把那一組牌重列一遍只是把版面撐長。文字裡有寫到
+// 牌名就夠了。
+const READ_GROUPS = ['past', 'present', 'future', 'outer', 'event', 'inner'];
+const CLOSE_GROUPS = ['combos', 'overall'];
 function groupLabels() {
   const g = dict().groups || {};
-  return [...Object.keys(GROUP_POS).map((k) => ({ label: g[k], pos: GROUP_POS[k] })),
-    ...PLAIN_GROUPS.map((k) => ({ label: g[k], pos: [] }))]
+  return [...READ_GROUPS.map((k) => ({ label: g[k], close: false })),
+    ...CLOSE_GROUPS.map((k) => ({ label: g[k], close: true }))]
     .filter((x) => x.label)
-    // 長的先比：否則「過去」會先吃掉「過去的想法」這類較長的標題
+    // 長的先比：短標題是長標題的前綴時（如「過去」對「過去的想法」）才不會先被吃掉
     .sort((a, b) => b.label.length - a.label.length);
-}
-
-// 決定某段落前方要顯示哪些對照牌卡（回傳位置群組陣列）。
-// 主：內文若明寫「（1、4、7）」這類位置，全部採用；
-// 備：AI 常以自然語言寫成「過去那一排」，故段落開頭若是已知組別名稱，用該組固定位置。
-function posGroupsForBlock(text) {
-  const explicit = posGroupsInText(text);
-  if (explicit.length) return explicit;
-  const txt = String(text).trim();
-  if (txt.length < 10) return []; // 太短多半是小標題本身（如「時間軸」「十字法」），不放牌卡
-  const head = txt.slice(0, 10);  // 只看開頭，避免內文中偶然出現「現在」等常用詞誤判
-  for (const g of groupLabels()) {
-    if (head.includes(g.label)) return [g.pos.slice()];
-  }
-  return [];
-}
-
-// 依位置陣列列出對應的小張牌卡（供各章節前方對照）
-function cardStripHtml(spread, positions) {
-  const cells = positions.map((pos) => {
-    const item = spread[pos - 1];
-    if (!item || !item.card) return '';
-    return `<figure class="lg-mini">
-      <span class="lg-mini-pos">${pos}</span>
-      <span class="lg-mini-ico">${cardConstellation(item.card.id)}</span>
-      <figcaption class="lg-mini-name">${esc(cardName(item.card.id, item.card.name))}</figcaption>
-    </figure>`;
-  }).join('');
-  if (!cells) return '';
-  return `<div class="lg-strip" aria-label="${esc(t('spread.stripAria'))}">${cells}</div>`;
 }
 
 // 該段落是否為「單獨成行的組別小標題」（如只寫「過去」「潛意識層」）。
@@ -1008,11 +958,10 @@ function exactGroupLabel(text) {
 }
 
 // 雷諾曼解析內文：逐段落渲染。
-// ・若某行是單獨的組別小標題（過去／現在／未來／意識層…），就把「小標題＋對應牌卡＋
-//   接在後面的內文」合併進同一塊面板，讀者一眼看到標題、牌面與解讀。
-// ・若內文自己帶位置或以組名開頭（舊格式），仍在該段面板最上方放牌卡。
-function lenormandContentHtml(content, spread) {
-  const hasSpread = Array.isArray(spread) && spread.length;
+// ・單獨成行的小標題（過去／現在／外在環境…）與它後面所有的內文段落，合併成
+//   一塊面板；收束的兩段畫法不同（左側金線）。
+// ・抽到的牌不在這裡重列——該節最上方的九宮格已經完整呈現過一次。
+function lenormandContentHtml(content) {
   const blocks = String(content || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (!blocks.length) return `<p>${esc(String(content || ''))}</p>`;
 
@@ -1021,24 +970,20 @@ function lenormandContentHtml(content, spread) {
     const b = blocks[i];
     const g = exactGroupLabel(b);
     if (g) {
-      // 組別小標題：帶上牌卡，並把後面所有內文段落併進同一塊面板。
-      // 必須吃掉「所有」後續段落而不只是下一段——只吃一段的話，模型寫成
-      // 兩段的內容會有第二段掉出面板、自成一塊無標題的框，看起來像另一節。
-      const strip = hasSpread ? cardStripHtml(spread, g.pos) : '';
+      // 小標題後面所有的內文段落都要併進同一塊面板。必須吃掉「所有」而不只是
+      // 下一段——只吃一段的話，模型寫成兩段的內容會有第二段掉出面板、自成一塊
+      // 無標題的框，看起來像另一節。
       const body = [];
       while (i + 1 < blocks.length && !exactGroupLabel(blocks[i + 1])) {
         body.push(blocks[i + 1]);
         i += 1;
       }
-      const cls = g.pos.length ? 'lg-para' : 'lg-para lg-close';
-      out.push(`<div class="${cls}"><div class="lg-sub">${esc(g.label)}</div>${strip}`
+      out.push(`<div class="lg-para${g.close ? ' lg-close' : ''}">`
+        + `<div class="lg-sub">${esc(g.label)}</div>`
         + body.map((t) => `<p>${esc(t)}</p>`).join('') + `</div>`);
       continue;
     }
-    const strip = hasSpread
-      ? posGroupsForBlock(b).map((gr) => cardStripHtml(spread, gr)).join('')
-      : '';
-    out.push(`<div class="lg-para">${strip}<p>${esc(b)}</p></div>`);
+    out.push(`<div class="lg-para"><p>${esc(b)}</p></div>`);
   }
   return out.join('');
 }
@@ -1119,7 +1064,7 @@ function renderResult(a) {
       ${s.tool === 'meihua' ? meihuaGridHtml(state.meihua) : ''}
       ${s.tool === 'astro' ? chartWheelHtml(state.astro) : ''}
       <div class="r-block">${s.tool === 'lenormand'
-        ? lenormandContentHtml(s.content, state.lenormand)
+        ? lenormandContentHtml(s.content)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
@@ -1187,6 +1132,12 @@ function renderResult(a) {
 }
 
 // 完整內容（複製與導流共用）：主題 + 各節解析 + 結語
+// 交接文字用的「閱讀角度 → 牌位」對照。只有這裡需要位置編號（見下方註解）。
+const GRID_LEGEND = {
+  past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
+  outer: [1, 2, 3], event: [4, 5, 6], inner: [7, 8, 9],
+};
+
 // 九張牌的文字清單＋位置對照，供複製與帶給 AI 用。
 // 為什麼需要：結果頁的九宮格是圖，複製貼上帶不走；而 prompt 又刻意要求解讀
 // 內文「不要逐一列出牌名」，所以少了這一段，接手的 AI 根本不知道抽到哪九張牌。
@@ -1197,10 +1148,13 @@ function spreadTextForAI(spread) {
   const cards = spread
     .map(({ card }, i) => `${i + 1}. ${cardName(card.id, card.name)}`)
     .join('\n');
-  // 每個閱讀角度各佔一行（直式），讓 AI 一眼對得起來
-  const legend = ['past', 'present', 'future', 'conscious', 'material', 'subconscious', 'heart', 'cross', 'corners']
-    .filter((k) => g[k])
-    .map((k) => `${g[k]}${t('labelSep')}${GROUP_POS[k].join(sep)}`)
+  // 每個閱讀角度各佔一行（直式），讓 AI 一眼對得起來。
+  // 這裡保留位置編號是刻意的：讀這段文字的是另一個 AI 或剪貼簿，它看不到
+  // 九宮格的圖，沒有編號就不知道哪張牌在哪個位置。頁面上的解讀不用編號，
+  // 那是給人讀的、圖就在旁邊——兩邊的讀者不同，規則本來就該不同。
+  const legend = Object.entries(GRID_LEGEND)
+    .filter(([k]) => g[k])
+    .map(([k, pos]) => `${g[k]}${t('labelSep')}${pos.join(sep)}`)
     .join('\n');
   return [
     t('result.cardsTitle'),

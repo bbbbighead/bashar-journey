@@ -144,7 +144,6 @@ export default {
     reset: '重選',
     cardBack: '一張牌（牌背朝上）',
     gridAria: '雷諾曼九宮格',
-    stripAria: '本段對應牌卡',
   },
 
   numbers: {

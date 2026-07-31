@@ -564,24 +564,6 @@ body.cz-open { overflow: hidden; }
 }
 
 /* 章節前的對照小牌卡 */
-.lg-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px; }
-.lg-mini {
-  position: relative; width: 62px; margin: 0; padding: 6px 3px 4px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
-  background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, .45);
-}
-.lg-mini-pos {
-  position: absolute; top: 3px; left: 5px;
-  font-size: 9px; color: var(--accent-dim); font-family: Georgia, serif; opacity: .8;
-}
-.lg-mini-ico { width: 72%; margin: 2px auto 3px; }
-.lg-mini-name {
-  font-family: var(--serif); font-size: 11px; color: var(--ink-dim);
-  letter-spacing: .06em; text-align: center; line-height: 1.3;
-}
-
 /* ---- 結果頁：分節解析 ---- */
 .r-section { margin-bottom: 30px; }
 .r-sec-head {
@@ -1033,7 +1015,6 @@ select.flt-select {
 }
 /* 同一段裡的第二段起要有呼吸。沒有這條，模型寫成兩段會黏成一大塊 */
 .r-section .r-block .lg-para p + p { margin-top: 1.1em; }
-.r-section .r-block .lg-para .lg-strip { margin: 0 0 14px; }
 
 /* 組別小標題。加一條細底線：八個面板長得一樣時，眼睛需要一個明確的起點才好掃。 */
 .r-section .r-block .lg-para .lg-sub {
