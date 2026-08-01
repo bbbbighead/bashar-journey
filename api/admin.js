@@ -28,6 +28,17 @@ function dwellBytesOf(dwell, dcnt) {
 // 無痕、清資料，以及 iOS Safari 的 ITP（7 天未回訪就清掉 localStorage）都會斷掉，
 // 所以「回訪」算出來的是**下限**，真實回訪一定比這個數字多。
 // 反向誤差也有：共用裝置會把不同人併成同一個 vid。
+// 依某個欄位分組計數。缺值歸到「（未知）」而不是丟掉——舊紀錄可能沒有那個
+// 欄位，靜靜不計會讓總數對不上，看起來像資料掉了。
+function tally(entries, field) {
+  const out = {};
+  for (const e of entries || []) {
+    const k = (e && e[field]) ? String(e[field]) : '(unknown)';
+    out[k] = (out[k] || 0) + 1;
+  }
+  return out;
+}
+
 function visitorStats(entries) {
   const perVid = new Map();
   for (const e of entries) {
@@ -439,13 +450,18 @@ export default async function handler(req, res) {
         const sum = toObj(sumR.result), cnt = toObj(cntR.result);
         const dwellAvg = {};
         for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
+        // 語系直接從清單數，不另外開 pi:agg:lang 計數器：這條路徑本來就已經
+        // 讀了整份清單（訪客數需要逐筆看 vid），所以是零成本；而且新開的計數器
+        // 只會從今天開始累加，歷史來訪算不進去——每一筆的 lang 早就存著了。
+        const all = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
         res.status(200).json({
           ok: true, scope,
           totalSessions: Number(lenR.result || 0),
           sources: toObj(srcR.result),
           devices: toObj(devR.result),
+          langs: tally(all, 'lang'),
           dwellAvgMs: dwellAvg,
-          visitors: visitorStats((listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean)),
+          visitors: visitorStats(all),
           usage,
         });
         return;
@@ -468,6 +484,7 @@ export default async function handler(req, res) {
         if (e.src) sources[e.src] = (sources[e.src] || 0) + 1;
         if (e.device) devices[e.device] = (devices[e.device] || 0) + 1;
       }
+      const langs = tally(wanted, 'lang');
       const visitors = visitorStats(wanted);
       const sum = {}, cnt = {};
       for (let i = 0; i < wanted.length; i += 100) {
@@ -491,6 +508,7 @@ export default async function handler(req, res) {
         totalSessions: wanted.length,
         sources,
         devices,
+        langs,
         dwellAvgMs: dwellAvg,
         visitors,
         usage,

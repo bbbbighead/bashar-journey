@@ -79,9 +79,16 @@
         </div>
       </div>
 
-      <div class="a-block a-card">
-        <h3>各頁面平均停留時間</h3>
-        <div class="chart-host" id="dwellChart"></div>
+      <div class="a-cols">
+        <div class="a-block a-card">
+          <h3>介面語言</h3>
+          <div class="chart-host" id="langChart"></div>
+          <div class="a-hint small">使用者進站時的介面語言，可用來推估不同語區的流量。</div>
+        </div>
+        <div class="a-block a-card">
+          <h3>各頁面平均停留時間</h3>
+          <div class="chart-host" id="dwellChart"></div>
+        </div>
       </div>
     </div>
 
@@ -99,6 +106,9 @@
           <select class="flt-select" id="fltSource">
             <option value="">全部來源</option>
           </select>
+          <select class="flt-select" id="fltLang">
+            <option value="">全部語言</option>
+          </select>
           <span class="flt-count" id="fltCount"></span>
         </div>
         <div class="bulk-bar" id="bulkBar" style="display:none">
@@ -109,7 +119,7 @@
              有了橫向捲動容器，表頭的 sticky 就會失效（overflow-x:auto 會連帶
              讓垂直方向變成捲動容器）。寬表格（處理時間）才需要那層。 -->
         <table class="a-table sessions" id="sessTable">
-            <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="visitNo">回訪</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="topic">主題</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th></tr></thead>
+            <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="visitNo">回訪</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="lang">語言</th><th class="sortable" data-sort="topic">主題</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="hasJourney">題目</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>
