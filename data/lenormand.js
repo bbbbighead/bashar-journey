@@ -64,18 +64,3 @@ export const CLUSTER_MEANING = {
   insight:       { label: '洞察與釐清', sentence: '你需要的不是更多努力，而是更清楚的看見——看清之後，選擇會自己浮現' },
 };
 
-// 九宮格位置語義（3×3）：
-// 欄 = 時間軸（左：成因與過去 / 中：現在 / 右：走向與趨勢）
-// 列 = 意識層（上：想法與意識 / 中：現實與核心 / 下：潛意識與根基）
-// 正中央（idx 4）= 全局核心影響
-export const GRID_POSITIONS = [
-  { idx: 0, time: 'past',    layer: 'mind',   label: '過去的想法／舊有認知' },
-  { idx: 1, time: 'present', layer: 'mind',   label: '現在的想法／意識焦點' },
-  { idx: 2, time: 'future',  layer: 'mind',   label: '思緒的走向／醞釀中的認知' },
-  { idx: 3, time: 'past',    layer: 'core',   label: '事情的成因／帶來的經驗' },
-  { idx: 4, time: 'present', layer: 'core',   label: '全局核心／此刻的中心影響' },
-  { idx: 5, time: 'future',  layer: 'core',   label: '現實的趨勢／正在成形的發展' },
-  { idx: 6, time: 'past',    layer: 'root',   label: '底層的舊習慣／未察覺的基礎' },
-  { idx: 7, time: 'present', layer: 'root',   label: '潛意識的暗流／未說出口的感受' },
-  { idx: 8, time: 'future',  layer: 'root',   label: '深層的醞釀／即將浮上來的東西' },
-];
