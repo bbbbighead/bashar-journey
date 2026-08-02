@@ -803,7 +803,16 @@ select.flt-select {
 }
 .num-pick {
   width: 100%; height: 100%;
-  overflow-y: scroll; overscroll-behavior: contain;
+  overflow-y: scroll;
+  /* 這兩行是必要的，不是保險：
+     ① CSS 規定只設 overflow-y 時，overflow-x 會從 visible 變成 auto。
+        而 .np-opt.on 的 scale(1.06) 會把選中那格撐得比容器寬 —— 兩件事加起來，
+        使用者就能把數字左右拖走。這裡明確關掉橫向捲動。
+     ② touch-action: pan-y 讓瀏覽器把斜向的手勢解讀成純垂直，
+        不然手指稍微斜一點（斜上／斜下）就會同時帶動橫向。 */
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   scroll-snap-type: y mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -819,11 +828,14 @@ select.flt-select {
   font: inherit; font-family: var(--serif); font-size: 26px; line-height: 46px;
   color: var(--ink-faint); background: none; border: none; padding: 0;
   cursor: pointer;
-  transition: color .2s, opacity .2s, transform .2s;
+  transition: color .2s, opacity .2s, font-size .2s;
   opacity: .45;
 }
-/* 選中的那一格才是亮的；其餘壓暗，視覺上自然指向中央 */
-.np-opt.on { color: var(--accent); opacity: 1; transform: scale(1.06); }
+/* 選中的那一格才是亮的；其餘壓暗，視覺上自然指向中央。
+   放大用 font-size 而不是 transform: scale()——scale 會把整個區塊撐得比容器寬，
+   讓捲動容器產生橫向溢出（就是「數字可以左右拖走」那個問題的根源）。
+   改字級的視覺效果一樣，但版面寬度完全不變。 */
+.np-opt.on { color: var(--accent); opacity: 1; font-size: 27.6px; }
 .np-blank { color: var(--ink-faint); }
 /* 中央的兩條髮絲線：標出「這一格才是你選的」。
    放在 .num-cell 裡、.num-pick 外，才不會跟著內容捲走。 */
