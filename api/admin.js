@@ -450,9 +450,10 @@ export default async function handler(req, res) {
         const sum = toObj(sumR.result), cnt = toObj(cntR.result);
         const dwellAvg = {};
         for (const k of Object.keys(sum)) dwellAvg[k] = cnt[k] ? Math.round(sum[k] / cnt[k]) : 0;
-        // 語系直接從清單數，不另外開 pi:agg:lang 計數器：這條路徑本來就已經
-        // 讀了整份清單（訪客數需要逐筆看 vid），所以是零成本；而且新開的計數器
-        // 只會從今天開始累加，歷史來訪算不進去——每一筆的 lang 早就存著了。
+        // 語系與地區直接從清單數，不另外開 pi:agg:lang／pi:agg:country 計數器：
+        // 這條路徑本來就已經讀了整份清單（訪客數需要逐筆看 vid），所以是零成本；
+        // 而且新開的計數器還得在刪除紀錄時記得回扣（pi:agg:src／device 就是這樣，
+        // 一有遺漏就會永久偏掉），逐筆數則永遠跟清單一致。
         const all = (listR.result || []).map((r) => parseJSON(r, null)).filter(Boolean);
         res.status(200).json({
           ok: true, scope,
@@ -460,6 +461,7 @@ export default async function handler(req, res) {
           sources: toObj(srcR.result),
           devices: toObj(devR.result),
           langs: tally(all, 'lang'),
+          countries: tally(all, 'country'),
           dwellAvgMs: dwellAvg,
           visitors: visitorStats(all),
           usage,
@@ -485,6 +487,7 @@ export default async function handler(req, res) {
         if (e.device) devices[e.device] = (devices[e.device] || 0) + 1;
       }
       const langs = tally(wanted, 'lang');
+      const countries = tally(wanted, 'country');
       const visitors = visitorStats(wanted);
       const sum = {}, cnt = {};
       for (let i = 0; i < wanted.length; i += 100) {
@@ -509,6 +512,7 @@ export default async function handler(req, res) {
         sources,
         devices,
         langs,
+        countries,
         dwellAvgMs: dwellAvg,
         visitors,
         usage,

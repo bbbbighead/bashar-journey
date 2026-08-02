@@ -19,7 +19,7 @@ const SCREEN_LABELS = {
 let allSessions = [];
 let sessOffset = 0;
 let exhausted = false;
-const filters = { scope: 'complete', device: '', source: '', lang: '', vid: '' };
+const filters = { scope: 'complete', device: '', source: '', lang: '', country: '', vid: '' };
 const selected = new Set(); // 已勾選的 sid
 
 function pw() { return sessionStorage.getItem(PW_KEY) || ''; }
@@ -93,6 +93,15 @@ async function enterDash() {
     langSel.appendChild(opt);
   }
 
+  // 地區下拉：同上，國碼轉成國名顯示
+  const geoSel = $('fltGeo');
+  geoSel.length = 1;
+  for (const [code] of topEntries(overview.countries || {}, 30)) {
+    const opt = document.createElement('option');
+    opt.value = code; opt.textContent = regionName(code);
+    geoSel.appendChild(opt);
+  }
+
   allSessions = [];
   sessOffset = 0;
   exhausted = false;
@@ -150,6 +159,7 @@ $('fltScope').addEventListener('change', async (e) => {
 $('fltDevice').addEventListener('change', (e) => { filters.device = e.target.value; onFilterChange(); });
 $('fltSource').addEventListener('change', (e) => { filters.source = e.target.value; onFilterChange(); });
 $('fltLang').addEventListener('change', (e) => { filters.lang = e.target.value; onFilterChange(); });
+$('fltGeo').addEventListener('change', (e) => { filters.country = e.target.value; onFilterChange(); });
 
 async function onFilterChange() {
   renderSessions();
@@ -163,6 +173,7 @@ function matchesFilters(s) {
   if (filters.device && s.device !== filters.device) return false;
   if (filters.source && s.src !== filters.source) return false;
   if (filters.lang && (s.lang || '(unknown)') !== filters.lang) return false;
+  if (filters.country && (s.country || '(unknown)') !== filters.country) return false;
   if (filters.vid && s.vid !== filters.vid) return false;
   return true;
 }
@@ -181,6 +192,30 @@ const LANG_LABEL = {
   'zh-Hant': '繁體中文', en: 'English', ja: '日本語', ko: '한국어',
   '(unknown)': '（未知）',
 };
+
+// 國碼 → 繁體中文國名。不硬編一張對照表（跟 data/countries.js 同一個原則）：
+// 交給 Intl.DisplayNames 產生，環境不支援時就顯示原始國碼。
+// (unknown) 是這個功能上線前的舊紀錄，那時候還沒有記國碼。
+const REGION_NAMES = (() => {
+  try { return new Intl.DisplayNames(['zh-Hant'], { type: 'region' }); } catch { return null; }
+})();
+const regionCache = new Map();
+// 只有國名（「台灣」）：給清單的欄位用，那裡每一格的寬度都很吃緊
+function regionShort(code) {
+  if (!code || code === '(unknown)') return '（未知）';
+  if (regionCache.has(code)) return regionCache.get(code);
+  let name = code;
+  // 查不到時 Intl 會原樣回傳（fallback: 'code' 是預設行為），也可能直接丟錯
+  try { name = REGION_NAMES ? (REGION_NAMES.of(code) || code) : code; } catch { name = code; }
+  regionCache.set(code, name);
+  return name;
+}
+// 國名＋國碼（「台灣（TW）」）：給分布圖與下拉用，那裡看得到代碼比較好對照。
+// 查不到國名時不重複顯示代碼。
+function regionName(code) {
+  const name = regionShort(code);
+  return (!code || code === '(unknown)' || name === code) ? name : `${name}（${code}）`;
+}
 
 // 工具代碼 → 中文標籤（後台一律繁體中文）
 const TOOL_LABEL = {
@@ -201,6 +236,7 @@ const SORT_VALUE = {
   src: (s) => String(s.src || ''),
   device: (s) => `${s.device || ''} ${s.os || ''}`,
   lang: (s) => String(s.lang || ''),
+  country: (s) => String(s.country || ''),
   topic: (s) => String(s.topic || ''),
   tools: (s) => toolText(s),
   hasJourney: (s) => (s.hasJourney ? 1 : 0),
@@ -286,6 +322,7 @@ function renderOverview(o) {
   renderPie($('srcChart'), topEntries(o.sources, 6), (v) => `${v} 次`, '（尚無來源資料）');
   renderPie($('devChart'), topEntries(mapKeys(o.devices, { mobile: '手機', desktop: '電腦', tablet: '平板' }), 6), (v) => `${v} 次`, '（尚無裝置資料）');
   renderPie($('langChart'), topEntries(mapKeys(o.langs || {}, LANG_LABEL), 6), (v) => `${v} 次`, '（尚無語言資料）');
+  renderPie($('geoChart'), topEntries(o.countries || {}, 8).map(([c, v]) => [regionName(c), v]), (v) => `${v} 次`, '（尚無地區資料）');
 
   const order = ['screenIntake', 'screenSpread', 'screenNumbers', 'screenWeaving', 'screenResult', 'screenCare'];
   const dwellEntries = order
@@ -600,7 +637,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="13" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="14" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -627,7 +664,9 @@ function renderSessions() {
       <td>${esc(s.src)}</td>
       <td>${esc({ mobile: '手機', desktop: '電腦', tablet: '平板' }[s.device] || s.device)}${
         s.os ? ` · ${esc(s.os)}` : ''}</td>
-      <td>${s.lang ? esc(LANG_LABEL[s.lang] || s.lang) : '<span class="dim-dash">—</span>'}</td>
+      <td class="lang-cell">${s.lang ? esc(LANG_LABEL[s.lang] || s.lang) : '<span class="dim-dash">—</span>'}</td>
+      <td class="geo-cell" title="${esc(s.country ? regionName(s.country) : '')}">${
+        s.country ? esc(regionShort(s.country)) : '<span class="dim-dash">—</span>'}</td>
       <td class="topic-cell" title="${esc(s.topic || '')}">${esc(truncate(s.topic, 12)) || '<span class="dim-dash">—</span>'}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
@@ -734,14 +773,14 @@ async function toggleVisitList(tr, s) {
 
   const row = document.createElement('tr');
   row.className = 'visit-list-row';
-  row.innerHTML = '<td colspan="13" class="detail-cell">讀取中……</td>';
+  row.innerHTML = '<td colspan="14" class="detail-cell">讀取中……</td>';
   tr.after(row);
 
   let d;
   try {
     d = await api({ view: 'visitor', vid: s.vid, scope: filters.scope });
   } catch {
-    row.innerHTML = '<td colspan="13" class="detail-cell">（讀取失敗）</td>';
+    row.innerHTML = '<td colspan="14" class="detail-cell">（讀取失敗）</td>';
     return;
   }
 
@@ -758,7 +797,7 @@ async function toggleVisitList(tr, s) {
       <span class="vl-fb">${v.feedback ? `<span class="fb-stars-cell">${STARS(v.feedback.rating)}</span>` : ''}</span>
     </li>`).join('');
 
-  row.innerHTML = `<td colspan="13" class="detail-cell">
+  row.innerHTML = `<td colspan="14" class="detail-cell">
     <div class="vl-head">訪客 <code>${esc(d.vid)}</code> 共 ${d.total} 次來訪
       <span class="vl-scope">（${scopeNote}）</span></div>
     <ol class="vl-list">${items}</ol>
@@ -783,7 +822,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="13" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="14" class="detail-cell">讀取中……</td>';
   tr.after(detail);
   await renderSessionDetail(detail.querySelector('td'), s);
 }

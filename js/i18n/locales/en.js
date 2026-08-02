@@ -29,7 +29,7 @@ export default {
     toolPick: 'Choose one practice',
     soon: 'Coming Soon',
     start: 'Begin the reading',
-    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously to improve the experience.',
+    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously (including your interface language and country) to improve the experience.',
   },
 
   tools: {

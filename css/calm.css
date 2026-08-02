@@ -1386,7 +1386,12 @@ button.badge.repeat:hover {
   font-size: 11px; color: var(--accent); border: 1px solid var(--accent-dim);
   border-radius: 0; padding: 2px 10px; letter-spacing: .14em;
   outline: 1px solid var(--line); outline-offset: 2px;
+  /* 欄位變多之後表格會擠壓每一欄，若允許折行，「有題目」會被拆成三行 */
+  white-space: nowrap;
 }
+/* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
+   地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
+.lang-cell, .geo-cell { white-space: nowrap; }
 .badge.dim { color: var(--ink-faint); border-color: var(--line); }
 .sess-detail .detail-cell {
   background: var(--panel); font-size: 13px; color: var(--ink-dim);

@@ -9,7 +9,7 @@
 // 汰舊次數與時間記錄於 pi:agg:pruned / pi:agg:pruned_at，供後台警示。
 //
 // 資料模型：
-//   pi:sessions            LIST  來訪（JSON：sid/vid/ts/src/device/os），新的在左、舊的在右
+//   pi:sessions            LIST  來訪（JSON：sid/vid/ts/src/device/os/lang/country），新的在左、舊的在右
 //   pi:dwell:<sid>         HASH  各畫面停留毫秒累計
 //   pi:dwellcnt:<sid>      HASH  各畫面停留事件數（刪除時精準回扣平均值）
 //   pi:journey:<sid>       STRING JSON（opening/cards/numbers/title/message/closing/offline/ts）
@@ -260,6 +260,12 @@ export default async function handler(req, res) {
       const entry = JSON.stringify({
         sid, vid, ts: Date.now(), src, device, os,
         lang: String(body.lang || '').slice(0, 12),
+        // 地區：只存兩字母國碼，永不存城市或 IP。
+        // 城市加上 vid 就足以把一筆紀錄重新識別回特定的人；國碼的顆粒度粗到
+        // 沒有這個風險，但已經夠回答「哪些語區的人在用」。
+        // 標頭由平台在邊緣填入（Vercel／Cloudflare），前端傳什麼都不採用。
+        country: String(req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || '')
+          .toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2),
       });
       cmds.push(
         ['LPUSH', 'pi:sessions', entry],
