@@ -46,7 +46,7 @@ export default {
   toolSub: {
     lenormand: '出来事の流れ',
     meihua: '決断の方向',
-    astro: '自分を知る',
+    astro: '出生図',
   },
 
   // 梅花心易の卦（結果ページのその節のいちばん上）

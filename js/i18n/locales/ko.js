@@ -46,7 +46,7 @@ export default {
   toolSub: {
     lenormand: '사건의 흐름',
     meihua: '결정과 방향',
-    astro: '자기 탐색',
+    astro: '출생 차트',
   },
 
   // 매화역수의 괘 (결과 페이지 해당 절 맨 위)

@@ -46,7 +46,7 @@ export default {
   toolSub: {
     lenormand: 'Situations',
     meihua: 'Decisions',
-    astro: 'Self-discovery',
+    astro: 'Natal chart',
   },
 
   // The hexagram figures at the top of the I Ching section
