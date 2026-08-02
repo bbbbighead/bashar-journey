@@ -44,7 +44,7 @@ export default {
   toolSub: {
     lenormand: '事件分析',
     meihua: '決策方向',
-    astro: '自我探索',
+    astro: '本命星盤',
   },
 
   // 梅花易數卦象圖（結果頁該節最上方）
