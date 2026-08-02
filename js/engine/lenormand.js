@@ -57,13 +57,13 @@ export function drawSpread() {
 //     位置資訊抹掉：實測有一副牌的「阻礙」落在過去與現在、「洞察」落在現在與
 //     未來，走向很清楚，數出來卻是 3:3 打平。
 // cluster 欄位仍留在 data/lenormand.js，日後要做後台主題統計還用得到。
+// 只帶「位置＋牌名」給 AI。keys／meaning 是站方自寫的詮釋（帶取向，例如
+// 鳥只寫了焦慮那一極），不注入 prompt——牌義交給模型自己的雷諾曼傳統知識。
 export function spreadForAI(spread) {
   return {
     grid: spread.map(({ position, card }) => ({
       position,
       card: card.name,
-      keys: card.keys,
-      meaning: card.meaning,
     })),
   };
 }
