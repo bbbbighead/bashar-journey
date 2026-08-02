@@ -63,7 +63,7 @@ export default {
     cards: [
       { name: '雷諾曼九宮格', line: '適合探索事件的發展與全貌。' },
       { name: '梅花易數', line: '適合探索時機、決策與變化趨勢。' },
-      { name: '西洋占星', line: '適合探索自我特質、天賦與生命課題。' },
+      { name: '西洋占星（本命星盤）', line: '適合探索自我特質、天賦與生命課題。' },
     ],
     sections: [
       {
@@ -91,7 +91,7 @@ export default {
         ],
       },
       {
-        name: '西洋占星',
+        name: '西洋占星（本命星盤）',
         lede: '透過出生星圖，探索你的天賦、性格特質、生命課題與成長方向，幫助你更深入認識自己。',
         metaLabel: '使用系統',
         meta: '本站採用<b>現代西洋占星</b>（Modern Western Astrology），使用熱帶黃道（Tropical Zodiac）、Placidus 宮位制、True Node（真交點），並結合主要行星、宮位、相位與重要小行星進行綜合分析。',
