@@ -124,6 +124,9 @@ function parseJSON(s, fallback) {
   try { return JSON.parse(s); } catch { return fallback; }
 }
 
+// i18n 有的語系。維護動作只接受這幾個值，避免打錯字寫進一堆無效語系。
+const LANGS = ['zh-Hant', 'en', 'ja', 'ko'];
+
 // 以 SCAN 列出符合樣式的所有鍵（Upstash REST 支援 SCAN）。
 // 用於容量重算：來訪清單是唯一索引，掃不到的附屬資料只能靠 SCAN 找出來。
 async function scanKeys(pattern, maxRounds = 60) {
@@ -205,6 +208,67 @@ export default async function handler(req, res) {
           ['INCRBY', 'pi:agg:bytes', String(newSize - oldSize)],
         ]);
         res.status(200).json({ ok: true, note });
+        return;
+      }
+
+      // 一次性資料修正：把來訪紀錄的語言補成指定語系。
+      //
+      // 為什麼需要：語言欄一度記的是 navigator.language（瀏覽器系統語言）而不是
+      // 實際生效的介面語言，而且 start 埋點送得比「IP 補救」和「使用者手動切換」
+      // 都早，所以那段時間的紀錄有一部分是錯的。
+      //
+      // 兩道保護：
+      //   ・預設 dryRun，先回報「會改幾筆」，確認數字才真的寫。
+      //   ・before 是時間上限（毫秒）。修正的目標是「出錯那段時間的舊紀錄」，
+      //     不該蓋掉修好之後正確記下來的新紀錄——所以一定要給上限，
+      //     否則今天以後真的來自其他語區的人也會被改成同一個語系。
+      if (action === 'backfill_lang') {
+        const lang = String(body.lang || '').slice(0, 12);
+        if (!LANGS.includes(lang)) { res.status(400).json({ ok: false, error: 'bad_lang' }); return; }
+        const before = Number(body.before);
+        if (!Number.isFinite(before) || before <= 0) {
+          res.status(400).json({ ok: false, error: 'before_required' }); return;
+        }
+        const dryRun = body.dryRun !== false;
+
+        const [listR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '-1']]);
+        const raws = (listR.result || []).slice(0, 10000);
+        const cmds = [];
+        let matched = 0, changed = 0, skippedNewer = 0, delta = 0;
+        const wasLang = {};
+        raws.forEach((raw, i) => {
+          const e = parseJSON(raw, null);
+          if (!e || !e.sid) return;
+          // 沒有 ts 的舊格式紀錄視為久遠（那正是最該修的一批）
+          const ts = Number(e.ts) || 0;
+          if (ts && ts >= before) { skippedNewer += 1; return; }
+          matched += 1;
+          const from = e.lang || '(unknown)';
+          wasLang[from] = (wasLang[from] || 0) + 1;
+          if (e.lang === lang) return;               // 已經是目標語系，不用寫
+          changed += 1;
+          if (!dryRun) {
+            const updated = JSON.stringify({ ...e, lang });
+            cmds.push(['LSET', 'pi:sessions', String(i), updated]);
+            delta += updated.length - raw.length;
+          }
+        });
+
+        if (!dryRun && cmds.length) {
+          // LSET 用的是索引，所以中途不能有人改動清單長度。來訪只會 LPUSH 到
+          // 最前面（索引位移），因此寫入前重新確認長度；不一致就中止讓人重試，
+          // 也比寫錯位置好。
+          const [lenR] = await redisPipeline([['LLEN', 'pi:sessions']]);
+          if (Number(lenR.result || 0) !== raws.length) {
+            res.status(409).json({ ok: false, error: 'list_changed_retry' }); return;
+          }
+          for (let i = 0; i < cmds.length; i += 100) await redisPipeline(cmds.slice(i, i + 100));
+          if (delta) await redisPipeline([['INCRBY', 'pi:agg:bytes', String(Math.round(delta))]]);
+        }
+        res.status(200).json({
+          ok: true, dryRun, lang, before,
+          scanned: raws.length, matched, changed, skippedNewer, wasLang,
+        });
         return;
       }
 

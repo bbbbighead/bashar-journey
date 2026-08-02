@@ -187,6 +187,10 @@ function setVidFilter(vid) {
   onFilterChange();
 }
 
+// 語言修正上線的時間（本機時區）。「修正舊紀錄的語言」以此為預設的時間上限：
+// 這之後的紀錄記的已經是正確的介面語言，不該被批次改寫蓋掉。
+const LANG_FIX_DEPLOYED_AT = new Date('2026-08-02T22:00:00+08:00').getTime();
+
 // 語系代碼 → 中文標籤。i18n 只有四個語系，(unknown) 是舊紀錄沒存 lang 的情況。
 const LANG_LABEL = {
   'zh-Hant': '繁體中文', en: 'English', ja: '日本語', ko: '한국어',
@@ -324,12 +328,81 @@ function renderOverview(o) {
   renderPie($('devChart'), topEntries(mapKeys(o.devices, { mobile: '手機', desktop: '電腦', tablet: '平板' }), 6), (v) => `${v} 次`, '（尚無裝置資料）');
   renderPie($('langChart'), topEntries(mapKeys(o.langs || {}, LANG_LABEL), 6), (v) => `${v} 次`, '（尚無語言資料）');
   renderPie($('geoChart'), topEntries(o.countries || {}, 8).map(([c, v]) => [regionName(c), v]), (v) => `${v} 次`, '（尚無地區資料）');
+  bindLangFix();
 
   const order = ['screenIntake', 'screenSpread', 'screenNumbers', 'screenWeaving', 'screenResult', 'screenCare'];
   const dwellEntries = order
     .filter((k) => o.dwellAvgMs[k] > 0)
     .map((k) => [SCREEN_LABELS[k] || k, o.dwellAvgMs[k]]);
   renderPie($('dwellChart'), dwellEntries, fmtMs, '（尚無停留資料）');
+}
+
+// ---- 一次性資料修正：補正舊紀錄的語言 ----
+// 流程刻意是兩步的：先「試算」看會改幾筆、原本各是什麼語系，確認數字才准寫入。
+// 這種批次改寫沒有回復按鈕，所以寧可多按一次。
+let fixBound = false;
+function bindLangFix() {
+  const dry = $('btnFixDry');
+  const apply = $('btnFixApply');
+  const note = $('fixNote');
+  const beforeEl = $('fixBefore');
+  if (!dry || !apply || fixBound) return;
+  fixBound = true;
+
+  // 預設時間上限＝語言修正上線的時間。之後的紀錄是正確的，不該被蓋掉。
+  if (!beforeEl.value) {
+    const d = new Date(LANG_FIX_DEPLOYED_AT);
+    const p = (n) => String(n).padStart(2, '0');
+    beforeEl.value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  const params = () => {
+    const before = new Date(beforeEl.value).getTime();
+    if (!Number.isFinite(before)) return null;
+    return { action: 'backfill_lang', lang: $('fixLang').value, before };
+  };
+  const describe = (r) => {
+    const was = Object.entries(r.wasLang || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${LANG_LABEL[k] || k} ${v}`).join('、');
+    return `掃描 ${r.scanned} 筆，時間上限內 ${r.matched} 筆`
+      + `（原本：${was || '—'}）；${r.dryRun ? '會改' : '已改'} ${r.changed} 筆`
+      + `，上限之後的 ${r.skippedNewer} 筆不動。`;
+  };
+
+  dry.addEventListener('click', async () => {
+    const q = params();
+    if (!q) { note.textContent = '請先選一個有效的時間上限。'; return; }
+    dry.disabled = true; note.textContent = '試算中……';
+    try {
+      const r = await api({}, { ...q, dryRun: true });
+      note.textContent = describe(r);
+      apply.disabled = r.changed === 0;
+      apply.dataset.q = JSON.stringify(q);   // 確認寫入時用「試算過的那組條件」
+    } catch (e) {
+      note.textContent = '試算失敗：' + (e.code || e.message || '未知錯誤');
+    } finally { dry.disabled = false; }
+  });
+
+  apply.addEventListener('click', async () => {
+    const q = apply.dataset.q ? JSON.parse(apply.dataset.q) : null;
+    if (!q) return;
+    if (!confirm('這會直接改寫來訪紀錄，沒有復原功能。確定要寫入嗎？')) return;
+    apply.disabled = true; note.textContent = '寫入中……';
+    try {
+      const r = await api({}, { ...q, dryRun: false });
+      note.textContent = describe(r);
+      delete apply.dataset.q;
+      allSessions = []; sessOffset = 0; exhausted = false;
+      await refreshOverview();
+      await loadMore();
+    } catch (e) {
+      note.textContent = e.code === 'list_changed_retry'
+        ? '寫入期間有新的來訪進來，為了不寫錯位置已中止——請再按一次「試算」重來。'
+        : '寫入失敗：' + (e.code || e.message || '未知錯誤');
+      apply.disabled = false;
+    }
+  });
 }
 
 function mapKeys(obj, names) {

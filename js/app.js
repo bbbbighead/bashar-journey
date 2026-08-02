@@ -1299,8 +1299,12 @@ function copyAnalysis(a) {
 // 分享網站本身（一句話＋網址），刻意**不帶使用者的主題與解析內容**——
 // 主題常常很私人，自動塞進社群分享等於替使用者洩漏；要分享內容的人有「複製」可用。
 // 網址取當下站台位址，所以本機、preview、正式站都分享得出正確連結。
+// 分享用的網址固定寫死正式網域，不從 location 推。
+// 從 *.vercel.app 的預覽部署、沒有 www 的網域，或後台預覽的 iframe 進來時，
+// location 推出來的是那個當下的網址——分享給朋友的連結不該長那樣。
+const SITE_URL = 'https://www.intuitive-notes.com/';
 function siteUrl() {
-  return (location.origin + location.pathname).replace(/index\.html$/, '');
+  return SITE_URL;
 }
 
 function shareSite() {
