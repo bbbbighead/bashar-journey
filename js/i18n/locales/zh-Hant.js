@@ -251,6 +251,10 @@ export default {
     share: '分享給朋友',
     shareTitle: 'Intuitive Notes · 直覺筆記',
     shareText: '在 Intuitive Notes 填入想探索的主題，透過牌卡、卦象或星盤，看看會帶來什麼新的視角👀🌟',
+    shareImage: '分享圖片',
+    shareImageBusy: '產生中……',
+    shareImageSaved: '圖片已下載',
+    shareImageFail: '圖片產生失敗，請再試一次',
     shareCopied: '已複製分享連結 ✓',
     shareFail: '分享失敗',
     // 追蹤社群：方向與「分享給朋友」相反，是把使用者帶回來

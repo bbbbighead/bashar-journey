@@ -254,6 +254,10 @@ export default {
     share: '友だちにシェア',
     shareTitle: 'Intuitive Notes',
     shareText: 'Intuitive Notes に見つめたいテーマを書いて、カード・卦・ホロスコープがどんな新しい視点を運んでくるか見てみてください👀🌟',
+    shareImage: '画像をシェア',
+    shareImageBusy: '作成中……',
+    shareImageSaved: '画像を保存しました',
+    shareImageFail: '画像を作れませんでした。もう一度お試しください',
     shareCopied: 'リンクをコピーしました ✓',
     shareFail: 'シェアできませんでした',
     // フォローはシェアと逆方向——読者をここへ連れもどす導線

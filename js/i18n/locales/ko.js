@@ -253,6 +253,10 @@ export default {
     share: '친구에게 공유',
     shareTitle: 'Intuitive Notes',
     shareText: 'Intuitive Notes에 살펴보고 싶은 주제를 적고, 카드와 괘, 출생 차트가 어떤 새로운 시각을 데려오는지 보세요👀🌟',
+    shareImage: '이미지 공유',
+    shareImageBusy: '만드는 중……',
+    shareImageSaved: '이미지를 저장했습니다',
+    shareImageFail: '이미지를 만들지 못했습니다. 다시 시도해 주세요',
     shareCopied: '링크를 복사했습니다 ✓',
     shareFail: '공유하지 못했습니다',
     // 팔로우는 공유와 반대 방향 — 읽는 분을 다시 데려오는 길
