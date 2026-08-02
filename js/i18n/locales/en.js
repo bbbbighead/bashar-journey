@@ -16,7 +16,7 @@ export default {
     history: 'My readings',
     guide: 'About the practices',
     dialogue: 'Intuitive dialogue (1-to-1 session)',
-    cards: 'Your own oracle deck',
+    cards: 'Your own oracle card',
     support: 'Support this work 🍰',
     close: 'Close menu',
     open: 'Open menu',
