@@ -1408,6 +1408,22 @@ button.badge.repeat:hover {
 /* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
    地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
 .lang-cell, .geo-cell { white-space: nowrap; }
+/* 一次性資料修正（收在 details 裡，平常不佔版面也不會誤觸） */
+.a-fix { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.a-fix summary {
+  cursor: pointer; font-size: 13px; color: var(--accent-dim);
+  font-family: var(--sans); letter-spacing: .06em;
+}
+.a-fix summary:hover { color: var(--accent); }
+.a-fix .a-hint { margin: 10px 0; }
+.fix-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.fix-before {
+  font: inherit; font-size: 13px; color: var(--ink); color-scheme: dark;
+  background: rgba(6, 10, 17, .7); border: 1px solid var(--line-strong);
+  border-radius: 0; padding: 6px 10px;
+}
+.fix-note { font-size: 12.5px; color: var(--ink-dim); line-height: 1.7; min-height: 1.2em; }
+
 /* 字數：數字靠右對齊才好比大小；「+」標記＝觸到 4000 的紀錄上限 */
 .chars-cell { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .chars-cap { color: var(--ink-faint); margin-left: 1px; }

@@ -83,7 +83,28 @@
         <div class="a-block a-card">
           <h3>介面語言</h3>
           <div class="chart-host" id="langChart"></div>
-          <div class="a-hint small">使用者進站時的介面語言，可用來推估不同語區的流量。</div>
+          <div class="a-hint small">使用者實際看到的介面語言（中途切換語言會更新為切換後的）。</div>
+          <!-- 一次性資料修正：語言欄一度記錯，這裡把出錯那段時間的舊紀錄補正 -->
+          <details class="a-fix">
+            <summary>修正舊紀錄的語言</summary>
+            <div class="a-hint small">
+              語言欄一度記的是瀏覽器系統語言、而且送出得比「IP 補救」與「手動切換」都早，
+              所以那段時間的紀錄有一部分是錯的。這裡把<b>指定時間之前</b>的來訪一律改成選定語系。
+              時間上限預設是修正上線的時間，不要往後調——否則之後真的來自其他語區的人也會被改掉。
+            </div>
+            <div class="fix-row">
+              <select class="flt-select" id="fixLang">
+                <option value="zh-Hant">繁體中文</option>
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+              </select>
+              <input type="datetime-local" class="fix-before" id="fixBefore">
+              <button class="btn ghost small" id="btnFixDry">試算</button>
+              <button class="btn small danger" id="btnFixApply" disabled>確認寫入</button>
+            </div>
+            <div class="fix-note" id="fixNote"></div>
+          </details>
         </div>
         <div class="a-block a-card">
           <h3>地區</h3>
