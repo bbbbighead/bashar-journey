@@ -13,10 +13,11 @@ import {
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
-import { hexagramLines, meihuaForAI } from './engine/meihua.js';
+import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
+import { LENORMAND } from '../data/lenormand.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
@@ -27,6 +28,15 @@ import {
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+
+// 後台的「預覽結果頁」：以 iframe 載入 index.html?preview=1，再用 postMessage
+// 把那一次的紀錄餵進來，走的是與正式站完全相同的 renderResult()——這樣預覽
+// 看到的就是使用者看到的，不會兩邊長得不一樣。
+// 預覽模式下：不續玩、不寫 localStorage、不送統計（統計的閘門在 analytics.js）。
+const PREVIEW = (() => {
+  try { return new URLSearchParams(location.search).get('preview') === '1'; }
+  catch { return false; }
+})();
 let spreadRepaint = null; // 選牌畫面的輕量重繪（切換語系時只換文字）
 
 // 工具名稱：走語系字典（synthesis 也在 tools 內）
@@ -928,82 +938,40 @@ function chartWheelHtml(chart) {
   return chartWheelSvg(chart, dict().chartWheel || {});
 }
 
-// 全形數字轉半形
-function normDigits(s) {
-  return String(s).replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
-}
-
-// 從段落文字中的「（1、4、7）」抓出所有位置群組（數字 1–9，每組 1–5 個）
-function posGroupsInText(text) {
-  const groups = [];
-  const re = /[（(]\s*([0-9０-９][0-9０-９\s、，,和及]*)\s*[）)]/g;
-  let m;
-  while ((m = re.exec(text))) {
-    const nums = [...new Set((normDigits(m[1]).match(/[1-9]/g) || []).map(Number))];
-    if (nums.length >= 1 && nums.length <= 5) groups.push(nums);
-  }
-  return groups;
-}
-
-// 九宮格閱讀組別 → 固定位置。依目前語系取標籤，AI 也被要求用同一組標籤。
-// 依字數由長到短排序，確保「潛意識層」先於「意識層」比對（日文的「潜在意識」對「意識」亦同）。
-const GROUP_POS = {
-  subconscious: [7, 8, 9], conscious: [1, 2, 3], material: [4, 5, 6],
-  past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
-  heart: [5], cross: [2, 4, 6, 8], corners: [1, 3, 7, 9],
-};
+// 解讀的八個小標題。前六個是牌組（直欄＝時間、橫排＝三股力量），
+// 後兩個是收束段落（畫法不同，見 lenormandContentHtml）。
+//
+// 這裡刻意不再存「小標題 → 牌位」的對應：抽到的九張牌在該節最上方的九宮格
+// 已經完整呈現一次，每一段再把那一組牌重列一遍只是把版面撐長。文字裡有寫到
+// 牌名就夠了。
+const READ_GROUPS = ['past', 'present', 'future', 'outer', 'event', 'inner'];
+const CLOSE_GROUPS = ['combos', 'overall'];
 function groupLabels() {
   const g = dict().groups || {};
-  return Object.keys(GROUP_POS)
-    .map((k) => ({ label: g[k] || k, pos: GROUP_POS[k] }))
+  return [...READ_GROUPS.map((k) => ({ label: g[k], close: false })),
+    ...CLOSE_GROUPS.map((k) => ({ label: g[k], close: true }))]
     .filter((x) => x.label)
+    // 長的先比：短標題是長標題的前綴時（如「過去」對「過去的想法」）才不會先被吃掉
     .sort((a, b) => b.label.length - a.label.length);
-}
-
-// 決定某段落前方要顯示哪些對照牌卡（回傳位置群組陣列）。
-// 主：內文若明寫「（1、4、7）」這類位置，全部採用；
-// 備：AI 常以自然語言寫成「過去那一排」，故段落開頭若是已知組別名稱，用該組固定位置。
-function posGroupsForBlock(text) {
-  const explicit = posGroupsInText(text);
-  if (explicit.length) return explicit;
-  const txt = String(text).trim();
-  if (txt.length < 10) return []; // 太短多半是小標題本身（如「時間軸」「十字法」），不放牌卡
-  const head = txt.slice(0, 10);  // 只看開頭，避免內文中偶然出現「現在」等常用詞誤判
-  for (const g of groupLabels()) {
-    if (head.includes(g.label)) return [g.pos.slice()];
-  }
-  return [];
-}
-
-// 依位置陣列列出對應的小張牌卡（供各章節前方對照）
-function cardStripHtml(spread, positions) {
-  const cells = positions.map((pos) => {
-    const item = spread[pos - 1];
-    if (!item || !item.card) return '';
-    return `<figure class="lg-mini">
-      <span class="lg-mini-pos">${pos}</span>
-      <span class="lg-mini-ico">${cardConstellation(item.card.id)}</span>
-      <figcaption class="lg-mini-name">${esc(cardName(item.card.id, item.card.name))}</figcaption>
-    </figure>`;
-  }).join('');
-  if (!cells) return '';
-  return `<div class="lg-strip" aria-label="${esc(t('spread.stripAria'))}">${cells}</div>`;
 }
 
 // 該段落是否為「單獨成行的組別小標題」（如只寫「過去」「潛意識層」）。
 // 需完全等於組名（可帶尾端標點），避免「十字法」這種章節標題被誤判為「十字」。
 function exactGroupLabel(text) {
   const txt = String(text).trim().replace(/[：:。，,、\s]+$/, '');
-  if (txt.length > 5) return null;
-  return groupLabels().find((g) => g.label === txt) || null;
+  const labels = groupLabels();
+  // 上限由實際標題長度算出，不寫死數字：寫死 5 會讓「值得注意的牌組」這種
+  // 較長的標題被當成內文（實測踩到）。+2 留一點餘裕給各語系。
+  const max = labels.reduce((n, g) => Math.max(n, g.label.length), 0) + 2;
+  if (!txt || txt.length > max) return null;
+  return labels.find((g) => g.label === txt) || null;
 }
 
 // 雷諾曼解析內文：逐段落渲染。
-// ・若某行是單獨的組別小標題（過去／現在／未來／意識層…），就把「小標題＋對應牌卡＋
-//   接在後面的內文」合併進同一塊面板，讀者一眼看到標題、牌面與解讀。
-// ・若內文自己帶位置或以組名開頭（舊格式），仍在該段面板最上方放牌卡。
-function lenormandContentHtml(content, spread) {
-  const hasSpread = Array.isArray(spread) && spread.length;
+// ・單獨成行的小標題（過去／現在／外在環境…）與它後面所有的內文段落，合併成
+//   一塊面板；收束的兩段畫法不同（左側金線）。
+// ・抽到的牌不在這裡重列——該節最上方的九宮格已經完整呈現過一次。
+function lenormandContentHtml(content) {
   const blocks = String(content || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
   if (!blocks.length) return `<p>${esc(String(content || ''))}</p>`;
 
@@ -1012,19 +980,20 @@ function lenormandContentHtml(content, spread) {
     const b = blocks[i];
     const g = exactGroupLabel(b);
     if (g) {
-      // 組別小標題：帶上牌卡，並把下一段內文併進同一塊面板
-      const strip = hasSpread ? cardStripHtml(spread, g.pos) : '';
-      const next = blocks[i + 1];
-      const body = (next && !exactGroupLabel(next)) ? next : '';
-      if (body) i += 1;
-      out.push(`<div class="lg-para"><div class="lg-sub">${esc(g.label)}</div>${strip}`
-        + (body ? `<p>${esc(body)}</p>` : '') + `</div>`);
+      // 小標題後面所有的內文段落都要併進同一塊面板。必須吃掉「所有」而不只是
+      // 下一段——只吃一段的話，模型寫成兩段的內容會有第二段掉出面板、自成一塊
+      // 無標題的框，看起來像另一節。
+      const body = [];
+      while (i + 1 < blocks.length && !exactGroupLabel(blocks[i + 1])) {
+        body.push(blocks[i + 1]);
+        i += 1;
+      }
+      out.push(`<div class="lg-para${g.close ? ' lg-close' : ''}">`
+        + `<div class="lg-sub">${esc(g.label)}</div>`
+        + body.map((t) => `<p>${esc(t)}</p>`).join('') + `</div>`);
       continue;
     }
-    const strip = hasSpread
-      ? posGroupsForBlock(b).map((gr) => cardStripHtml(spread, gr)).join('')
-      : '';
-    out.push(`<div class="lg-para">${strip}<p>${esc(b)}</p></div>`);
+    out.push(`<div class="lg-para"><p>${esc(b)}</p></div>`);
   }
   return out.join('');
 }
@@ -1105,7 +1074,7 @@ function renderResult(a) {
       ${s.tool === 'meihua' ? meihuaGridHtml(state.meihua) : ''}
       ${s.tool === 'astro' ? chartWheelHtml(state.astro) : ''}
       <div class="r-block">${s.tool === 'lenormand'
-        ? lenormandContentHtml(s.content, state.lenormand)
+        ? lenormandContentHtml(s.content)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
@@ -1173,6 +1142,12 @@ function renderResult(a) {
 }
 
 // 完整內容（複製與導流共用）：主題 + 各節解析 + 結語
+// 交接文字用的「閱讀角度 → 牌位」對照。只有這裡需要位置編號（見下方註解）。
+const GRID_LEGEND = {
+  past: [1, 4, 7], present: [2, 5, 8], future: [3, 6, 9],
+  outer: [1, 2, 3], event: [4, 5, 6], inner: [7, 8, 9],
+};
+
 // 九張牌的文字清單＋位置對照，供複製與帶給 AI 用。
 // 為什麼需要：結果頁的九宮格是圖，複製貼上帶不走；而 prompt 又刻意要求解讀
 // 內文「不要逐一列出牌名」，所以少了這一段，接手的 AI 根本不知道抽到哪九張牌。
@@ -1183,10 +1158,13 @@ function spreadTextForAI(spread) {
   const cards = spread
     .map(({ card }, i) => `${i + 1}. ${cardName(card.id, card.name)}`)
     .join('\n');
-  // 每個閱讀角度各佔一行（直式），讓 AI 一眼對得起來
-  const legend = ['past', 'present', 'future', 'conscious', 'material', 'subconscious', 'heart', 'cross', 'corners']
-    .filter((k) => g[k])
-    .map((k) => `${g[k]}${t('labelSep')}${GROUP_POS[k].join(sep)}`)
+  // 每個閱讀角度各佔一行（直式），讓 AI 一眼對得起來。
+  // 這裡保留位置編號是刻意的：讀這段文字的是另一個 AI 或剪貼簿，它看不到
+  // 九宮格的圖，沒有編號就不知道哪張牌在哪個位置。頁面上的解讀不用編號，
+  // 那是給人讀的、圖就在旁邊——兩邊的讀者不同，規則本來就該不同。
+  const legend = Object.entries(GRID_LEGEND)
+    .filter(([k]) => g[k])
+    .map(([k, pos]) => `${g[k]}${t('labelSep')}${pos.join(sep)}`)
     .join('\n');
   return [
     t('result.cardsTitle'),
@@ -1412,11 +1390,13 @@ onLocaleChange(() => {
   repaintCurrentScreen();
   refreshStart();
 });
-// 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救
-refineByCountry();
+// 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救。
+// 預覽模式跳過：那一次的語系由後台指定，不能讓 IP 蓋掉。
+if (!PREVIEW) refineByCountry();
 
 // ---- 續玩 ----
 (function resume() {
+  if (PREVIEW) return;            // 預覽頁不碰站主自己的 session
   const saved = loadSession();
   if (!saved || !saved.opening || !Array.isArray(saved.tools)) return;
   state = saved;
@@ -1430,4 +1410,90 @@ refineByCountry();
 // ---- utils ----
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---- 預覽模式：等後台把那一次的紀錄送進來 ----
+if (PREVIEW) {
+  document.body.classList.add('preview-mode');
+  window.addEventListener('message', async (e) => {
+    // 只收同源的訊息：預覽頁與後台都在同一個網域，跨來源的一律忽略
+    if (e.origin !== location.origin) return;
+    const msg = e.data;
+    if (!msg || msg.type !== 'previewSession' || !msg.session) return;
+    try {
+      await renderPreview(msg.session);
+    } catch (err) {
+      $('resultHost').innerHTML = `<p class="preview-err">預覽失敗：${esc(err && err.message)}</p>`;
+      showScreen('screenResult');
+    }
+  });
+  // 告訴父視窗「我準備好了」，避免 postMessage 早於 iframe 載入完成
+  try { parent.postMessage({ type: 'previewReady' }, location.origin); } catch { /* 忽略 */ }
+}
+
+// 把後台送來的紀錄還原成 state，再交給正式的 renderResult()。
+// 有些東西紀錄裡沒有，得在這裡重建：
+//   ・雷諾曼只存了牌名 → 對回 36 張的牌卡資料，九宮格圖才畫得出來
+//   ・梅花只存了三個數字 → 用同一支引擎重新起卦（castFromNumbers 是純函式，
+//     同樣的數字必然得到同樣的卦，所以重建的結果與當初一模一樣）
+//   ・星盤完全沒存 → 用出生資料重新算一次；算不出來就不畫，並在橫幅說明
+async function renderPreview(sess) {
+  const notes = sess.previewNotes || {};
+  // 用使用者當時的語系重現。第二個參數 false＝不寫入 localStorage，
+  // 預覽不該改掉站主自己的語系偏好。
+  // 這一步也是段落能不能對上的關鍵：結果頁是靠「該語系的小標題字樣」認段落的，
+  // 語系不對就一段都認不出來（實測踩到：後台是英文，畫面就變成 16 塊無標題面板）。
+  if (sess.lang) setLocale(sess.lang, false);
+  state = {
+    version: 3,
+    runId: 'preview',
+    status: 'done',
+    opening: sess.opening || '',
+    tools: sess.tools || [],
+    lenormand: null,
+    meihua: null,
+    astro: null,
+    analysis: sess.analysis || { title: '', sections: [] },
+  };
+
+  if (Array.isArray(sess.cards) && sess.cards.length) {
+    state.lenormand = sess.cards.map((name, i) => {
+      const card = LENORMAND.find((c) => c.name === name);
+      return { position: i + 1, card: card || { id: 0, name } };
+    });
+  }
+  if (Array.isArray(sess.numbers) && sess.numbers.length === 3) {
+    state.meihua = castFromNumbers(sess.numbers[0], sess.numbers[1], sess.numbers[2]);
+  }
+
+  const warn = [];
+  if (notes.truncated) warn.push('這次的解讀在記錄時被截斷（上限 4000 字），下方內容並非全文。');
+
+  const birth = sess.astroBirth;
+  if ((state.tools || []).includes('astro')) {
+    if (birth && birth.date) {
+      try {
+        state.astro = await fetchAstroChart({
+          date: birth.date,
+          time: birth.timeUnknown ? null : birth.time,
+          timeUnknown: !!birth.timeUnknown,
+          city: birth.city || '',
+          country: birth.country || '',
+        });
+        warn.push('星盤是用當時的出生資料重新計算的（星盤本身沒有存），與使用者看到的應該一致。');
+      } catch {
+        warn.push('星盤重算失敗，所以這次預覽沒有星盤圖；解讀文字不受影響。');
+      }
+    } else {
+      warn.push('這筆紀錄沒有留下出生資料，所以畫不出星盤圖；解讀文字不受影響。');
+    }
+  }
+
+  renderResult(state.analysis);
+  const host = $('resultHost');
+  const bar = document.createElement('div');
+  bar.className = 'preview-bar';
+  bar.innerHTML = `<b>預覽模式</b>——這是後台重現的畫面，不會產生任何統計紀錄。`
+    + (warn.length ? `<ul>${warn.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '');
+  host.prepend(bar);
 }

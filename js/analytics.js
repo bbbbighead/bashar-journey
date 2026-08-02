@@ -5,6 +5,14 @@
 const ENDPOINT = '/api/track';
 const VID_KEY = 'pi_visitor_id';
 
+// 預覽模式（後台的「預覽結果頁」以 iframe 載入 index.html?preview=1）：
+// 一律不送統計、也不碰訪客 ID。少了這道閘門，站主每看一次舊紀錄就會多產生
+// 一筆來訪與一堆停留時間，把自己的數據汙染掉。
+const PREVIEW = (() => {
+  try { return new URLSearchParams(location.search).get('preview') === '1'; }
+  catch { return false; }
+})();
+
 // 持久訪客 ID（同一瀏覽器跨次來訪不變）。
 // 純隨機、不含任何個人資訊——只能認出「同一個瀏覽器」，不能認出「同一個人」。
 // 已知會斷掉的情況：換裝置／換瀏覽器／無痕／清資料，
@@ -14,6 +22,10 @@ const newVid = () => (crypto.randomUUID
   : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 8);
 
 function visitorId() {
+  // 預覽模式不建立、也不讀取訪客 ID。後台與正式站同源，共用同一份
+  // localStorage——站主只是看一筆舊紀錄，卻會在自己的瀏覽器裡種下一個
+  // pi_visitor_id，之後真的去逛網站時就被算成回訪。
+  if (PREVIEW) return 'preview';
   try {
     let v = localStorage.getItem(VID_KEY);
     if (!v) {
@@ -37,6 +49,7 @@ const VID = visitorId();
 export function sessionId() { return SID; }
 
 function send(payload) {
+  if (PREVIEW) return;
   try {
     const body = JSON.stringify({ sid: SID, vid: VID, ...payload });
     if (navigator.sendBeacon) {

@@ -29,7 +29,7 @@ export default {
     toolPick: '점술을 하나 선택해 주세요',
     soon: 'Coming Soon',
     start: '풀이 시작하기',
-    fineprint: '이곳은 스스로를 들여다보는 경험이며, 의료·법률·재무 조언이 아닙니다. 경험 개선을 위해 내용은 익명으로 기록됩니다.',
+    fineprint: '이곳은 스스로를 들여다보는 경험이며, 의료·법률·재무 조언이 아닙니다. 경험 개선을 위해 내용은 익명으로 기록됩니다(표시 언어와 국가 포함).',
   },
 
   tools: {
@@ -146,7 +146,6 @@ export default {
     reset: '다시 뽑기',
     cardBack: '카드 (뒷면)',
     gridAria: '르노르망 9카드 스프레드',
-    stripAria: '이 단락에 해당하는 카드',
   },
 
   numbers: {
@@ -315,10 +314,15 @@ export default {
     delAria: '이 기록 삭제',
   },
 
+  // 아홉 장 리딩의 여덟 소제목. 앞 세 개는 세로줄(시간), 다음 세 개는
+  // 가로줄(세 가지 힘), 마지막 두 개는 마무리 단락(고정된 카드 위치가 없어
+  // 카드를 넣지 않는다).
+  // ⚠ 이 문자열은 프런트엔드가 카드를 끼워 넣는 기준점이기도 하다 —— 문구를
+  // 바꾸면 카드가 맞지 않는다.
   groups: {
     past: '과거', present: '현재', future: '앞으로',
-    conscious: '의식', material: '현실', subconscious: '무의식',
-    heart: '중심', cross: '십자', corners: '네 모서리',
+    outer: '바깥 상황', event: '일의 현재', inner: '나의 마음',
+    combos: '눈여겨볼 조합', overall: '전체의 의미',
   },
 
 

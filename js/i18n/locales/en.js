@@ -29,7 +29,7 @@ export default {
     toolPick: 'Choose one practice',
     soon: 'Coming Soon',
     start: 'Begin the reading',
-    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously to improve the experience.',
+    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously (including your interface language and country) to improve the experience.',
   },
 
   tools: {
@@ -146,7 +146,6 @@ export default {
     reset: 'Start over',
     cardBack: 'A card, face down',
     gridAria: 'Lenormand nine-card grid',
-    stripAria: 'Cards for this passage',
   },
 
   numbers: {
@@ -315,10 +314,15 @@ export default {
     delAria: 'Delete this reading',
   },
 
+  // The eight headings of the nine-card reading. First three are the columns
+  // (time), next three the rows (the three forces), last two the closing
+  // passages (no fixed card positions, so no card strip).
+  // ⚠ These strings double as the anchors the front end uses to place the card
+  // strips — change the wording and the cards stop matching.
   groups: {
     past: 'Past', present: 'Present', future: 'Emerging',
-    conscious: 'Conscious', material: 'Material', subconscious: 'Subconscious',
-    heart: 'Heart', cross: 'Cross', corners: 'Corners',
+    outer: 'Around you', event: 'The situation', inner: 'Where you stand',
+    combos: 'Combinations worth noting', overall: 'What it adds up to',
   },
 
 

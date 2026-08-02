@@ -564,24 +564,6 @@ body.cz-open { overflow: hidden; }
 }
 
 /* 章節前的對照小牌卡 */
-.lg-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 12px; }
-.lg-mini {
-  position: relative; width: 62px; margin: 0; padding: 6px 3px 4px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
-  background: linear-gradient(180deg, rgba(10, 15, 24, .82), rgba(8, 12, 20, .9));
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, .45);
-}
-.lg-mini-pos {
-  position: absolute; top: 3px; left: 5px;
-  font-size: 9px; color: var(--accent-dim); font-family: Georgia, serif; opacity: .8;
-}
-.lg-mini-ico { width: 72%; margin: 2px auto 3px; }
-.lg-mini-name {
-  font-family: var(--serif); font-size: 11px; color: var(--ink-dim);
-  letter-spacing: .06em; text-align: center; line-height: 1.3;
-}
-
 /* ---- 結果頁：分節解析 ---- */
 .r-section { margin-bottom: 30px; }
 .r-sec-head {
@@ -1023,18 +1005,34 @@ select.flt-select {
   background: rgba(13, 20, 31, .48);
   backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
-  padding: 20px 18px;
+  padding: 18px 18px 20px;
 }
-.r-section .r-block .lg-para + .lg-para { margin-top: 16px; }
+.r-section .r-block .lg-para + .lg-para { margin-top: 14px; }
 .r-section .r-block .lg-para p { /* 面板已由 .lg-para 提供，內層文字不再自帶底色 */
   margin: 0; background: none; border: none; padding: 0;
   backdrop-filter: none; -webkit-backdrop-filter: none;
+  line-height: 1.95;                 /* 中文長段落要比預設更鬆才讀得下去 */
 }
-.r-section .r-block .lg-para .lg-strip { margin: 0 0 14px; }
-/* 組別小標題（過去／現在／未來、意識層…）：與牌卡、內文同在一塊面板內 */
+/* 同一段裡的第二段起要有呼吸。沒有這條，模型寫成兩段會黏成一大塊 */
+.r-section .r-block .lg-para p + p { margin-top: 1.1em; }
+
+/* 組別小標題。加一條細底線：八個面板長得一樣時，眼睛需要一個明確的起點才好掃。 */
 .r-section .r-block .lg-para .lg-sub {
-  font-family: var(--sans); font-size: 12.5px; letter-spacing: .26em;
-  color: var(--accent); margin-bottom: 12px;
+  font-family: var(--sans); font-size: 13px; letter-spacing: .22em;
+  color: var(--accent); margin: 0 0 14px; padding-bottom: 9px;
+  border-bottom: 1px solid rgba(214, 183, 122, .18);
+}
+/* 收束的兩段（值得注意的牌組、整體意義）沒有對應牌卡，改用左側金線標出
+   「這裡開始是收攏，不是新的一組牌」，讀者才知道報告要結束了。 */
+.r-section .r-block .lg-para.lg-close {
+  border-left: 2px solid rgba(214, 183, 122, .42);
+  background: rgba(16, 24, 36, .52);
+}
+.r-section .r-block .lg-para.lg-close + .lg-para.lg-close { margin-top: 12px; }
+@media (max-width: 420px) {
+  .r-section .r-block .lg-para { padding: 16px 14px 18px; }
+  .r-section .r-block .lg-para p { line-height: 1.9; }
+  .r-section .r-block .lg-para .lg-sub { font-size: 12.5px; letter-spacing: .18em; }
 }
 .r-questions { list-style: none; }
 .r-questions li {
@@ -1388,7 +1386,12 @@ button.badge.repeat:hover {
   font-size: 11px; color: var(--accent); border: 1px solid var(--accent-dim);
   border-radius: 0; padding: 2px 10px; letter-spacing: .14em;
   outline: 1px solid var(--line); outline-offset: 2px;
+  /* 欄位變多之後表格會擠壓每一欄，若允許折行，「有題目」會被拆成三行 */
+  white-space: nowrap;
 }
+/* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
+   地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
+.lang-cell, .geo-cell { white-space: nowrap; }
 .badge.dim { color: var(--ink-faint); border-color: var(--line); }
 .sess-detail .detail-cell {
   background: var(--panel); font-size: 13px; color: var(--ink-dim);
@@ -1713,3 +1716,36 @@ button.badge.repeat:hover {
 .hist-card-title { font-family: var(--serif); font-size: 17px; color: var(--ink); margin-bottom: 6px; }
 .hist-card-topic { font-family: var(--serif); font-size: 14px; color: var(--ink-dim); margin-bottom: 8px; }
 .hist-card-meta { font-family: var(--sans); font-size: 12px; letter-spacing: .06em; color: var(--accent-dim); }
+
+/* ---- 後台：結果頁預覽（js/admin.js 的 openPreview）---- */
+/* 用 iframe 載入正式的結果頁，所以預覽與使用者看到的是同一份渲染程式 */
+body.pv-open { overflow: hidden; }
+.pv-overlay {
+  position: fixed; inset: 0; z-index: 95;
+  display: flex; flex-direction: column;
+  background: #04070c;
+  animation: fadein-soft .18s ease both;
+}
+.pv-bar {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+}
+.pv-title { font-family: var(--sans); font-size: 13px; color: var(--ink-dim); }
+.pv-title code { color: var(--accent); }
+.pv-state { flex: 1; font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
+.pv-stage { flex: 1 1 auto; overflow: hidden; display: flex; justify-content: center; }
+/* 固定成手機寬度：站主要體驗的是使用者的畫面，而多數使用者在手機上 */
+.pv-frame { width: 100%; max-width: 420px; height: 100%; border: 0; background: #060a11; }
+.prev-cell { white-space: nowrap; }
+
+/* ---- 結果頁的預覽模式橫幅（index.html?preview=1）---- */
+.preview-bar {
+  margin-bottom: 18px; padding: 12px 14px; border-radius: 3px;
+  border: 1px solid rgba(214, 183, 122, .34);
+  background: rgba(224, 193, 132, .08);
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.75; color: var(--ink-dim);
+}
+.preview-bar b { color: var(--accent); }
+.preview-bar ul { margin: 8px 0 0; padding-left: 18px; }
+.preview-bar li + li { margin-top: 4px; }
+.preview-err { color: #d9a2a2; font-family: var(--sans); font-size: 13px; }

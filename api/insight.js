@@ -80,26 +80,35 @@ const TOOL_LABEL = {
   ko: { lenormand: '르노르망 9카드', meihua: '매화역수', astro: '서양 점성술' },
 };
 // 九宮格組別小標題的預設字（前端也會把自己語系的標籤一併送上，以其為準）
+// 九宮格八個小標題的伺服器端備援。前端會連同請求送出自己語系的字樣，
+// 這裡的值只在它沒送或送了舊格式時派上用場——沒有這層備援，剛部署時還帶著
+// 舊版 JS 的瀏覽器會讓 prompt 裡出現 "undefined" 當標題。
+// ⚠ 必須與 js/i18n/locales/*.js 的 groups 逐字一致，否則模型寫的標題前端認不出來。
 const GROUP_FALLBACK = {
-  'zh-Hant': { past: '過去', present: '現在', future: '未來', conscious: '意識層', material: '現實層', subconscious: '潛意識層', heart: '核心', cross: '十字', corners: '四角' },
-  en: { past: 'Past', present: 'Present', future: 'Emerging', conscious: 'Conscious', material: 'Material', subconscious: 'Subconscious', heart: 'Heart', cross: 'Cross', corners: 'Corners' },
-  ja: { past: '過去', present: '現在', future: 'これから', conscious: '意識', material: '現実', subconscious: '潜在意識', heart: '中心', cross: '十字', corners: '四隅' },
-  ko: { past: '과거', present: '현재', future: '앞으로', conscious: '의식', material: '현실', subconscious: '무의식', heart: '중심', cross: '십자', corners: '네 모서리' },
+  'zh-Hant': { past: '過去', present: '現在', future: '未來', outer: '外在環境', event: '事件現況', inner: '個人心境', combos: '值得注意的牌組', overall: '整體意義' },
+  en: { past: 'Past', present: 'Present', future: 'Emerging', outer: 'Around you', event: 'The situation', inner: 'Where you stand', combos: 'Combinations worth noting', overall: 'What it adds up to' },
+  ja: { past: '過去', present: '現在', future: 'これから', outer: '外の状況', event: '事の現状', inner: '自分の心境', combos: '注目したい組みあわせ', overall: '全体の意味' },
+  ko: { past: '과거', present: '현재', future: '앞으로', outer: '바깥 상황', event: '일의 현재', inner: '나의 마음', combos: '눈여겨볼 조합', overall: '전체의 의미' },
 };
 function pickLang(v) { return LANGS.includes(v) ? v : 'zh-Hant'; }
 
 // ---- 各階段資料段：排版成可讀文字（送給模型與記錄的就是這串文字，非 JSON 結構） ----
 
+// 每一格只送三件事：編號、抽到哪張牌、那張牌象徵什麼。位置是標記，不是定義——
+// 九宮格沒有一格有獨立牌義，解讀一律以「一組」為單位（哪些編號組成哪一組，
+// 寫在 TOOL_STRUCT.lenormand 裡）。
+//
+// 曾經多送、後來移除的（都不符合上面那條規則）：
+//   ・位置的語意標籤（「過去的想法／舊有認知」「全局核心／此刻的中心影響」…）
+//   ・「中心牌（全局核心）：山」——十字法的殘留，且與「核心是事件現況那一組」衝突
+//   ・「收斂主題：阻礙與消耗（×3）…」——在模型讀牌之前先給結論，而且把位置
+//     資訊抹掉（實測「阻礙」落在過去與現在、「洞察」落在現在與未來，走向清楚，
+//     數出來卻是 3:3 打平）
 function fmtLenormand(L) {
   if (!L || !Array.isArray(L.grid)) return '（無牌陣資料）';
-  const lines = L.grid.map((g) =>
-    `・${g.position}｜${g.card}（${(g.keys || []).join('、')}）——${g.meaning}`);
-  return [
-    '九宮格（依位置，由左至右、由上至下）：',
-    ...lines,
-    `中心牌（全局核心）：${L.center || '—'}`,
-    `收斂主題：${(L.themes || []).join('、') || '（無明顯收斂）'}`,
-  ].join('\n');
+  const lines = L.grid.map((g, i) =>
+    `${g.position || i + 1}｜${g.card}（${(g.keys || []).join('、')}）——${g.meaning}`);
+  return ['九宮格（由左至右、由上至下為位置 1–9）：', ...lines].join('\n');
 }
 
 function fmtMeihua(M) {
@@ -208,18 +217,27 @@ const LEN_RULE = {
 
 // 每個工具「必須逐項走完」的結構——直接寫進 prompt，模型須依此展開每一段
 const TOOL_STRUCT = {
-  lenormand: (g, len) => `雷諾曼牌陣（九宮格 3×3）——content 內請依下列小標題依序展開，每一段都要具體、有內容，以「牌組組合」而非逐張牌義解讀：
-① 九張牌已以九宮格圖示呈現給使用者，**不要在文字中逐一列出牌名**；直接從整體印象進入解讀。
-② 時間軸：分別解讀「${g.past}」「${g.present}」「${g.future}」三組，各成一段。
-③ 三層意識：分別解讀「${g.conscious}」「${g.material}」「${g.subconscious}」三組，各成一段。
-④ 十字法：解讀「${g.heart}」「${g.cross}」「${g.corners}」。
-⑤ 最後整理這九張牌共同描述的生命故事、核心主題與發展方向。
+  lenormand: (g) => `雷諾曼牌陣（九宮格 3×3）——content 依下列八個小標題依序展開，每個標題單獨成行，換行後才寫該段內容。
 
-【小標題格式（務必遵守）】每一組都以**簡短標題單獨成行**，標題必須**逐字使用**下列字樣（不可改寫、不可翻譯成別的說法、後面不加說明或位置編號）：
-${g.past}／${g.present}／${g.future}／${g.conscious}／${g.material}／${g.subconscious}／${g.heart}／${g.cross}／${g.corners}
-標題單獨一行，換行後才寫該組的解讀內容。前端會依這些標題把對應牌卡顯示在該段上方，字樣不符就對不上。
-⚠ 正文中**絕對不要**出現「那一排」「這一排」「那三張」「這一組牌」（及其他語言的同義說法，如 "that row"／"those three cards"／「あの列」／'그 줄'）等指涉牌卡位置或數量的說法，也不要寫出位置編號（如 1、4、7）——牌面已用圖示呈現，讀者看得到。直接談內容本身。
-每個小標題都要出現、有實質敘述、不可略過，但每段都要精簡。⚠ ${len}，為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
+標題必須**逐字使用**下列字樣（不可改寫、不可加說明、不可加編號）：
+${g.past}／${g.present}／${g.future}／${g.outer}／${g.event}／${g.inner}／${g.combos}／${g.overall}
+
+【每一段要回答什麼】
+${g.past}（1、4、7）：這件事從哪裡來？當時的狀態與已經形成的條件是什麼？
+${g.present}（2、5、8）：現在實際的位置在哪裡？眼前有什麼、缺什麼？
+${g.future}（3、6、9）：照現在的走勢會往哪裡去？什麼會先出現？
+${g.outer}（1、2、3）：外在局勢是什麼？哪些是當事人此刻不可控的？若涉及特定對象或組織，外部氣氛與其狀態是什麼？
+${g.event}（4、5、6）：這件事目前真正的狀態是什麼？卡住的點在哪裡？而且要說明——它為什麼會變成現在這樣（必須扣回外在與個人兩組，不能單獨判讀）。
+${g.inner}（7、8、9）：當事人的心境、信念與行動模式是什麼？真正的期待是什麼？哪些仍握在自己手裡、可以調整？
+${g.combos}：挑出這副牌裡最值得注意的牌組，說明它們為什麼重要。
+${g.overall}：外在與個人這兩股力量如何交互、共同形成目前的局勢；以及接下來可以怎麼做。這一段是收攏，不要重述前面已經講過的情節。
+
+【怎麼寫】
+・每一段就是把該組的牌合起來讀，講出具體的內容——是什麼、往哪裡去、對當事人意味著什麼。
+・直接寫牌名，用 + 連接（例：船+雲：……），後面接這個組合的意思。
+・⚠ 不要寫「那一排」「這一排」「這三張」「這一組牌」（及其他語言的同義說法，如 "that row"／"those three cards"／「あの列」／'그 줄'），也不要寫位置編號——牌陣已用圖示呈現在文字上方，讀者看得到位置。用牌名指稱就好。
+・上面括號裡的位置編號只是給你對照用的，不要出現在輸出裡。
+・長度由內容決定：把該講的講清楚，不要為了篇幅硬撐，也不要草率帶過。`,
   meihua: (g, len) => `梅花易數——content 內請依下列小標題依序完整展開，把整個卦象整理成一個完整的故事，而非零碎解釋：
 ① 本卦：卦名與卦象含義。
 ② 變卦：卦名與其代表的走向變化。
@@ -230,6 +248,49 @@ ${g.past}／${g.present}／${g.future}／${g.conscious}／${g.material}／${g.su
 每個小標題都要出現、有實質敘述，但每段都要精簡。⚠ ${len}，為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
   astro: () => `西洋占星——不固定分析整張盤，依主題主動挑選所有高度相關的配置（宮位、宮主星、飛星、相位、Vesta 等），逐項說明後整理成一條完整的生命脈絡。所有數據只能依提供的星盤，不得補造。`,
 };
+
+// ── 結構驗收（不是寫給模型看的）────────────────────────────────────────────
+// 為什麼放在程式而不是指令裡：字數規定寫進指令，模型會把它當成寫作目標去湊；
+// 放在這裡，模型完全不知道有這條線，自然地寫，由我們收到之後判斷「這次是不是
+// 壞了」。門檻刻意設得很低，只攔崩潰（曾經出現整節只有 300 字、八段幾乎全空
+// 的情況），不去雕塑正常輸出——正常的解讀離這些線很遠。
+const MIN_BODY = { cjk: 60, en: 25 };   // 每段本文（CJK 字／英文 words）
+const MIN_TOTAL = { cjk: 500, en: 220 };
+
+function countUnits(text, lang) {
+  return lang === 'en'
+    ? String(text).trim().split(/\s+/).filter(Boolean).length
+    : String(text).replace(/\s+/g, '').length;
+}
+
+// 回傳缺漏原因（陣列），空陣列＝通過。只驗雷諾曼那一節。
+function lenormandShortfalls(content, groups, lang) {
+  const unit = lang === 'en' ? 'en' : 'cjk';
+  const heads = ['past', 'present', 'future', 'outer', 'event', 'inner', 'combos', 'overall']
+    .map((k) => groups[k]).filter(Boolean);
+  if (heads.length !== 8) return [];        // 語系缺標題就不驗，避免誤判
+  const lines = String(content || '').split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const bad = [];
+  const idx = heads.map((h) => lines.findIndex((l) => l.replace(/[：:。，,、\s]+$/, '') === h));
+  heads.forEach((h, i) => {
+    if (idx[i] < 0) { bad.push(`缺少「${h}」`); return; }
+    // 該標題到下一個標題之間的所有行＝這一段的本文
+    const nexts = idx.filter((n) => n > idx[i]);
+    const end = nexts.length ? Math.min(...nexts) : lines.length;
+    const body = lines.slice(idx[i] + 1, end).join('');
+    if (countUnits(body, unit) < MIN_BODY[unit]) bad.push(`「${h}」幾乎沒有內容`);
+  });
+  if (countUnits(lines.join(''), unit) < MIN_TOTAL[unit]) bad.push('整節過短');
+  return bad;
+}
+
+// data 是模型回傳的物件。回傳缺漏原因陣列（空＝通過）。
+function shortfallsOf(data, seg) {
+  if (!seg.tools || !seg.tools.includes('lenormand')) return [];
+  const sec = ((data && data.sections) || []).find((x) => x && x.tool === 'lenormand');
+  if (!sec) return ['缺少雷諾曼那一節'];
+  return lenormandShortfalls(sec.content, seg.groups || {}, seg.lang || 'zh-Hant');
+}
 
 function buildPrompt(action, p, seg) {
   if (action !== 'analyze') return '';
@@ -244,6 +305,8 @@ function buildPrompt(action, p, seg) {
   const label = (x) => (TOOL_LABEL[lang] || TOOL_LABEL['zh-Hant'])[x] || x;
   const len = LEN_RULE[lang] || LEN_RULE['zh-Hant'];
   const order = tools.map(label).join('、');
+  // 雷諾曼不傳 len：它的段落規定改用「每段要回答什麼」定義完整度，不用字數。
+  // 字數下限會逼模型在沒東西可講時硬撐——那正是舊版冗長的來源。
   const structs = tools.map((x) => `〔${label(x)}〕\n${TOOL_STRUCT[x](seg.groups || {}, len)}`).join('\n\n');
   const secRule = multi
     ? `sections 依序輸出這些工具的完整解析：${order}（tool 欄位用代碼 ${tools.join('、')}），最後再加一節 tool="synthesis" 的「交叉比對綜合分析」。不得用綜合分析取代任何工具的完整解析。`
@@ -255,8 +318,7 @@ function buildPrompt(action, p, seg) {
 
 ${blocks.join('\n\n')}
 
-請為每個所選工具產出一節解析，並**嚴格依照下列每個工具的結構逐項展開**——每個小標題都必須出現、都要有實質敘述、不可省略任何一項。但**字數上限是硬性規定，優先於「寫得完整」**：與其某一段寫很長，不如每段都精簡到位，把總字數壓在規定範圍內。沒有註明字數的工具才務求詳盡。
-寫完後請**自我檢查字數**：若某節超過上限，回頭刪減、精簡到符合規定才輸出。
+請為每個所選工具產出一節解析，**依下列每個工具的結構逐段展開**——每個小標題都必須出現、都要有實質敘述、不可省略任何一項。有註明字數上限的工具請遵守；沒有註明的，長度由內容決定：該講的講清楚，不為篇幅硬撐，也不草率帶過。
 
 使用者的主題已顯示在報告最上方，內文請**直接展開分析**，不要在開頭再複述一次主題或提問（例如不要用「關於『…』」「你問的是…」起頭）。
 
@@ -264,7 +326,7 @@ ${structs}
 ${multi ? '\n完成各節後，另加「交叉比對綜合分析」：找出共同反覆出現的核心、彼此互補之處，整理出最重要的生命主題與下一步方向。\n' : ''}
 輸出 JSON：
 - title：一句自然、日常、一看就懂的話（以輸出語言書寫；中日韓 ≤16 字，英文 ≤10 words）。此標題**不會顯示在報告上**，僅用於「我的靈感訊息」列表的標籤。
-- sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題可用「時間軸」「三層意識」「本卦」等自然標示，但不要用 markdown 符號。`;
+- sections：${secRule} 每節 content 用完整段落敘事、追求洞察感而非文學感；小標題只用各工具規定的字樣（見上），不要自己另外命名，也不要用 markdown 符號。`;
 }
 
 async function callOpenAI(apiKey, model, maxTokens, systemPrompt, userPrompt, schema, schemaName) {
@@ -394,8 +456,13 @@ export default async function handler(req, res) {
     serverMs: Date.now() - tEnter,
   });
 
-  // 呼叫一次，失敗重試一次，再失敗回 fallback（兩者皆設時優先 OpenAI）
+  // 呼叫一次，失敗重試一次，再失敗回 fallback（兩者皆設時優先 OpenAI）。
+  // 「失敗」除了拋錯，也包含結構驗收不通過——殘缺的解讀不要送到使用者面前，
+  // 寧可多等一輪。retries 會記進 timing，後台才看得出這道機制多久觸發一次；
+  // 若觸發率偏高，代表該回頭改指令，不是靠重跑硬撐。
   const llmMs = [];
+  let lastData = null;
+  let shortfalls = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     const tLlm = Date.now();
     try {
@@ -403,11 +470,27 @@ export default async function handler(req, res) {
         ? await callOpenAI(openaiKey, openaiModels()[action], maxTokens, systemPrompt, prompt, schema, action)
         : await callAnthropic(anthropicKey, MODEL[action], maxTokens, systemPrompt, prompt, schema);
       llmMs.push(Date.now() - tLlm);
-      res.status(200).json({ ok: true, data, timing: timing({ llmMs, attempts: attempt + 1 }) });
-      return;
+      lastData = data;
+      shortfalls = shortfallsOf(data, segments);
+      if (!shortfalls.length || attempt === 1) {
+        // 第二輪仍不合格就照樣送出——殘缺總比讓使用者看到錯誤畫面好，
+        // 而 shortfalls 會留在 timing 裡供後台追。
+        res.status(200).json({
+          ok: true,
+          data,
+          timing: timing({ llmMs, attempts: attempt + 1, shortfalls }),
+        });
+        return;
+      }
     } catch (e) {
       llmMs.push(Date.now() - tLlm);
       if (attempt === 1) {
+        if (lastData) {
+          res.status(200).json({
+            ok: true, data: lastData, timing: timing({ llmMs, attempts: 2, shortfalls }),
+          });
+          return;
+        }
         res.status(200).json({ ok: false, fallback: true, timing: timing({ llmMs, attempts: 2, failed: true }) });
         return;
       }
