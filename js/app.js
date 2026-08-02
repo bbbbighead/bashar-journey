@@ -62,6 +62,18 @@ function applyStaticText(root = document) {
     const v = t(el.dataset.i18nAria);
     if (v) el.setAttribute('aria-label', v);
   });
+  applyLocaleOnly(root);
+}
+
+// 只在特定語系提供的功能：data-locale-only="zh-Hant,en" 列出可見的語系。
+// 用 hidden 而不是 CSS class，連輔助科技與 Tab 鍵都一併跳過——
+// 服務不存在時，讓它「讀得到但點不到」比直接不存在更糟。
+function applyLocaleOnly(root = document) {
+  const now = getLocale();
+  root.querySelectorAll('[data-locale-only]').forEach((el) => {
+    const allowed = el.dataset.localeOnly.split(',').map((s) => s.trim()).filter(Boolean);
+    el.hidden = !allowed.includes(now);
+  });
 }
 
 // ---- 選單內的語言切換 ----
@@ -1117,7 +1129,7 @@ function renderResult(a) {
       </div>
       <div class="copy-toast" id="copyToast"></div>
     </div>
-    <div class="r-advanced">
+    <div class="r-advanced" data-locale-only="zh-Hant">
       <button class="btn" id="btnAdvanced">${esc(t('result.advanced'))}</button>
       <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
@@ -1127,6 +1139,7 @@ function renderResult(a) {
       <p class="r-follow-hint">${esc(t('result.followHint'))}</p>
       <a class="btn" href="${esc(THREADS_URL)}" target="_blank" rel="noopener noreferrer">${esc(t('result.followBtn'))}</a>
     </div>`;
+  applyLocaleOnly($('resultHost'));   // 結果頁是動態組的，語系限定區塊要在這裡才生效
   bindFeedback();
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
