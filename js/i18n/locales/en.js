@@ -29,13 +29,13 @@ export default {
     toolPick: 'Choose one practice',
     soon: 'Coming Soon',
     start: 'Begin the reading',
-    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously (including your interface language and country) to improve the experience.',
+    fineprint: 'This is a space for self-reflection — not medical, legal, or financial advice. Sessions are recorded anonymously (including your interface language and country) to keep improving the service.',
   },
 
   tools: {
     lenormand: 'Lenormand · Nine-Card Grid',
     meihua: 'Plum Blossom I Ching',
-    astro: 'Natal Astrology',
+    astro: 'Astrology',
     bazi: 'BaZi · Four Pillars',
     ziwei: 'Zi Wei Dou Shu',
     tarot: 'Tarot',
@@ -46,7 +46,7 @@ export default {
   toolSub: {
     lenormand: 'Situations',
     meihua: 'Decisions',
-    astro: 'Natal chart',
+    astro: 'Natal Chart',
   },
 
   // The hexagram figures at the top of the I Ching section
@@ -65,7 +65,7 @@ export default {
     cards: [
       { name: 'Lenormand · Nine-Card Grid', line: 'Best for how a situation is unfolding, and the whole picture.' },
       { name: 'Plum Blossom I Ching', line: 'Best for timing, decisions, and which way things are shifting.' },
-      { name: 'Natal Astrology', line: 'Best for your own nature, your gifts, and your life’s themes.' },
+      { name: 'Astrology', line: 'Best for your own nature, your gifts, and your life’s themes.' },
     ],
     sections: [
       {
@@ -93,7 +93,7 @@ export default {
         ],
       },
       {
-        name: 'Natal Astrology',
+        name: 'Astrology',
         lede: 'Working from your birth chart to open up your gifts, your temperament, the themes your life keeps returning to, and where there is room to grow — a way of knowing yourself more closely.',
         metaLabel: 'The system used',
         meta: 'This site works in <b>modern Western astrology</b>: the tropical zodiac, Placidus houses and the True Node, read together with the major planets, the houses, the aspects and the significant asteroids.',
@@ -115,13 +115,13 @@ export default {
     exampleLabel: 'For example:',
     exampleQ: 'How do I build work that genuinely fits me?',
     exampleRows: [
-      { name: 'Natal Astrology', line: 'your gifts, your nature, and the directions that suit them.' },
+      { name: 'Astrology', line: 'your gifts, your nature, and the directions that suit them.' },
       { name: 'Lenormand · Nine-Card Grid', line: 'where your work stands now, and how it could develop.' },
       { name: 'Plum Blossom I Ching', line: 'whether this is the moment to act, and what the next step is.' },
     ],
     focusLabel: 'Each one looks at a different layer:',
     focusRows: [
-      { name: 'Natal Astrology', line: 'Who am I? What suits me?' },
+      { name: 'Astrology', line: 'Who am I? What suits me?' },
       { name: 'Lenormand · Nine-Card Grid', line: 'How is this unfolding?' },
       { name: 'Plum Blossom I Ching', line: 'What is worth doing now?' },
     ],
