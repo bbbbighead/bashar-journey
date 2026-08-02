@@ -14,6 +14,7 @@ import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
+import { buildShareCardSvg, svgToPng, shareCardPng } from './shareCard.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
@@ -1117,8 +1118,10 @@ function renderResult(a) {
     <div class="r-actions">
       <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
       <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
+      ${shareCardTool() ? `<button class="btn" id="btnShareImg">${esc(t('result.shareImage'))}</button>` : ''}
       <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
+    <div class="copy-toast" id="imgToast"></div>
     <div class="r-continue">
       <div class="r-continue-title">${esc(t('result.continueTitle'))}</div>
       <p class="r-continue-hint">${esc(t('result.continueHint'))}</p>
@@ -1144,6 +1147,7 @@ function renderResult(a) {
   $('btnRestart').addEventListener('click', restart);
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnShare').addEventListener('click', shareSite);
+  if ($('btnShareImg')) $('btnShareImg').addEventListener('click', shareImage);
   $('btnAdvanced').addEventListener('click', () => {
     const el = $('advToast');
     el.textContent = t('result.advancedSoon');
@@ -1305,6 +1309,65 @@ function copyAnalysis(a) {
 const SITE_URL = 'https://www.intuitive-notes.com/';
 function siteUrl() {
   return SITE_URL;
+}
+
+// ---- 分享圖（把這次抽到的東西畫成一張方形 PNG） ----
+// 哪一個工具的視覺可以入圖：三個都可以，多選時取第一個有資料的。
+function shareCardTool() {
+  const tools = (state && Array.isArray(state.tools)) ? state.tools : [];
+  if (tools.includes('lenormand') && (state.lenormand || []).length) return 'lenormand';
+  if (tools.includes('meihua') && state.meihua && state.meihua.ben) return 'meihua';
+  if (tools.includes('astro') && state.astro) return 'astro';
+  return null;
+}
+
+async function shareImage() {
+  const btn = $('btnShareImg');
+  const toast = $('imgToast');
+  const tool = shareCardTool();
+  if (!btn || !tool) return;
+  const flash = (key) => {
+    if (!toast) return;
+    toast.textContent = t(key);
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2600);
+  };
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = t('result.shareImageBusy');
+  try {
+    const d = dict();
+    const svg = buildShareCardSvg({
+      tool,
+      state,
+      labels: {
+        toolName: toolLabel(tool),
+        footer: 'www.intuitive-notes.com',
+        // 字型堆疊要從頁面上取當下語系的那一套，隔離環境裡沒有 CSS 變數可用
+        fontStack: getComputedStyle(document.documentElement).getPropertyValue('--sans').trim()
+          || 'sans-serif',
+        cardName: (card) => cardName(card.id, card.name),
+        meihuaGrid: d.meihuaGrid || {},
+        chartWheel: d.chartWheel || {},
+      },
+    });
+    if (!svg) { flash('result.shareImageFail'); return; }
+    const blob = await svgToPng(svg);
+    const how = await shareCardPng(blob, {
+      fileName: `intuitive-notes-${tool}.png`,
+      title: t('result.shareTitle'),
+      text: t('result.shareText'),
+      url: siteUrl(),
+    });
+    if (how === 'downloaded') flash('result.shareImageSaved');
+  } catch (e) {
+    // 使用者在系統分享面板按取消不算失敗
+    if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return;
+    flash('result.shareImageFail');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 }
 
 function shareSite() {

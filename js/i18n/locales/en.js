@@ -253,6 +253,10 @@ export default {
     share: 'Share with a friend',
     shareTitle: 'Intuitive Notes',
     shareText: 'Put whatever you want to explore into Intuitive Notes, and see what a new angle the cards, hexagrams or birth chart bring 👀🌟',
+    shareImage: 'Share image',
+    shareImageBusy: 'Making it…',
+    shareImageSaved: 'Image saved',
+    shareImageFail: 'Could not make the image — try again',
     shareCopied: 'Link copied ✓',
     shareFail: 'Could not share',
     // Following runs the other way from sharing: it brings the reader back
