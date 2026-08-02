@@ -6,6 +6,12 @@
 <title>Intuitive Notes · 直覺筆記</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/calm.css">
+<!-- Vercel Web Analytics。零建置的靜態站不能用 @vercel/analytics（那需要 npm
+     與打包），改用官方給 HTML／其他框架的方式：直接載入這支第一方腳本。
+     路徑由 Vercel 在部署時注入，所以本機開發會 404——那是預期的，不影響功能。
+     只放在前台：後台是站主自己在看，計進去只會白白吃掉免費方案的事件額度。
+     這支腳本不用 cookie，也不會送出使用者填的主題或產出。 -->
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <!-- 星圖背景：站主提供的星圖攝影（assets/bg-*.jpg）＋可讀性暗色塗層 -->
