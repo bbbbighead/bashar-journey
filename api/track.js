@@ -274,6 +274,26 @@ export default async function handler(req, res) {
         ['INCRBY', 'pi:agg:bytes', String(entry.length + 16)],
       );
       checkPrune = true; // 每次來訪檢查一次容量即可
+    } else if (body.type === 'lang') {
+      // 中途切換語言：改寫這次來訪紀錄的 lang，讓後台顯示的是使用者
+      // 真正在讀的語言，而不是進站那一刻的。
+      // 進行中的來訪一定在清單最前面（見 PRUNE_KEEP_RECENT 的說明），
+      // 所以只掃頭部就找得到；掃不到就當作紀錄已被汰舊，靜靜放過。
+      const lang = String(body.lang || '').slice(0, 12);
+      if (!lang) { res.end(); return; }
+      const [headR] = await redisPipeline([['LRANGE', 'pi:sessions', '0', '99']]);
+      const head = headR.result || [];
+      const idx = head.findIndex((r) => {
+        try { return JSON.parse(r).sid === sid; } catch { return false; }
+      });
+      if (idx < 0) { res.end(); return; }
+      const entry = JSON.parse(head[idx]);
+      if (entry.lang === lang) { res.end(); return; }   // 沒變就不寫
+      const updated = JSON.stringify({ ...entry, lang });
+      cmds.push(
+        ['LSET', 'pi:sessions', String(idx), updated],
+        ['INCRBY', 'pi:agg:bytes', String(updated.length - head[idx].length)],
+      );
     } else if (body.type === 'dwell') {
       const screen = String(body.screen || '');
       const ms = Math.min(Math.max(0, Number(body.ms) || 0), 3600_000);

@@ -61,15 +61,25 @@ function send(payload) {
 }
 
 // ---- 1. 來訪（時間 / 來源 / UTM；裝置由後端從 User-Agent 解析） ----
-export function trackVisit() {
+// lang 由呼叫端傳入「實際生效的介面語言」（getLocale()），不能自己讀
+// navigator.language——那是瀏覽器的系統語言，跟畫面上顯示的語言是兩回事：
+// 系統英文＋台灣 IP 的人介面是繁體中文，卻會被記成 en。
+export function trackVisit(lang) {
   const q = new URLSearchParams(location.search);
   send({
     type: 'start',
     ref: document.referrer || '',
     utm: q.get('utm_source') || q.get('ref') || '',
-    lang: navigator.language || '',
+    lang: String(lang || '').slice(0, 12),
     vw: window.innerWidth,
   });
+}
+
+// 使用者中途自己切換語言：回頭更新這次來訪的語言。
+// start 事件在載入時就送出了，若不更新，後台看到的會是「他進站時的語言」，
+// 而不是「他實際讀完整份解讀時用的語言」——那正是他在畫面上看到的那個。
+export function trackLang(lang) {
+  send({ type: 'lang', lang: String(lang || '').slice(0, 12) });
 }
 
 // ---- 2. 頁面停留時間 ----

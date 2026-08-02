@@ -170,7 +170,10 @@ textarea {
   padding: 14px 16px; font: inherit; font-size: 16.5px; line-height: 1.8;
 }
 textarea:focus { outline: none; border-color: rgba(226, 198, 138, .5); }
-textarea::placeholder { color: var(--ink-faint); }
+/* 提示句要一眼看得出「這不是已填好的字」：半透明壓淡，
+   與真正輸入時的亮象牙色（--ink）拉開明顯距離。
+   Chrome 的 placeholder 預設不帶透明度，必須明寫。 */
+textarea::placeholder { color: var(--ink-faint); opacity: .45; }
 
 /* ---- 首頁：分析工具選擇 ---- */
 .tool-pick { margin-bottom: 30px; }
@@ -251,12 +254,24 @@ textarea::placeholder { color: var(--ink-faint); }
   border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
 }
 .fb-text:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 14px rgba(214, 183, 122, .14); }
-.fb-text::placeholder { color: var(--ink-faint); }
+.fb-text::placeholder { color: var(--ink-faint); opacity: .45; }
 .fb-hint {
   margin-top: 12px; font-family: var(--sans); font-size: 12px;
   line-height: 1.7; color: var(--ink-faint);
 }
 .fb-msg { margin-top: 8px; font-family: var(--sans); font-size: 12.5px; color: #e0a08a; }
+/* 送出後的唯讀回看：不是輸入框，只是把當時填的內容靜靜放著 */
+.fb-echo { margin-top: 10px; }
+.fb-echo-stars { color: var(--accent); font-size: 15px; letter-spacing: .3em; }
+.fb-echo-text {
+  margin: 8px 0 0; padding: 10px 12px;
+  font-family: var(--sans); font-size: 13.5px; line-height: 1.7;
+  color: var(--ink-dim); white-space: pre-wrap;
+  /* 區塊本身置中，但留言是使用者自己寫的句子——置中會很難讀 */
+  text-align: left;
+  border-left: 2px solid rgba(214, 183, 122, .3);
+  background: rgba(6, 10, 17, .45);
+}
 .fb-done {
   font-family: var(--serif); font-size: 14.5px; line-height: 1.8; color: var(--accent);
 }
@@ -722,6 +737,7 @@ body.cz-open { overflow: hidden; }
   box-shadow: inset 0 0 14px rgba(0, 0, 0, .3);
   color-scheme: dark;
 }
+.af-row input::placeholder { color: var(--ink-faint); opacity: .45; }
 .af-row input:focus { outline: none; border-color: var(--accent-dim); }
 .af-check { padding-top: 2px; }
 
@@ -1392,6 +1408,9 @@ button.badge.repeat:hover {
 /* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
    地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
 .lang-cell, .geo-cell { white-space: nowrap; }
+/* 字數：數字靠右對齊才好比大小；「+」標記＝觸到 4000 的紀錄上限 */
+.chars-cell { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chars-cap { color: var(--ink-faint); margin-left: 1px; }
 .badge.dim { color: var(--ink-faint); border-color: var(--line); }
 .sess-detail .detail-cell {
   background: var(--panel); font-size: 13px; color: var(--ink-dim);
