@@ -13,10 +13,11 @@ import {
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
-import { hexagramLines, meihuaForAI } from './engine/meihua.js';
+import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
+import { LENORMAND } from '../data/lenormand.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
@@ -27,6 +28,15 @@ import {
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+
+// 後台的「預覽結果頁」：以 iframe 載入 index.html?preview=1，再用 postMessage
+// 把那一次的紀錄餵進來，走的是與正式站完全相同的 renderResult()——這樣預覽
+// 看到的就是使用者看到的，不會兩邊長得不一樣。
+// 預覽模式下：不續玩、不寫 localStorage、不送統計（統計的閘門在 analytics.js）。
+const PREVIEW = (() => {
+  try { return new URLSearchParams(location.search).get('preview') === '1'; }
+  catch { return false; }
+})();
 let spreadRepaint = null; // 選牌畫面的輕量重繪（切換語系時只換文字）
 
 // 工具名稱：走語系字典（synthesis 也在 tools 內）
@@ -1380,11 +1390,13 @@ onLocaleChange(() => {
   repaintCurrentScreen();
   refreshStart();
 });
-// 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救
-refineByCountry();
+// 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救。
+// 預覽模式跳過：那一次的語系由後台指定，不能讓 IP 蓋掉。
+if (!PREVIEW) refineByCountry();
 
 // ---- 續玩 ----
 (function resume() {
+  if (PREVIEW) return;            // 預覽頁不碰站主自己的 session
   const saved = loadSession();
   if (!saved || !saved.opening || !Array.isArray(saved.tools)) return;
   state = saved;
@@ -1398,4 +1410,90 @@ refineByCountry();
 // ---- utils ----
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---- 預覽模式：等後台把那一次的紀錄送進來 ----
+if (PREVIEW) {
+  document.body.classList.add('preview-mode');
+  window.addEventListener('message', async (e) => {
+    // 只收同源的訊息：預覽頁與後台都在同一個網域，跨來源的一律忽略
+    if (e.origin !== location.origin) return;
+    const msg = e.data;
+    if (!msg || msg.type !== 'previewSession' || !msg.session) return;
+    try {
+      await renderPreview(msg.session);
+    } catch (err) {
+      $('resultHost').innerHTML = `<p class="preview-err">預覽失敗：${esc(err && err.message)}</p>`;
+      showScreen('screenResult');
+    }
+  });
+  // 告訴父視窗「我準備好了」，避免 postMessage 早於 iframe 載入完成
+  try { parent.postMessage({ type: 'previewReady' }, location.origin); } catch { /* 忽略 */ }
+}
+
+// 把後台送來的紀錄還原成 state，再交給正式的 renderResult()。
+// 有些東西紀錄裡沒有，得在這裡重建：
+//   ・雷諾曼只存了牌名 → 對回 36 張的牌卡資料，九宮格圖才畫得出來
+//   ・梅花只存了三個數字 → 用同一支引擎重新起卦（castFromNumbers 是純函式，
+//     同樣的數字必然得到同樣的卦，所以重建的結果與當初一模一樣）
+//   ・星盤完全沒存 → 用出生資料重新算一次；算不出來就不畫，並在橫幅說明
+async function renderPreview(sess) {
+  const notes = sess.previewNotes || {};
+  // 用使用者當時的語系重現。第二個參數 false＝不寫入 localStorage，
+  // 預覽不該改掉站主自己的語系偏好。
+  // 這一步也是段落能不能對上的關鍵：結果頁是靠「該語系的小標題字樣」認段落的，
+  // 語系不對就一段都認不出來（實測踩到：後台是英文，畫面就變成 16 塊無標題面板）。
+  if (sess.lang) setLocale(sess.lang, false);
+  state = {
+    version: 3,
+    runId: 'preview',
+    status: 'done',
+    opening: sess.opening || '',
+    tools: sess.tools || [],
+    lenormand: null,
+    meihua: null,
+    astro: null,
+    analysis: sess.analysis || { title: '', sections: [] },
+  };
+
+  if (Array.isArray(sess.cards) && sess.cards.length) {
+    state.lenormand = sess.cards.map((name, i) => {
+      const card = LENORMAND.find((c) => c.name === name);
+      return { position: i + 1, card: card || { id: 0, name } };
+    });
+  }
+  if (Array.isArray(sess.numbers) && sess.numbers.length === 3) {
+    state.meihua = castFromNumbers(sess.numbers[0], sess.numbers[1], sess.numbers[2]);
+  }
+
+  const warn = [];
+  if (notes.truncated) warn.push('這次的解讀在記錄時被截斷（上限 4000 字），下方內容並非全文。');
+
+  const birth = sess.astroBirth;
+  if ((state.tools || []).includes('astro')) {
+    if (birth && birth.date) {
+      try {
+        state.astro = await fetchAstroChart({
+          date: birth.date,
+          time: birth.timeUnknown ? null : birth.time,
+          timeUnknown: !!birth.timeUnknown,
+          city: birth.city || '',
+          country: birth.country || '',
+        });
+        warn.push('星盤是用當時的出生資料重新計算的（星盤本身沒有存），與使用者看到的應該一致。');
+      } catch {
+        warn.push('星盤重算失敗，所以這次預覽沒有星盤圖；解讀文字不受影響。');
+      }
+    } else {
+      warn.push('這筆紀錄沒有留下出生資料，所以畫不出星盤圖；解讀文字不受影響。');
+    }
+  }
+
+  renderResult(state.analysis);
+  const host = $('resultHost');
+  const bar = document.createElement('div');
+  bar.className = 'preview-bar';
+  bar.innerHTML = `<b>預覽模式</b>——這是後台重現的畫面，不會產生任何統計紀錄。`
+    + (warn.length ? `<ul>${warn.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '');
+  host.prepend(bar);
 }

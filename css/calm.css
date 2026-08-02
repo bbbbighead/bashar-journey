@@ -1711,3 +1711,36 @@ button.badge.repeat:hover {
 .hist-card-title { font-family: var(--serif); font-size: 17px; color: var(--ink); margin-bottom: 6px; }
 .hist-card-topic { font-family: var(--serif); font-size: 14px; color: var(--ink-dim); margin-bottom: 8px; }
 .hist-card-meta { font-family: var(--sans); font-size: 12px; letter-spacing: .06em; color: var(--accent-dim); }
+
+/* ---- 後台：結果頁預覽（js/admin.js 的 openPreview）---- */
+/* 用 iframe 載入正式的結果頁，所以預覽與使用者看到的是同一份渲染程式 */
+body.pv-open { overflow: hidden; }
+.pv-overlay {
+  position: fixed; inset: 0; z-index: 95;
+  display: flex; flex-direction: column;
+  background: #04070c;
+  animation: fadein-soft .18s ease both;
+}
+.pv-bar {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+}
+.pv-title { font-family: var(--sans); font-size: 13px; color: var(--ink-dim); }
+.pv-title code { color: var(--accent); }
+.pv-state { flex: 1; font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
+.pv-stage { flex: 1 1 auto; overflow: hidden; display: flex; justify-content: center; }
+/* 固定成手機寬度：站主要體驗的是使用者的畫面，而多數使用者在手機上 */
+.pv-frame { width: 100%; max-width: 420px; height: 100%; border: 0; background: #060a11; }
+.prev-cell { white-space: nowrap; }
+
+/* ---- 結果頁的預覽模式橫幅（index.html?preview=1）---- */
+.preview-bar {
+  margin-bottom: 18px; padding: 12px 14px; border-radius: 3px;
+  border: 1px solid rgba(214, 183, 122, .34);
+  background: rgba(224, 193, 132, .08);
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.75; color: var(--ink-dim);
+}
+.preview-bar b { color: var(--accent); }
+.preview-bar ul { margin: 8px 0 0; padding-left: 18px; }
+.preview-bar li + li { margin-top: 4px; }
+.preview-err { color: #d9a2a2; font-family: var(--sans); font-size: 13px; }

@@ -482,6 +482,65 @@ function renderTimings(d) {
   $('btnTmMore').style.display = (d.loaded < d.total && tmLimit < 500) ? 'inline-block' : 'none';
 }
 
+// ---- 結果頁預覽 ----
+
+// 後台只存了解讀的「純文字合併版」（js/analytics.js 把 sections 用
+// 「【工具代碼】\n內容」接起來），要重現使用者看到的畫面就得把它拆回 sections。
+//
+// 只認「整行剛好是【lenormand】這種工具代碼」的行當作分隔，不是看到全形方括號
+// 就切——解讀內文本身可能出現【…】（例如引用），那些必須留在內文裡。
+const PREVIEW_TOOLS = ['lenormand', 'meihua', 'astro', 'synthesis'];
+const SECTION_MARK = new RegExp(`^【(${PREVIEW_TOOLS.join('|')})】$`);
+
+function parseSections(message) {
+  const text = String(message || '');
+  if (!text.trim()) return [];
+  const lines = text.split('\n');
+  const out = [];
+  let cur = null;
+  for (const line of lines) {
+    const m = line.trim().match(SECTION_MARK);
+    if (m) {
+      if (cur) out.push({ tool: cur.tool, content: cur.buf.join('\n').trim() });
+      cur = { tool: m[1], buf: [] };
+      continue;
+    }
+    if (cur) cur.buf.push(line);
+  }
+  if (cur) out.push({ tool: cur.tool, content: cur.buf.join('\n').trim() });
+  return out;
+}
+
+// journey → 可以餵給結果頁的 session 物件。
+// 星盤本身沒有存（只有出生資料），所以 astro 欄位留給預覽頁自己重算。
+const MESSAGE_CAP = 4000; // 與 api/track.js 的 slice(0, 4000) 一致
+
+function buildPreviewSession(j) {
+  const sections = parseSections(j.message);
+  // 沒有任何工具標記：舊格式（analytics 在沒有 sections 時會退回 a.message）。
+  // 這種情況把全文當成第一個工具那一節，總比什麼都不顯示好。
+  if (!sections.length && String(j.message || '').trim()) {
+    const tool = (Array.isArray(j.tools) && j.tools[0]) || 'lenormand';
+    sections.push({ tool, content: String(j.message).trim() });
+  }
+  return {
+    version: 3,
+    runId: 'preview',
+    status: 'done',
+    opening: j.opening || '',
+    tools: Array.isArray(j.tools) && j.tools.length ? j.tools : sections.map((x) => x.tool),
+    cards: Array.isArray(j.cards) ? j.cards : [],       // 牌名，預覽頁再對回牌卡資料
+    numbers: Array.isArray(j.numbers) ? j.numbers : null,
+    astroBirth: j.astroBirth || null,
+    analysis: { title: j.title || '', sections },
+    // 提醒預覽頁哪些東西不是原汁原味
+    previewNotes: {
+      truncated: String(j.message || '').length >= MESSAGE_CAP,
+      astroRecalc: !!(Array.isArray(j.tools) && j.tools.includes('astro')),
+    },
+  };
+}
+
 // ---- 使用紀錄 ----
 $('btnMore').addEventListener('click', loadMore);
 
@@ -541,7 +600,7 @@ function renderSessions() {
   const visible = visibleSessions();
 
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="12" class="empty">${
+    tbody.innerHTML = `<tr><td colspan="13" class="empty">${
       allSessions.length
         ? '（目前的資料範圍與篩選條件下沒有紀錄——試著切換上方「資料範圍」或放寬條件）'
         : '（尚無來訪紀錄）'
@@ -555,6 +614,7 @@ function renderSessions() {
   for (const s of visible) {
     const tr = document.createElement('tr');
     tr.className = 'sess-row';
+    tr.dataset.sid = s.sid;   // 供測試與日後的深連結定位用
     tr.innerHTML = `
       <td class="chk-col"><input type="checkbox" class="row-chk" ${selected.has(s.sid) ? 'checked' : ''}></td>
       <td>${fmtTime(s.ts)}</td>
@@ -576,7 +636,10 @@ function renderSessions() {
           ? `<span class="fb-stars-cell">${STARS(s.feedback.rating)}</span>${s.feedback.text ? `<span class="fb-has-text" title="有留言">✎</span>` : ''}`
           : '<span class="dim-dash">—</span>'
       }</td>
-      <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>`;
+      <td class="note-cell" title="${esc(s.note || '')}">${esc(truncate(s.note, 12)) || '<span class="dim-dash">—</span>'}</td>
+      <td class="prev-cell">${s.hasJourney
+        ? `<button type="button" class="btn small prev-btn" title="用這一次的紀錄重現使用者看到的結果頁">預覽</button>`
+        : '<span class="dim-dash">—</span>'}</td>`;
 
     const vidBtn = tr.querySelector('.vid-btn');
     vidBtn.addEventListener('click', (e) => {
@@ -589,6 +652,14 @@ function renderSessions() {
       visitBtn.addEventListener('click', (e) => {
         e.stopPropagation();              // 點次數不展開該筆的詳情
         toggleVisitList(tr, s);
+      });
+    }
+
+    const prevBtn = tr.querySelector('.prev-btn');
+    if (prevBtn) {
+      prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();              // 點預覽不展開詳情
+        openPreview(s);
       });
     }
 
@@ -663,14 +734,14 @@ async function toggleVisitList(tr, s) {
 
   const row = document.createElement('tr');
   row.className = 'visit-list-row';
-  row.innerHTML = '<td colspan="12" class="detail-cell">讀取中……</td>';
+  row.innerHTML = '<td colspan="13" class="detail-cell">讀取中……</td>';
   tr.after(row);
 
   let d;
   try {
     d = await api({ view: 'visitor', vid: s.vid, scope: filters.scope });
   } catch {
-    row.innerHTML = '<td colspan="12" class="detail-cell">（讀取失敗）</td>';
+    row.innerHTML = '<td colspan="13" class="detail-cell">（讀取失敗）</td>';
     return;
   }
 
@@ -687,7 +758,7 @@ async function toggleVisitList(tr, s) {
       <span class="vl-fb">${v.feedback ? `<span class="fb-stars-cell">${STARS(v.feedback.rating)}</span>` : ''}</span>
     </li>`).join('');
 
-  row.innerHTML = `<td colspan="12" class="detail-cell">
+  row.innerHTML = `<td colspan="13" class="detail-cell">
     <div class="vl-head">訪客 <code>${esc(d.vid)}</code> 共 ${d.total} 次來訪
       <span class="vl-scope">（${scopeNote}）</span></div>
     <ol class="vl-list">${items}</ol>
@@ -712,7 +783,7 @@ async function toggleDetail(tr, s) {
 
   const detail = document.createElement('tr');
   detail.className = 'sess-detail';
-  detail.innerHTML = '<td colspan="12" class="detail-cell">讀取中……</td>';
+  detail.innerHTML = '<td colspan="13" class="detail-cell">讀取中……</td>';
   tr.after(detail);
   await renderSessionDetail(detail.querySelector('td'), s);
 }
@@ -1002,4 +1073,66 @@ function fmtBytes(b) {
 }
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+
+// 開啟預覽：抓那一次的 journey，重建成 session，用 iframe 載入正式的結果頁。
+// 走 iframe 而不是自己在後台重畫，是為了讓預覽與正式站共用同一份渲染程式——
+// 只要 index.html 的結果頁改了，預覽就跟著改，不會有兩套版面各自漂移。
+async function openPreview(row) {
+  const sid = row.sid;
+  closePreview();
+  const el = document.createElement('div');
+  el.className = 'pv-overlay';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.innerHTML = `
+    <div class="pv-bar">
+      <span class="pv-title">預覽使用者看到的結果頁　<code>${esc(sid)}</code></span>
+      <span class="pv-state" id="pvState">讀取中……</span>
+      <button type="button" class="btn small pv-close" title="關閉（Esc）">關閉</button>
+    </div>
+    <div class="pv-stage"><iframe class="pv-frame" title="結果頁預覽"
+      src="/index.html?preview=1"></iframe></div>`;
+  document.body.append(el);
+  document.body.classList.add('pv-open');
+
+  const close = () => closePreview();
+  el.querySelector('.pv-close').onclick = close;
+  el.addEventListener('pointerdown', (e) => { if (e.target === el) close(); });
+  el.tabIndex = -1;
+  el.focus();
+  el.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  let session = null;
+  try {
+    const d = await api({ view: 'session', sid });
+    if (!d.journey) throw new Error('這一筆沒有留下解讀內容');
+    session = buildPreviewSession(d.journey);
+    // 語系存在來訪紀錄（pi:sessions）而不是 journey 裡，所以從列表那筆帶過來
+    session.lang = row.lang || '';
+  } catch (err) {
+    $('pvState').textContent = `讀取失敗：${err.message || err}`;
+    return;
+  }
+
+  // iframe 說「我準備好了」才送資料——不等的話 postMessage 可能早於它載入完成
+  const frame = el.querySelector('.pv-frame');
+  const onReady = (e) => {
+    if (e.origin !== location.origin) return;
+    if (!e.data || e.data.type !== 'previewReady') return;
+    if (e.source !== frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: 'previewSession', session }, location.origin);
+    $('pvState').textContent = session.previewNotes.truncated ? '內容已截斷（見頁內說明）' : '';
+    window.removeEventListener('message', onReady);
+  };
+  window.addEventListener('message', onReady);
+  previewCleanup = () => window.removeEventListener('message', onReady);
+}
+
+let previewCleanup = null;
+function closePreview() {
+  if (previewCleanup) { previewCleanup(); previewCleanup = null; }
+  document.querySelectorAll('.pv-overlay').forEach((x) => x.remove());
+  document.body.classList.remove('pv-open');
 }
