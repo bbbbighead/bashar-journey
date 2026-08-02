@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import math
 import os
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -46,6 +47,16 @@ EPHE_PATH = next(
 )
 EPHE_OK = os.path.isfile(os.path.join(EPHE_PATH, 'seas_18.se1'))
 swe.set_ephe_path(EPHE_PATH)
+
+# pyswisseph 2.10 把 Swiss Ephemeris 的全域狀態編成 thread-local：
+# 星曆路徑只在「呼叫過 set_ephe_path 的那條執行緒」有效。上面那次 import 時
+# 的設定只影響 import 的執行緒；Vercel 的 Python runtime 用工作執行緒處理
+# 請求，那些執行緒看到的是編譯內建的預設路徑（.:/users/ephe/）——
+# 正式環境因此小行星整批「計算失敗」、行星靜默退回 Moshier，
+# 而 import 時的檔案檢查（EPHE_OK）又是通過的，看起來自相矛盾。
+# 解法：每次算盤時在「當下這條執行緒」重新宣告一次。set_ephe_path 很便宜。
+def ensure_ephe_path():
+    swe.set_ephe_path(EPHE_PATH)
 
 SIGNS = ['牡羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座',
          '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座']
@@ -710,6 +721,7 @@ def make_point(name, lon, speed, cusps, is_axis=False):
 
 
 def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
+    ensure_ephe_path()
     warnings = []
     # 計時：分開記「查地點（對外連線）」與「星曆計算」，兩者的優化方式完全不同
     t_enter = time.perf_counter()
@@ -772,15 +784,28 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
 
     # ---- 行星與點位 ----
     points = []
+    moshier_fallback = []
     for pid, name in PLANET_IDS + EXTRA_IDS:
         try:
-            res, _ = swe.calc_ut(jd, pid, iflag)
+            res, retflags = swe.calc_ut(jd, pid, iflag)
             points.append(make_point(name, res[0], res[3], cusps))
+            # 要求 SWIEPH 卻拿到別的來源＝星曆檔沒讀到、退回內建理論。
+            # 行星不會因此報錯，但這是「整個目錄都讀不到」的第一個訊號——
+            # 必須說出來，不然只會看到後面小行星整批失敗、行星看似正常。
+            if name in TEN and not (int(retflags) & swe.FLG_SWIEPH):
+                moshier_fallback.append(name)
         except Exception as e:
             # 原因要講清楚：星曆檔缺漏與「日期超出該檔涵蓋範圍」是兩件事，
             # 一律寫成「缺漏」會讓人去找根本沒問題的檔案。
-            reason = str(e).split(':')[-1].strip().rstrip(';').strip() or '原因不明'
+            # 只剝掉開頭的「swisseph.calc_ut:」函式前綴；不能用 split(':') 切——
+            # 錯誤訊息裡的搜尋路徑本身就含冒號（如 '.:/users/ephe/'），
+            # 切了只剩尾巴，正式環境查錯時就是被這個誤導的。
+            reason = re.sub(r'^swisseph\.\w+:\s*', '', str(e)).strip().rstrip(';').strip() or '原因不明'
             warnings.append(f'{name} 計算失敗（{reason}），未輸出，不以概略位置代替。')
+    if moshier_fallback:
+        warnings.append(
+            f'星曆檔未讀到（生效路徑：{EPHE_PATH}）：'
+            f'{"、".join(moshier_fallback)} 退回內建 Moshier 理論計算（現代日期誤差極小，星座宮位不受影響）。')
 
     by_name = {p['name']: p for p in points}
 
