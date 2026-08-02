@@ -20,7 +20,7 @@ import { cardConstellation } from '../data/lenormandIcons.js';
 import { LENORMAND } from '../data/lenormand.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
-import { trackVisit, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
+import { trackVisit, trackLang, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
   initDocumentLang, LOCALE_LIST, localeName,
@@ -81,7 +81,7 @@ const BMC_URL = 'https://buymeacoffee.com/intuitivenotes';
 // 社群：網站更新會先發在這裡，結果頁最後導引使用者追蹤
 const THREADS_URL = 'https://www.threads.com/@intuitive.notes';
 
-trackVisit();
+// trackVisit 不在這裡送——語言要等 refineByCountry 定案後才記，見下方啟動段
 trackScreen('screenIntake');
 
 // ---- 螢幕切換 ----
@@ -1001,10 +1001,23 @@ function lenormandContentHtml(content) {
 // ---- 使用者回饋（星等＋選填文字，送到後台） ----
 const FB_STARS = 5;
 
+// 感謝狀態＝致謝句＋當時填的內容（星等與留言，唯讀回看，不可再編輯）
+function fbDoneHtml(message, rating, text) {
+  const stars = '★★★★★'.slice(0, rating) + '☆☆☆☆☆'.slice(0, FB_STARS - rating);
+  return `<div class="fb-done">${esc(message)}</div>
+    <div class="fb-echo">
+      <span class="fb-echo-stars" aria-label="${esc(t('feedback.starAria', rating))}">${stars}</span>
+      ${text ? `<p class="fb-echo-text">${esc(text)}</p>` : ''}
+    </div>`;
+}
+
 // 已回饋過就直接呈現感謝狀態；否則畫出星等（選了星才展開文字框與送出鈕）
 function feedbackHtml() {
   const done = feedbackFor(state && state.runId);
-  if (done) return `<div class="r-feedback done"><div class="fb-done">${esc(t('feedback.already', done))}</div></div>`;
+  if (done) {
+    return `<div class="r-feedback done">${
+      fbDoneHtml(t('feedback.already', done.rating), done.rating, done.text)}</div>`;
+  }
   const stars = Array.from({ length: FB_STARS }, (_, i) => i + 1).map((n) => `
     <button type="button" class="fb-star" data-rating="${n}"
       aria-label="${esc(t('feedback.starAria', n))}" title="${esc(t('feedback.scale', n))}">★</button>`).join('');
@@ -1053,10 +1066,11 @@ function bindFeedback() {
     sendBtn.textContent = t('feedback.sending');
     msgEl.textContent = '';
     try {
-      await sendFeedback({ rating, text: $('fbText').value, state, lang: getLocale() });
-      rememberFeedback(state && state.runId, rating);
+      const text = $('fbText').value.trim();
+      await sendFeedback({ rating, text, state, lang: getLocale() });
+      rememberFeedback(state && state.runId, rating, text);
       block.classList.add('done');
-      block.innerHTML = `<div class="fb-done">${esc(t('feedback.done'))}</div>`;
+      block.innerHTML = fbDoneHtml(t('feedback.done'), rating, text);
     } catch {
       msgEl.textContent = t('feedback.failed');
       sendBtn.disabled = false;
@@ -1389,10 +1403,16 @@ onLocaleChange(() => {
   renderLangRow();
   repaintCurrentScreen();
   refreshStart();
+  if (!PREVIEW) trackLang(getLocale());   // 後台的語言欄要跟著改
 });
 // 瀏覽器語言完全沒有對應語系、使用者也還沒自己選過時，才用 IP 國家補救。
 // 預覽模式跳過：那一次的語系由後台指定，不能讓 IP 蓋掉。
-if (!PREVIEW) refineByCountry();
+//
+// 來訪埋點要等這一步做完才送：refineByCountry 可能把語系從預設改掉，
+// 提早送就會記到「還沒補救前」的語言，跟使用者實際看到的畫面不符。
+if (!PREVIEW) {
+  refineByCountry().finally(() => trackVisit(getLocale()));
+}
 
 // ---- 續玩 ----
 (function resume() {

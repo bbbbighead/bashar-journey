@@ -239,7 +239,8 @@ const SORT_VALUE = {
   country: (s) => String(s.country || ''),
   topic: (s) => String(s.topic || ''),
   tools: (s) => toolText(s),
-  hasJourney: (s) => (s.hasJourney ? 1 : 0),
+  // 未完成（沒有產出）的排在最後，不跟 0 字混在一起
+  msgChars: (s) => (Number.isFinite(s.msgChars) ? s.msgChars : -1),
   // 先按該訪客的總來訪次數，再按這是第幾次——回訪最多的人會聚在一起
   visitNo: (s) => (Number(s.visitTotal) || 1) * 1000 + (Number(s.visitNo) || 1),
   // 沒回饋的排在最後（遞減時最高分在前、遞增時 0 在前）
@@ -669,7 +670,9 @@ function renderSessions() {
         s.country ? esc(regionShort(s.country)) : '<span class="dim-dash">—</span>'}</td>
       <td class="topic-cell" title="${esc(s.topic || '')}">${esc(truncate(s.topic, 12)) || '<span class="dim-dash">—</span>'}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
-      <td>${s.hasJourney ? '<span class="badge">有題目</span>' : '<span class="badge dim">未完成</span>'}</td>
+      <td class="chars-cell">${Number.isFinite(s.msgChars)
+        ? `${s.msgChars.toLocaleString()}${s.msgChars >= 4000 ? '<span class="chars-cap" title="紀錄上限 4000 字，實際產出可能更長">+</span>' : ''}`
+        : '<span class="dim-dash">—</span>'}</td>
       <td class="fb-cell" title="${esc(s.feedback ? `${s.feedback.rating} 星${s.feedback.text ? `：${s.feedback.text}` : ''}` : '')}">${
         s.feedback
           ? `<span class="fb-stars-cell">${STARS(s.feedback.rating)}</span>${s.feedback.text ? `<span class="fb-has-text" title="有留言">✎</span>` : ''}`
