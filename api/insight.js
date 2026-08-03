@@ -149,17 +149,27 @@ function fmtAstro(A) {
   }
 
   if (Array.isArray(A.aspects) && A.aspects.length) {
-    // 標題必須如實描述順序，否則會跟「主相位優先於次要相位」那條判準互相拉扯。
-    // 正式路徑送進來的已經是這個順序（js/engine/inquiry.js 的 astroForAI 先取
-    // 主相位再取次要，各組沿用 astro.py 依 orbDeg 的排序），這裡再排一次是為了
-    // 讓標題對任何呼叫方都成立——後台預覽或未來的其他入口不必記得先排好。
+    // 排序：先依容許度的整數度數分組（0°、1°、2°…），同一組內主相位在前、
+    // 次要相位在後，同組同類再依實際容許度。
+    //
+    // 為什麼容許度在類型之前：一個 0° 且正在入相的次要相位，實際重量高過一個
+    // 容許度 6–7°、已經出相的主相位。舊的排法（主相位全部在前）會把前者推到
+    // 第 31 行之後，等於用排版否定了這個判斷。
+    //
+    // 標題必須如實描述這個順序——否則標題與判準互相拉扯，模型無從取捨。
+    // 這裡排序也讓標題對任何呼叫方都成立，不必要求上游先排好。
+    const orbOf = (x) => (Number.isFinite(x.orbDeg) ? x.orbDeg : 99);
     const asp = [...A.aspects].sort((x, y) =>
-      (x.major === y.major ? 0 : (x.major ? -1 : 1))
-      || (Number.isFinite(x.orbDeg) ? x.orbDeg : 99) - (Number.isFinite(y.orbDeg) ? y.orbDeg : 99));
+      (Math.floor(orbOf(x)) - Math.floor(orbOf(y)))
+      || (x.major === y.major ? 0 : (x.major ? -1 : 1))
+      || (orbOf(x) - orbOf(y)));
     const nMaj = asp.filter((x) => x.major).length;
-    // 也要講明清單並不完整：astroForAI 只取最緊的 30＋12 條。不說的話，模型
-    // 會從「清單裡沒有」推論成「這個相位不存在」——那是它自己補出來的結論。
-    out.push('', `【相位（主相位 ${nMaj} 條在前、次要相位 ${asp.length - nMaj} 條在後，各組各自依容許度由緊至鬆；只收錄容許度最緊的部分，未列出不代表不存在）】`);
+    // 也要講明清單並不完整：astroForAI 只取最緊的 30＋12 條（交點的主相位另外
+    // 全數保留）。不說的話，模型會從「清單裡沒有」推論成「這個相位不存在」
+    // ——那是它自己補出來的結論。
+    out.push('', `【相位（共 ${asp.length} 條：主相位 ${nMaj}、次要相位 ${asp.length - nMaj}。`
+      + `排序：先依容許度整數度數由緊至鬆分組（0°、1°、2°…），同一組內主相位在前、次要相位在後；`
+      + `只收錄容許度最緊的部分，未列出不代表不存在）】`);
     for (const a of asp) {
       out.push(`・${a.a} ${a.type} ${a.b}｜實際 ${a.actual}°｜容許度 ${a.orb}｜${a.state}${a.major ? '' : '（次要）'}`);
     }
