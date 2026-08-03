@@ -313,7 +313,11 @@ export default async function handler(req, res) {
         cards: Array.isArray(body.cards) ? body.cards.slice(0, 9).map((c) => String(c).slice(0, 8)) : [],
         numbers: Array.isArray(body.numbers) ? body.numbers.slice(0, 3).map(Number) : null,
         title: String(body.title || '').slice(0, 60),
-        message: String(body.message || '').slice(0, 4000), // 完整分節輸出
+        message: String(body.message || '').slice(0, 4000), // 完整分節輸出（超過就截斷）
+        // 分析本文的真實字數（前端算，不含分節標記、占星的標題與配置行、雷諾曼
+        // 的組別小標題）。message 被截在 4000，所以字數不能從它回推。
+        bodyChars: Number.isFinite(body.bodyChars) && body.bodyChars >= 0
+          ? Math.min(Math.round(body.bodyChars), 200000) : null,
         closing: String(body.closing || '').slice(0, 100),
         offline: !!body.offline,
         astroUsed: !!body.astroUsed,

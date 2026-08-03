@@ -744,7 +744,11 @@ function renderSessions() {
       <td class="topic-cell" title="${esc(s.topic || '')}">${esc(truncate(s.topic, 12)) || '<span class="dim-dash">—</span>'}</td>
       <td>${toolText(s) ? `<span class="tool-tag">${esc(toolText(s))}</span>` : '<span class="dim-dash">—</span>'}</td>
       <td class="chars-cell">${Number.isFinite(s.msgChars)
-        ? `${s.msgChars.toLocaleString()}${s.msgChars >= 4000 ? '<span class="chars-cap" title="紀錄上限 4000 字，實際產出可能更長">+</span>' : ''}`
+        ? `${s.msgChars.toLocaleString()}${
+          // 新紀錄是精確的分析本文字數（不含標題與配置行），沒有上限問題。
+          // 只有舊紀錄要退回 message.length，那個寫入時截在 4000，所以標 +。
+          s.msgCharsExact === false && s.msgChars >= 4000
+            ? '<span class="chars-cap" title="舊紀錄：只能由截斷在 4000 字的內容回推，實際產出可能更長">+</span>' : ''}`
         : '<span class="dim-dash">—</span>'}</td>
       <td class="fb-cell" title="${esc(s.feedback ? `${s.feedback.rating} 星${s.feedback.text ? `：${s.feedback.text}` : ''}` : '')}">${
         s.feedback

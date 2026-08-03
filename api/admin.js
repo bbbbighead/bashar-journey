@@ -618,9 +618,19 @@ export default async function handler(req, res) {
           s.tools = (journey && Array.isArray(journey.tools)) ? journey.tools : null;
           // 題目只帶前段（清單看方向就夠，全文在展開的詳情裡）
           s.topic = journey ? String(journey.opening || '').slice(0, 40) : '';
-          // 最終分析產出的總字數。注意 journey.message 寫入時截斷在 4000，
-          // 所以 4000 是「至少 4000」——清單看相對長短與排序夠用了。
-          s.msgChars = journey ? String(journey.message || '').length : null;
+          // 分析本文的字數：只算模型實際寫的分析，不含【工具】分節標記、占星每段
+          // 的白話標題與配置行、雷諾曼的組別小標題。由前端在產生當下算好送來。
+          //
+          // 舊紀錄沒有 bodyChars，只能退回 message.length（含標題與標記，而且寫入
+          // 時截斷在 4000，所以那是「至少 4000」）。msgCharsExact 讓前端知道這一筆
+          // 是精確值還是退回來的估值，不必自己猜。
+          if (journey && Number.isFinite(journey.bodyChars)) {
+            s.msgChars = journey.bodyChars;
+            s.msgCharsExact = true;
+          } else {
+            s.msgChars = journey ? String(journey.message || '').length : null;
+            s.msgCharsExact = false;
+          }
           s.note = extras[i * STRIDE + 1].result || '';
           const fb = extras[i * STRIDE + 2].result ? parseJSON(extras[i * STRIDE + 2].result, null) : null;
           s.feedback = fb ? { rating: fb.rating, text: fb.text || '', ts: fb.ts } : null;
