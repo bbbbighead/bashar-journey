@@ -121,6 +121,7 @@ export async function getAnalysis(state) {
     sid: sessionId(), // 供 server 端把實際送出的 prompt 記錄到這筆來訪
     lang: getLocale(),          // 輸出語言
     groupLabels: dict().groups, // 九宮格小標題必須用這組字，前端據此對應牌卡
+    meihuaLabels: dict().meihuaHeads, // 梅花易數小標題同理（前端據此切段上樣式）
     tools: state.tools,
     opening: state.opening,
     lenormand: state.tools.includes('lenormand') ? spreadForAI(state.lenormand) : null,

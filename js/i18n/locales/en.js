@@ -58,6 +58,13 @@ export default {
     aria: 'Hexagrams: primary, inner, changed',
   },
 
+  // Meihua reading headings. The model must use these exact strings;
+  // the renderer splits sections by them. Must match MEIHUA_FALLBACK in api/insight.js.
+  meihuaHeads: {
+    tip: 'The essence', ben: 'The primary hexagram', bian: 'The changed hexagram',
+    moving: 'The moving line', meaning: 'The reading as a whole', advice: 'What to do',
+  },
+
   // The practices guide (menu page): the differences at a glance, then the detail
   guide: {
     title: 'About the practices',

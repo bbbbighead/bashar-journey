@@ -56,6 +56,13 @@ export default {
     aria: '梅花易數卦象：本卦、互卦、變卦',
   },
 
+  // 梅花易數解讀的小標題。模型被要求逐字使用這些字樣，前端據此切段上樣式。
+  // ⚠ 與 api/insight.js 的 MEIHUA_FALLBACK 必須逐字一致。
+  meihuaHeads: {
+    tip: '卦象提點', ben: '本卦', bian: '變卦',
+    moving: '動爻', meaning: '卦象含義', advice: '行動建議',
+  },
+
   // 探索工具介紹（選單頁）：先一眼看出差異，再往下讀細節
   guide: {
     title: '探索工具介紹',
