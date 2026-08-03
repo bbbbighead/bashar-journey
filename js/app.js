@@ -1108,10 +1108,14 @@ export function astroContentHtml(content) {
   // 「畫面上的分層」與「後台算出來的字數」對不上。
   const { ok, segs } = parseAstroSections(raw, groupLabelVariants('overall'));
   if (!ok) return `<p>${esc(raw)}</p>`;
-  return segs.map((s) => `<div class="as-seg">
+  return segs.map((s) => `<div class="as-seg${s.isClosing ? ' as-close' : ''}">
       ${s.head ? `<p class="as-head">${esc(s.head)}</p>` : ''}
       ${s.cfg ? `<p class="as-cfg">${esc(s.cfg)}</p>` : ''}
-      ${s.body.map((t) => `<p class="as-body">${esc(t)}</p>`).join('')}
+      ${s.isClosing
+    // 收束段是條列筆記：一行一項，畫成清單。前面各段是長段落，這裡換成清單
+    // 才有「最後快速看過一遍」的節奏；也讓讀者知道報告要結束了。
+    ? `<ul class="as-list">${s.body.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`
+    : s.body.map((t) => `<p class="as-body">${esc(t)}</p>`).join('')}
     </div>`).join('');
 }
 

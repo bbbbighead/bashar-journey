@@ -29,12 +29,15 @@ export function parseAstroSections(content, closingLabels = []) {
   const isClosingHead = (s) => closings.includes(s.replace(/[：:]\s*$/, ''));
 
   const segs = [];
-  let cur = { head: '', cfg: '', body: [] };
+  let cur = { head: '', cfg: '', body: [], isClosing: false };
   const flush = () => { if (cur.head || cur.cfg || cur.body.length) segs.push(cur); };
   for (let i = 0; i < lines.length; i++) {
-    if (isClosingHead(lines[i]) || isCfgLine(lines[i + 1])) {
+    const closing = isClosingHead(lines[i]);
+    if (closing || isCfgLine(lines[i + 1])) {
       flush();
-      cur = { head: lines[i], cfg: '', body: [] };
+      // isClosing 讓呼叫方分辨收束段：它的內容是條列筆記，不是段落，
+      // 要畫成清單而不是 <p>（見 css 的 .as-list）。
+      cur = { head: lines[i], cfg: '', body: [], isClosing: closing };
       if (isCfgLine(lines[i + 1])) cur.cfg = stripBrackets(lines[++i]);
       continue;
     }
