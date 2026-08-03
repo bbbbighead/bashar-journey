@@ -364,6 +364,22 @@ textarea::placeholder { color: var(--ink-faint); opacity: .45; }
   color: var(--ink-faint); text-align: center; letter-spacing: .02em;
 }
 
+/* 盤上方那一行出生資料：使用者要能核對，所以不能太暗到看不見；
+   但它是身分標示、不是內容，所以比內文小一級、用 sans、不加框。
+   數字用 tabular-nums，日期時間對齊起來才像檔案標籤而不像句子。 */
+/* 用 .cw-wrap 前綴不是為了好看，是為了權重：`.r-block p` 是 (0,1,1)，
+   單寫 `.cw-birth` 只有 (0,1,0) 會被它蓋成 16px。目前星盤是 .r-block 的
+   兄弟節點所以碰不到，但這行的字級不該取決於將來有沒有人把它搬進去。 */
+.cw-wrap .cw-birth {
+  margin: 0 0 8px; font-family: var(--sans); font-size: 12.5px;
+  color: var(--ink-dim); text-align: center; letter-spacing: .03em;
+  font-variant-numeric: tabular-nums; white-space: normal;
+}
+.cw-wrap .cw-birth-k {
+  margin-right: .5em; color: var(--ink-faint);
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+}
+
 /* 環線與刻度 */
 .cw-ring { fill: none; stroke: rgba(214, 183, 122, .26); stroke-width: 1; }
 .cw-cusp { stroke: rgba(214, 183, 122, .16); stroke-width: 1; }

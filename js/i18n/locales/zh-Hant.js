@@ -201,6 +201,9 @@ export default {
     zoomOut: '縮小',
     zoomReset: '重設',
     zoomClose: '關閉',
+    // 星盤上方那一行出生資料：讓使用者核對這張盤是不是他的（有沒有填錯）
+    birthLabel: '出生資料',
+    timeUnknownShort: '未填出生時間',
   },
 
   weaving: {

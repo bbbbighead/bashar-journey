@@ -204,6 +204,9 @@ export default {
     zoomOut: 'Zoom out',
     zoomReset: 'Reset',
     zoomClose: 'Close',
+    // The birth-data line above the wheel: lets you check the chart is really yours
+    birthLabel: 'Birth data',
+    timeUnknownShort: 'birth time not given',
   },
 
   weaving: {
