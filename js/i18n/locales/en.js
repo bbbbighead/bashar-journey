@@ -105,7 +105,7 @@ export default {
           'There is so much I want to do — why do I never start?',
           'Suggest a direction for the way I run my social channels.',
         ],
-        note: 'This reads your natal chart — the shape you were born with, not what a particular day or year holds.',
+        note: 'A natal chart reflects your potential and your underlying tendencies — good for getting to know yourself, your strengths and the themes your life keeps returning to. It isn’t made for reading a particular year: how any given period is going takes a transit chart alongside it.',
       },
     ],
     chooseTitle: 'Not sure which to choose?',
