@@ -1065,9 +1065,11 @@ select.flt-select {
   font-family: var(--sans); font-size: 14.5px; letter-spacing: .05em;
   color: var(--accent); margin: 0 0 8px; line-height: 1.65;
 }
+/* 配置行也走金色（站主指定）。用 --accent-dim 而不是 --accent：同一個色系，
+   比標題深一階，兩行都是金的時候還看得出哪一行是標題。 */
 .r-section .r-block .as-seg .as-cfg {
   font-family: var(--sans); font-size: 12px; letter-spacing: .02em;
-  color: var(--ink-faint); margin: 0 0 13px; line-height: 1.85;
+  color: var(--accent-dim); margin: 0 0 13px; line-height: 1.85;
 }
 .r-section .r-block .as-seg .as-body {
   font-family: var(--serif); font-size: 16.5px; color: var(--ink);

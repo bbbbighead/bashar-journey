@@ -3,5 +3,11 @@
   "functions": {
     "api/insight.js": { "maxDuration": 60 },
     "api/astro.py": { "maxDuration": 30, "includeFiles": "api/ephe/**" }
-  }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    }
+  ]
 }
