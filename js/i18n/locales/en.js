@@ -105,6 +105,7 @@ export default {
           'There is so much I want to do — why do I never start?',
           'Suggest a direction for the way I run my social channels.',
         ],
+        note: 'This reads your natal chart — the shape you were born with, not what a particular day or year holds.',
       },
     ],
     chooseTitle: 'Not sure which to choose?',
@@ -159,6 +160,7 @@ export default {
   },
 
   astro: {
+    lede: 'For your nature, your gifts and your life’s themes — not daily or yearly forecasts',
     cityPh: 'Search by city name, e.g. London',
     countryPh: 'Search the country list, e.g. United Kingdom',
     savedHint: 'Your birth details from last time have been filled in',

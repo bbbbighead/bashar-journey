@@ -1420,6 +1420,14 @@ button.badge.repeat:hover {
 /* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
    地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
 .lang-cell, .geo-cell { white-space: nowrap; }
+/* 工具說明裡的界線註記（目前只有占星用：講明不看流年運勢）。
+   刻意做得比參考提問低一階——是補充邊界，不是勸退。 */
+.gd-note {
+  margin: 14px 0 0; padding-left: 12px;
+  font-family: var(--sans); font-size: 13px; line-height: 1.75;
+  color: var(--ink-faint); border-left: 1px solid var(--line-strong);
+}
+
 /* 一次性資料修正（收在 details 裡，平常不佔版面也不會誤觸） */
 .a-fix { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .a-fix summary {
