@@ -16,6 +16,7 @@ import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { buildShareCardSvg, svgToPng, shareCardPng } from './shareCard.js';
 import { chartWheelSvg } from './chartWheel.js';
+import { parseAstroSections } from './astroFormat.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { LENORMAND } from '../data/lenormand.js';
@@ -1103,29 +1104,10 @@ function bindFeedback() {
 //   不要破版；也絕不丟行——沒被判成標題或配置的行一律當本文留著。
 export function astroContentHtml(content) {
   const raw = String(content || '');
-  const lines = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  // 收束段的標題比對四個語系，不只當前語系：報告是用當時的輸出語言寫的，讀者
-  // 現在的介面語言可能已經不同（產生後切換語言、翻歷史紀錄、後台預覽別人的紀錄）。
-  const closings = groupLabelVariants('overall').map((x) => String(x).trim());
-  const isClosingHead = (s) => closings.includes(s.replace(/[：:]\s*$/, ''));
-  const isCfg = (s) => !!s && (s.includes('｜') || s.includes('→')) && !/[。！？.!?]/.test(s);
-  const strip = (s) => s.replace(/^[（(]\s*/, '').replace(/\s*[）)]$/, '');
-
-  const segs = [];
-  let cur = { head: '', cfg: '', body: [] };
-  const flush = () => { if (cur.head || cur.cfg || cur.body.length) segs.push(cur); };
-  for (let i = 0; i < lines.length; i++) {
-    if (isClosingHead(lines[i]) || isCfg(lines[i + 1])) {
-      flush();
-      cur = { head: lines[i], cfg: '', body: [] };
-      if (isCfg(lines[i + 1])) cur.cfg = strip(lines[++i]);
-      continue;
-    }
-    cur.body.push(lines[i]);
-  }
-  flush();
-
-  if (segs.filter((s) => s.head).length < 2) return `<p>${esc(raw)}</p>`;
+  // 切法與後台字數統計共用 js/astroFormat.js：兩邊若各寫一份，改了一邊就會讓
+  // 「畫面上的分層」與「後台算出來的字數」對不上。
+  const { ok, segs } = parseAstroSections(raw, groupLabelVariants('overall'));
+  if (!ok) return `<p>${esc(raw)}</p>`;
   return segs.map((s) => `<div class="as-seg">
       ${s.head ? `<p class="as-head">${esc(s.head)}</p>` : ''}
       ${s.cfg ? `<p class="as-cfg">${esc(s.cfg)}</p>` : ''}

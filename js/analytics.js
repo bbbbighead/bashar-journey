@@ -2,6 +2,9 @@
 // 收集：來訪（時間/來源/UTM）、頁面停留時間、題目與產出結果。
 // 傳送用 sendBeacon（頁面關閉也能送達）；未部署儲存後端時 API 會靜默丟棄。
 
+import { parseAstroSections } from './astroFormat.js';
+import { groupLabelVariants } from './i18n/index.js';
+
 const ENDPOINT = '/api/track';
 const VID_KEY = 'pi_visitor_id';
 
@@ -130,6 +133,40 @@ function birthRecord(chart) {
   }
 }
 
+// 後台「字數」要量的是「模型實際寫了多少分析」，所以只算分析本文：
+//   ・不算 message 裡的【工具】分節標記與段落之間的換行（那是我們組出來的）
+//   ・不算占星每段的白話標題與配置行（切法與結果頁排版共用 astroFormat.js）
+//   ・不算雷諾曼那八個組別小標題（模型被要求逐字使用的字樣）
+// 這個數字必須在這裡算——message 在前端與伺服器端都被切在 4000 字，用存下來的
+// 字串回推永遠會飽和在 4000，看不出真實長度。
+function bodyChars(a) {
+  if (!a) return null;
+  const sections = Array.isArray(a.sections) ? a.sections : null;
+  if (!sections) return String(a.message || '').replace(/\s+/g, '').length;
+  const groupLabels = new Set(
+    ['past', 'present', 'future', 'outer', 'event', 'inner', 'combos', 'overall']
+      .flatMap((k) => groupLabelVariants(k))
+      .map((x) => String(x).trim()),
+  );
+  let n = 0;
+  for (const sec of sections) {
+    const content = String((sec && sec.content) || '');
+    if (sec && sec.tool === 'astro') {
+      const { ok, segs } = parseAstroSections(content, groupLabelVariants('overall'));
+      // 切不出來就整段算——寧可高估，也不要因為切法失效而低報字數
+      n += ok
+        ? segs.reduce((m, g) => m + g.body.join('').replace(/\s+/g, '').length, 0)
+        : content.replace(/\s+/g, '').length;
+      continue;
+    }
+    n += content.split(/\n+/)
+      .map((x) => x.trim())
+      .filter((x) => x && !groupLabels.has(x.replace(/[：:]\s*$/, '')))
+      .join('').replace(/\s+/g, '').length;
+  }
+  return n;
+}
+
 // ---- 3. 題目與產出結果 ----
 export function trackJourney(state) {
   try {
@@ -148,6 +185,8 @@ export function trackJourney(state) {
       numbers: state.numbers || null,
       title: a ? String(a.title || '').slice(0, 60) : '',
       message: messageText.slice(0, 4000),
+      // 真實的分析本文字數（不含標題與配置行）。message 被切在 4000，這個沒有。
+      bodyChars: bodyChars(a),
       closing: a ? String(a.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
       astroUsed: !!state.astro,
