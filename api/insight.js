@@ -325,8 +325,15 @@ ${g.overall}：外在與個人這兩股力量如何交互、共同形成目前�
 };
 
 // 占星最後一段的標題。這是唯一一個「必須逐字使用」的占星小標題，所以要跟著
-// 輸出語言走——prompt 本文是中文，若不給對應字樣，英日韓的報告會冒出「結語」。
-const ASTRO_CLOSING = { 'zh-Hant': '結語', en: 'In closing', ja: 'まとめ', ko: '맺음말' };
+// 輸出語言走——prompt 本文是中文，若不給對應字樣，英日韓的報告會冒出中文標題。
+//
+// 直接沿用雷諾曼收束段的 groups.overall（繁中「整體意義」）：兩者要做的事一樣
+// ——把前面各段收攏成一條脈絡、並收尾給建議（雷諾曼那段的規定裡也明寫「以及
+// 接下來可以怎麼做」）。沿用同一個字串有兩個好處：四語系的翻譯已經在 locale
+// 檔裡，不必維護第二套（否則改一邊忘另一邊就會不一致）；使用者在不同工具之間
+// 看到的收束段也叫同一個名字。
+// 下面這組只是 groupLabels 沒送到時的後備，不是主要來源。
+const ASTRO_CLOSING = { 'zh-Hant': '整體意義', en: 'What it adds up to', ja: '全体の意味', ko: '전체의 의미' };
 
 // 哪些工具有「規定好、必須逐字使用」的小標題。
 // 占星刻意不列在這裡：它的小標題應該由「這張盤裡與主題高度相關的配置」長出來，
@@ -393,7 +400,8 @@ function buildPrompt(action, p, seg) {
   const order = tools.map(label).join('、');
   // 雷諾曼不傳 len：它的段落規定改用「每段要回答什麼」定義完整度，不用字數。
   // 字數下限會逼模型在沒東西可講時硬撐——那正是舊版冗長的來源。
-  const closing = ASTRO_CLOSING[lang] || ASTRO_CLOSING['zh-Hant'];
+  const closing = (seg.groups && seg.groups.overall)
+    || ASTRO_CLOSING[lang] || ASTRO_CLOSING['zh-Hant'];
   const astroLen = ASTRO_LEN[lang] || ASTRO_LEN['zh-Hant'];
   const structs = tools.map((x) => `〔${label(x)}〕\n${TOOL_STRUCT[x](seg.groups || {}, len, closing, astroLen)}`).join('\n\n');
   const fixed = tools.filter((x) => FIXED_HEADINGS.has(x)).map(label);
