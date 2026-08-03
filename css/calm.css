@@ -1082,6 +1082,25 @@ select.flt-select {
 }
 .r-section .r-block .as-seg .as-body + .as-body { margin-top: 1.1em; }
 
+/* 收束段（整體意義）＝條列筆記。前面各段是長段落，這裡換成清單，讀者才有
+   「最後快速看過一遍」的節奏，也知道報告要結束了。
+   ・不用 list-style：預設的圓點在深色底上太重，改用金色小菱形對齊站上的 ◇ 語彙
+   ・字級比本文小半級、行距收緊：它是筆記大綱，不是要細讀的段落
+   ・整段左側一條金線，與雷諾曼收束段（.lg-close）同一個手法 */
+.r-section .r-block .as-seg.as-close { border-left: 2px solid var(--accent-dim); }
+.r-section .r-block .as-list {
+  margin: 0; padding: 0; list-style: none;
+  font-family: var(--serif); font-size: 16px; color: var(--ink);
+}
+.r-section .r-block .as-list li {
+  position: relative; padding-left: 1.15em; line-height: 1.72;
+}
+.r-section .r-block .as-list li + li { margin-top: .55em; }
+.r-section .r-block .as-list li::before {
+  content: '◇'; position: absolute; left: 0; top: 0;
+  color: var(--accent-dim); font-size: 11px; line-height: 2.5;
+}
+
 /* 雷諾曼：對照牌卡＋該段文字包在同一塊暗色面板，牌卡置於面板最上方，
    底色與段落一致，不再浮在段落之間被切斷 */
 .r-section .r-block .lg-para {
