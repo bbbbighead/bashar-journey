@@ -1421,11 +1421,12 @@ button.badge.repeat:hover {
    地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
 .lang-cell, .geo-cell { white-space: nowrap; }
 /* 工具說明裡的界線註記（目前只有占星用：講明不看流年運勢）。
-   刻意做得比參考提問低一階——是補充邊界，不是勸退。 */
+   字級與字體跟這一頁的內文一致（16.5px 襯線）——它是要被讀完的一段話，
+   不是註腳。層次差異只靠左側那條金線與稍暗的顏色表示，不靠縮小字級。 */
 .gd-note {
-  margin: 14px 0 0; padding-left: 12px;
-  font-family: var(--sans); font-size: 13px; line-height: 1.75;
-  color: var(--ink-faint); border-left: 1px solid var(--line-strong);
+  margin: 16px 0 0; padding: 2px 0 2px 14px;
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.95;
+  color: var(--ink-dim); border-left: 1px solid var(--accent-dim);
 }
 
 /* 一次性資料修正（收在 details 裡，平常不佔版面也不會誤觸） */
