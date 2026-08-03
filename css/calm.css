@@ -1061,15 +1061,20 @@ select.flt-select {
   background: none; border: none; padding: 0;
   backdrop-filter: none; -webkit-backdrop-filter: none;
 }
+/* 標題必須大於本文（16.5px）。原本 14.5px 比本文還小，層次是反的——標題比它
+   引導的內文小，眼睛會先讀到本文。
+   用 --serif 而不是 --sans：這個標題是一句完整的話，跟本文同一個語氣，同一套字
+   靠大小與金色分層就夠了；換成無襯線會像 UI 標籤。站上其他用 --sans 的地方
+   （.r-sec-head、.cw-hint）都是標籤或註記，不是句子。 */
 .r-section .r-block .as-seg .as-head {
-  font-family: var(--sans); font-size: 14.5px; letter-spacing: .05em;
-  color: var(--accent); margin: 0 0 8px; line-height: 1.65;
+  font-family: var(--serif); font-size: 18px; letter-spacing: .02em;
+  color: var(--accent); margin: 0 0 10px; line-height: 1.7;
 }
 /* 配置行也走金色（站主指定）。用 --accent-dim 而不是 --accent：同一個色系，
    比標題深一階，兩行都是金的時候還看得出哪一行是標題。 */
 .r-section .r-block .as-seg .as-cfg {
-  font-family: var(--sans); font-size: 12px; letter-spacing: .02em;
-  color: var(--accent-dim); margin: 0 0 13px; line-height: 1.85;
+  font-family: var(--sans); font-size: 13.5px; letter-spacing: .02em;
+  color: var(--accent-dim); margin: 0 0 15px; line-height: 1.85;
 }
 .r-section .r-block .as-seg .as-body {
   font-family: var(--serif); font-size: 16.5px; color: var(--ink);
