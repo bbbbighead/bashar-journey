@@ -97,6 +97,15 @@ export function t(path, ...args) {
 // 目前語系的完整字典（需要整包資料時用，例如牌名對照）
 export function dict() { return LOCALES[current]; }
 
+// 同一個組別小標題在四個語系的字樣。解析「已經產生好的報告」時要用這個而不是
+// 只比對當前語系——報告是用當時的輸出語言寫的，但讀者現在的介面語言可能已經
+// 不同（產生後切換語言、翻看歷史紀錄、後台預覽別人的紀錄都會這樣）。
+export function groupLabelVariants(key) {
+  return LOCALE_LIST
+    .map((c) => ((LOCALES[c] || {}).groups || {})[key])
+    .filter(Boolean);
+}
+
 // 牌名：以語系對照表為主，找不到才用資料檔內建的中文名
 export function cardName(id, fallback) {
   const n = (LOCALES[current].cards || {})[id];

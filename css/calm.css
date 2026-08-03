@@ -1043,6 +1043,38 @@ select.flt-select {
   border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
   padding: 20px 18px;
 }
+/* 占星：每一組配置一塊面板，內部分三層——白話標題（金色）、配置清單（淡註記）、
+   分析（明體本文）。標題是一句話而不是標籤，所以不縮小、不拉字距、不加底線：
+   那些是給「過去／現在／未來」這種標籤用的處理，套在句子上只會更難讀。 */
+.r-section .r-block .as-seg {
+  background: rgba(13, 20, 31, .48);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
+  padding: 18px 18px 20px;
+}
+.r-section .r-block .as-seg + .as-seg { margin-top: 14px; }
+/* .r-section .r-block p 會給每個段落自己一塊面板底色＋邊框；面板已經移到
+   .as-seg 上，這裡把內層的重設掉（雷諾曼的 .lg-para p 做的是同一件事）。 */
+.r-section .r-block .as-seg .as-head,
+.r-section .r-block .as-seg .as-cfg,
+.r-section .r-block .as-seg .as-body {
+  background: none; border: none; padding: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.r-section .r-block .as-seg .as-head {
+  font-family: var(--sans); font-size: 14.5px; letter-spacing: .05em;
+  color: var(--accent); margin: 0 0 8px; line-height: 1.65;
+}
+.r-section .r-block .as-seg .as-cfg {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .02em;
+  color: var(--ink-faint); margin: 0 0 13px; line-height: 1.85;
+}
+.r-section .r-block .as-seg .as-body {
+  font-family: var(--serif); font-size: 16.5px; color: var(--ink);
+  line-height: 1.95; margin: 0;
+}
+.r-section .r-block .as-seg .as-body + .as-body { margin-top: 1.1em; }
+
 /* 雷諾曼：對照牌卡＋該段文字包在同一塊暗色面板，牌卡置於面板最上方，
    底色與段落一致，不再浮在段落之間被切斷 */
 .r-section .r-block .lg-para {

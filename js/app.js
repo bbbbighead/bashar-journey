@@ -24,7 +24,7 @@ import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackLang, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
-  initDocumentLang, LOCALE_LIST, localeName,
+  initDocumentLang, LOCALE_LIST, localeName, groupLabelVariants,
 } from './i18n/index.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1093,6 +1093,46 @@ function bindFeedback() {
   });
 }
 
+// 占星那一節的排版。模型依規定輸出三層：白話標題／配置清單（以｜分隔，飛星
+// 用 → 串成故事線）／分析。這裡把三層切開上樣式，讀者才掃得出一段從哪裡開始。
+//
+// 兩個保險：
+// ・配置行的判斷刻意要求「不含句號」——一句用｜當頓號的敘述不會被誤當成配置行。
+//   模型若照舊習慣加了括號，這裡把括號剝掉再顯示，不要求它重寫。
+// ・切不出至少兩個有標題的段落就整段退回純文字。格式沒被遵守時，寧可少了層次，
+//   不要破版；也絕不丟行——沒被判成標題或配置的行一律當本文留著。
+export function astroContentHtml(content) {
+  const raw = String(content || '');
+  const lines = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  // 收束段的標題比對四個語系，不只當前語系：報告是用當時的輸出語言寫的，讀者
+  // 現在的介面語言可能已經不同（產生後切換語言、翻歷史紀錄、後台預覽別人的紀錄）。
+  const closings = groupLabelVariants('overall').map((x) => String(x).trim());
+  const isClosingHead = (s) => closings.includes(s.replace(/[：:]\s*$/, ''));
+  const isCfg = (s) => !!s && (s.includes('｜') || s.includes('→')) && !/[。！？.!?]/.test(s);
+  const strip = (s) => s.replace(/^[（(]\s*/, '').replace(/\s*[）)]$/, '');
+
+  const segs = [];
+  let cur = { head: '', cfg: '', body: [] };
+  const flush = () => { if (cur.head || cur.cfg || cur.body.length) segs.push(cur); };
+  for (let i = 0; i < lines.length; i++) {
+    if (isClosingHead(lines[i]) || isCfg(lines[i + 1])) {
+      flush();
+      cur = { head: lines[i], cfg: '', body: [] };
+      if (isCfg(lines[i + 1])) cur.cfg = strip(lines[++i]);
+      continue;
+    }
+    cur.body.push(lines[i]);
+  }
+  flush();
+
+  if (segs.filter((s) => s.head).length < 2) return `<p>${esc(raw)}</p>`;
+  return segs.map((s) => `<div class="as-seg">
+      ${s.head ? `<p class="as-head">${esc(s.head)}</p>` : ''}
+      ${s.cfg ? `<p class="as-cfg">${esc(s.cfg)}</p>` : ''}
+      ${s.body.map((t) => `<p class="as-body">${esc(t)}</p>`).join('')}
+    </div>`).join('');
+}
+
 function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
@@ -1101,8 +1141,8 @@ function renderResult(a) {
       ${s.tool === 'lenormand' ? spreadGridHtml(state.lenormand) : ''}
       ${s.tool === 'meihua' ? meihuaGridHtml(state.meihua) : ''}
       ${s.tool === 'astro' ? chartWheelHtml(state.astro) : ''}
-      <div class="r-block">${s.tool === 'lenormand'
-        ? lenormandContentHtml(s.content)
+      <div class="r-block">${s.tool === 'lenormand' ? lenormandContentHtml(s.content)
+        : s.tool === 'astro' ? astroContentHtml(s.content)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
