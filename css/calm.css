@@ -1494,6 +1494,18 @@ button.badge.repeat:hover {
 /* 語言與地區都是短標籤，折行只會變醜（「繁體中／文」）。
    地區只顯示國名，完整的「國名（國碼）」放在 title 裡。 */
 .lang-cell, .geo-cell { white-space: nowrap; }
+
+/* 後台：訪客標註（vid → 這是誰）。名字在上、vid 在下；
+   鉛筆平常收暗，滑到那一列才亮起來——低頻操作不該常駐搶視線 */
+.vid-cell { white-space: nowrap; }
+.vid-label { display: block; font-size: 12px; color: var(--accent); line-height: 1.5; }
+.vid-row { display: inline-flex; align-items: center; gap: 4px; }
+.vid-edit {
+  border: none; background: none; cursor: pointer; padding: 1px 4px;
+  font-size: 12px; color: var(--ink-faint); opacity: .35; border-radius: 3px;
+}
+.sess-row:hover .vid-edit, .vid-edit:focus-visible { opacity: 1; color: var(--accent-dim); }
+.vid-edit:hover { background: rgba(214, 183, 122, .12); color: var(--accent); }
 /* 工具說明裡的界線註記（目前只有占星用：講明不看流年運勢）。
    字級與字體跟這一頁的內文一致（16.5px 襯線）——它是要被讀完的一段話，
    不是註腳。層次差異只靠左側那條金線與稍暗的顏色表示，不靠縮小字級。 */
