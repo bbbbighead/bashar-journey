@@ -196,7 +196,18 @@ function fmtAstro(A) {
     }
   }
   if ((A.unaspected || []).length) {
-    out.push(`無主相位行星：${A.unaspected.map((u) => `${u.body}${u.minorOnly ? '（僅有次要相位）' : '（近乎孤立）'}`).join('、')}`);
+    // 只講事實，不下詮釋。舊版會印「（近乎孤立）」——那是我們替模型做的判斷，
+    // 而且「（僅有次要相位）」在該行星有小行星主相位時是錯的。改成如實列出
+    // 它實際有哪些相位，讓模型自己判斷這代表什麼。
+    out.push(`無主相位行星（比對範圍：十大行星與南北交點；與小行星、四軸、福點的相位不列入此判定）：${
+      A.unaspected.map((u) => {
+        const has = [];
+        if ((u.majorsOutsideCore || []).length) has.push(`另有主相位 ${u.majorsOutsideCore.join('、')}`);
+        if ((u.minors || []).length) has.push(`次要相位 ${u.minors.join('、')}`);
+        // 舊紀錄沒有這兩個欄位（曾只存 minorOnly），退回指向相位表，不編造內容
+        if (!has.length && !('majorsOutsideCore' in u) && !('minors' in u)) has.push('詳見相位表');
+        return `${u.body}${has.length ? `（${has.join('；')}）` : '（相位表中沒有其他相位）'}`;
+      }).join('｜')}`);
   }
   return out.join('\n');
 }

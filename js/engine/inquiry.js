@@ -58,8 +58,32 @@ export async function fetchAstroChart(payload) {
   return json.chart;
 }
 
-// 給 AI 的星盤摘要：保留完整結構、截取最緊密的相位以控制大小
-function astroForAI(chart) {
+// 送給 AI 的相位：主相位取 30 條、次要取 12 條，控制 prompt 大小。
+//
+// 但南北交點的主相位一律保留，不受 30 條的名額限制。原因是「取最緊的 30 條」
+// 會把容許度較鬆的交點相位整條砍掉——實測有一張盤，月亮六分北交點（4°53′）
+// 與太陽四分北交點（4°55′）都排在第 31 名之後，兩條都沒送出去。交點是發展
+// 方向的指標，那正是最該讓模型看到的東西。
+//
+// 這裡刻意不重新排序：api/insight.js 的 fmtAstro 會依「主相位優先、組內依
+// 容許度」再排一次，順序由它負責。
+const NODE_NAMES = new Set(['北交點', '南交點']);
+const MAJOR_CAP = 30;
+const MINOR_CAP = 12;
+function pickAspects(aspects) {
+  const majors = aspects.filter((a) => a.major);
+  const nodeMajors = majors.filter((a) => NODE_NAMES.has(a.a) || NODE_NAMES.has(a.b));
+  const restMajors = majors.filter((a) => !NODE_NAMES.has(a.a) && !NODE_NAMES.has(a.b));
+  return [
+    ...nodeMajors,
+    ...restMajors.slice(0, Math.max(0, MAJOR_CAP - nodeMajors.length)),
+    ...aspects.filter((a) => !a.major).slice(0, MINOR_CAP),
+  ];
+}
+
+// 給 AI 的星盤摘要：保留完整結構、截取最緊密的相位以控制大小。
+// 具名匯出，好讓工具與測試能驗證「實際送給模型的形狀」而不必手抄一份。
+export function astroForAI(chart) {
   if (!chart) return null;
   const aspects = chart.aspects || [];
   return {
@@ -70,10 +94,7 @@ function astroForAI(chart) {
     houses: chart.houses,
     intercepted: chart.intercepted,
     duplicatedCuspSigns: chart.duplicatedCuspSigns,
-    aspects: [
-      ...aspects.filter((a) => a.major).slice(0, 30),
-      ...aspects.filter((a) => !a.major).slice(0, 12),
-    ],
+    aspects: pickAspects(aspects),
     structure: chart.structure,
     dispositors: chart.dispositors,
     patterns: chart.patterns,
