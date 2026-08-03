@@ -16,7 +16,7 @@ import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { buildShareCardSvg, svgToPng, shareCardPng } from './shareCard.js';
 import { chartWheelSvg } from './chartWheel.js';
-import { parseAstroSections } from './astroFormat.js';
+import { parseAstroSections, parseMeihuaSections } from './astroFormat.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
 import { cardConstellation } from '../data/lenormandIcons.js';
 import { LENORMAND } from '../data/lenormand.js';
@@ -25,7 +25,7 @@ import { detectCrisis } from './content/crisis.js';
 import { trackVisit, trackLang, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
-  initDocumentLang, LOCALE_LIST, localeName, groupLabelVariants,
+  initDocumentLang, LOCALE_LIST, localeName, groupLabelVariants, meihuaHeadVariants,
 } from './i18n/index.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1119,6 +1119,29 @@ export function astroContentHtml(content) {
     </div>`).join('');
 }
 
+// 梅花易數那一節的排版。第一段是「卦象提點」：三行總提點，畫成置中的提點卡
+// ——讀者先抓到方向，再往下讀詳細解說。其餘段落沿用占星的面板樣式（金色標題
+// ＋明體本文），三個工具同一套視覺語言。
+// 小標題比對四個語系（報告語言與介面語言可能不同）；切不出來退回純文字、不丟行。
+export function meihuaContentHtml(content) {
+  const raw = String(content || '');
+  const labels = {};
+  for (const k of ['tip', 'ben', 'bian', 'moving', 'meaning', 'advice']) {
+    labels[k] = meihuaHeadVariants(k);
+  }
+  const { ok, segs } = parseMeihuaSections(raw, labels);
+  if (!ok) return `<p>${esc(raw)}</p>`;
+  return segs.map((s) => s.isTip
+    ? `<div class="mh-tip">
+        <p class="mh-tip-label">${esc(s.head)}</p>
+        ${s.body.map((t) => `<p class="mh-tip-text">${esc(t)}</p>`).join('')}
+      </div>`
+    : `<div class="as-seg">
+        ${s.head ? `<p class="as-head">${esc(s.head)}</p>` : ''}
+        ${s.body.map((t) => `<p class="as-body">${esc(t)}</p>`).join('')}
+      </div>`).join('');
+}
+
 function renderResult(a) {
   const sections = sectionsOf(a);
   const secHtml = sections.map((s) => `
@@ -1129,6 +1152,7 @@ function renderResult(a) {
       ${s.tool === 'astro' ? chartWheelHtml(state.astro) : ''}
       <div class="r-block">${s.tool === 'lenormand' ? lenormandContentHtml(s.content)
         : s.tool === 'astro' ? astroContentHtml(s.content)
+        : s.tool === 'meihua' ? meihuaContentHtml(s.content)
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 

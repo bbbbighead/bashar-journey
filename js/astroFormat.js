@@ -47,3 +47,33 @@ export function parseAstroSections(content, closingLabels = []) {
 
   return { ok: segs.filter((s) => s.head).length >= 2, segs };
 }
+
+
+// 梅花易數那一節的段落切法。模型被要求逐字使用固定小標題（單獨成行），
+// 這裡依字樣切段。headLabels：{ key: [各語系字樣…] }，tip 段（卦象提點）
+// 以 isTip 標出——它要畫成置中的提點卡，不是一般段落。
+// 規則與占星同一套精神：標題可帶尾端冒號；切不出至少兩段就 ok=false，
+// 呼叫方退回純文字；沒被認出的行一律當本文，絕不丟行。
+export function parseMeihuaSections(content, headLabels = {}) {
+  const lines = String(content || '').split(/\n+/).map((x) => x.trim()).filter(Boolean);
+  const byLabel = new Map();   // 字樣 → key
+  for (const [key, arr] of Object.entries(headLabels)) {
+    for (const v of arr || []) byLabel.set(String(v).trim(), key);
+  }
+  const headKey = (x) => byLabel.get(x.replace(/[：:]\s*$/, '')) || null;
+
+  const segs = [];
+  let cur = { key: '', head: '', body: [], isTip: false };
+  const flush = () => { if (cur.head || cur.body.length) segs.push(cur); };
+  for (const line of lines) {
+    const k = headKey(line);
+    if (k) {
+      flush();
+      cur = { key: k, head: line.replace(/[：:]\s*$/, ''), body: [], isTip: k === 'tip' };
+      continue;
+    }
+    cur.body.push(line);
+  }
+  flush();
+  return { ok: segs.filter((x) => x.head).length >= 2, segs };
+}

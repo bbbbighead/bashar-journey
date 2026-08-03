@@ -58,6 +58,13 @@ export default {
     aria: '卦：本卦・互卦・変卦',
   },
 
+  // 梅花心易の見出し。モデルはこの文字列をそのまま使う——描画側がこれで段落を切る。
+  // api/insight.js の MEIHUA_FALLBACK と一字一句一致させること。
+  meihuaHeads: {
+    tip: '卦のポイント', ben: '本卦', bian: '変卦',
+    moving: '動爻', meaning: '卦全体の意味', advice: '行動のヒント',
+  },
+
   // 占術について（メニューのページ）：まず違いをひと目で、そのあとに詳しく
   guide: {
     title: '占術について',

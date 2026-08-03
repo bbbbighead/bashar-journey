@@ -106,6 +106,13 @@ export function groupLabelVariants(key) {
     .filter(Boolean);
 }
 
+// 梅花易數小標題的四語系字樣（用途同上：解析已產生的報告時要比對全部語系）
+export function meihuaHeadVariants(key) {
+  return LOCALE_LIST
+    .map((c) => ((LOCALES[c] || {}).meihuaHeads || {})[key])
+    .filter(Boolean);
+}
+
 // 牌名：以語系對照表為主，找不到才用資料檔內建的中文名
 export function cardName(id, fallback) {
   const n = (LOCALES[current].cards || {})[id];

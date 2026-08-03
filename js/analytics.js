@@ -3,7 +3,7 @@
 // 傳送用 sendBeacon（頁面關閉也能送達）；未部署儲存後端時 API 會靜默丟棄。
 
 import { parseAstroSections } from './astroFormat.js';
-import { groupLabelVariants } from './i18n/index.js';
+import { groupLabelVariants, meihuaHeadVariants } from './i18n/index.js';
 
 const ENDPOINT = '/api/track';
 const VID_KEY = 'pi_visitor_id';
@@ -144,9 +144,13 @@ function bodyChars(a) {
   const sections = Array.isArray(a.sections) ? a.sections : null;
   if (!sections) return String(a.message || '').replace(/\s+/g, '').length;
   const groupLabels = new Set(
-    ['past', 'present', 'future', 'outer', 'event', 'inner', 'combos', 'overall']
-      .flatMap((k) => groupLabelVariants(k))
-      .map((x) => String(x).trim()),
+    [
+      ...['past', 'present', 'future', 'outer', 'event', 'inner', 'combos', 'overall']
+        .flatMap((k) => groupLabelVariants(k)),
+      // 梅花易數的固定小標題（含卦象提點的標題）同樣不算；提點的內文照算
+      ...['tip', 'ben', 'bian', 'moving', 'meaning', 'advice']
+        .flatMap((k) => meihuaHeadVariants(k)),
+    ].map((x) => String(x).trim()),
   );
   let n = 0;
   for (const sec of sections) {

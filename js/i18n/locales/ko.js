@@ -58,6 +58,13 @@ export default {
     aria: '괘: 본괘, 호괘, 변괘',
   },
 
+  // 매화역수 해석의 소제목. 모델은 이 문자열을 그대로 사용하고, 화면은 이것으로 단락을 나눈다.
+  // api/insight.js 의 MEIHUA_FALLBACK 과 한 글자도 다르면 안 된다.
+  meihuaHeads: {
+    tip: '괘의 요점', ben: '본괘', bian: '변괘',
+    moving: '동효', meaning: '괘 전체의 의미', advice: '행동 제안',
+  },
+
   // 탐색 도구 소개 (메뉴 페이지): 차이를 한눈에 보고, 그다음 자세히
   guide: {
     title: '탐색 도구 소개',

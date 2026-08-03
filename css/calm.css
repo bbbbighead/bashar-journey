@@ -1101,6 +1101,31 @@ select.flt-select {
   color: var(--accent-dim); font-size: 11px; line-height: 2.5;
 }
 
+/* 梅花易數：卦象提點卡。整節的引言——置中、比本文大半級、上下細金線做出
+   「籤」的儀式感。用暗色玻璃面板（與 .as-seg 同一組底色），不引入新視覺系統。 */
+.r-section .r-block .mh-tip {
+  background: rgba(13, 20, 31, .48);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(214, 183, 122, .14); border-radius: 3px;
+  border-top: 1px solid rgba(214, 183, 122, .4);
+  border-bottom: 1px solid rgba(214, 183, 122, .4);
+  padding: 20px 20px 22px; margin-bottom: 14px; text-align: center;
+}
+.r-section .r-block .mh-tip .mh-tip-label,
+.r-section .r-block .mh-tip .mh-tip-text {
+  background: none; border: none; padding: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.r-section .r-block .mh-tip .mh-tip-label {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .3em; text-indent: .3em;
+  color: var(--accent-dim); margin: 0 0 12px;
+}
+.r-section .r-block .mh-tip .mh-tip-text {
+  font-family: var(--serif); font-size: 17px; line-height: 1.9;
+  color: var(--ink); margin: 0; text-wrap: balance;
+}
+.r-section .r-block .mh-tip .mh-tip-text + .mh-tip-text { margin-top: .9em; }
+
 /* 雷諾曼：對照牌卡＋該段文字包在同一塊暗色面板，牌卡置於面板最上方，
    底色與段落一致，不再浮在段落之間被切斷 */
 .r-section .r-block .lg-para {

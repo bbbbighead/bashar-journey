@@ -90,6 +90,16 @@ const GROUP_FALLBACK = {
   ja: { past: '過去', present: '現在', future: 'これから', outer: '外の状況', event: '事の現状', inner: '自分の心境', combos: '注目したい組みあわせ', overall: '全体の意味' },
   ko: { past: '과거', present: '현재', future: '앞으로', outer: '바깥 상황', event: '일의 현재', inner: '나의 마음', combos: '눈여겨볼 조합', overall: '전체의 의미' },
 };
+// 梅花易數解讀小標題的伺服器端備援（理由同 GROUP_FALLBACK：剛部署時
+// 帶舊版 JS 的瀏覽器不會送 meihuaLabels）。
+// ⚠ 必須與 js/i18n/locales/*.js 的 meihuaHeads 逐字一致。
+const MEIHUA_FALLBACK = {
+  'zh-Hant': { tip: '卦象提點', ben: '本卦', bian: '變卦', moving: '動爻', meaning: '卦象含義', advice: '行動建議' },
+  en: { tip: 'The essence', ben: 'The primary hexagram', bian: 'The changed hexagram', moving: 'The moving line', meaning: 'The reading as a whole', advice: 'What to do' },
+  ja: { tip: '卦のポイント', ben: '本卦', bian: '変卦', moving: '動爻', meaning: '卦全体の意味', advice: '行動のヒント' },
+  ko: { tip: '괘의 요점', ben: '본괘', bian: '변괘', moving: '동효', meaning: '괘 전체의 의미', advice: '행동 제안' },
+};
+
 function pickLang(v) { return LANGS.includes(v) ? v : 'zh-Hant'; }
 
 // ---- 各階段資料段：排版成可讀文字（送給模型與記錄的就是這串文字，非 JSON 結構） ----
@@ -229,10 +239,14 @@ function buildSegments(p) {
   const lang = pickLang(p.lang);
   const gl = (p.groupLabels && typeof p.groupLabels === 'object') ? p.groupLabels : {};
   const groups = { ...GROUP_FALLBACK[lang], ...gl };
+  const ml = (p.meihuaLabels && typeof p.meihuaLabels === 'object') ? p.meihuaLabels : {};
+  const mh = { ...MEIHUA_FALLBACK[lang] };
+  for (const k of Object.keys(mh)) if (typeof ml[k] === 'string' && ml[k].trim()) mh[k] = ml[k].trim().slice(0, 40);
   return {
     opening: String(p.opening || '').slice(0, 600),
     lang,
     groups,
+    mh,
     tools,
     lenormand: tools.includes('lenormand') ? fmtLenormand(p.lenormand).slice(0, 4000) : null,
     meihua: tools.includes('meihua') ? fmtMeihua(p.meihua).slice(0, 1500) : null,
@@ -280,12 +294,16 @@ ${g.overall}：外在與個人這兩股力量如何交互、共同形成目前�
 ・⚠ 不要寫「那一排」「這一排」「這三張」「這一組牌」（及其他語言的同義說法，如 "that row"／"those three cards"／「あの列」／'그 줄'），也不要寫位置編號——牌陣已用圖示呈現在文字上方，讀者看得到位置。用牌名指稱就好。
 ・上面括號裡的位置編號只是給你對照用的，不要出現在輸出裡。
 ・長度由內容決定：把該講的講清楚，不要為了篇幅硬撐，也不要草率帶過。`,
-  meihua: (g, len) => `梅花易數——content 內請依下列小標題依序完整展開，把整個卦象整理成一個完整的故事，而非零碎解釋：
-① 本卦：卦名與卦象含義。
-② 變卦：卦名與其代表的走向變化。
-③ 動爻：哪一爻動、它的意義。
-④ 卦象含義：本卦、互卦、變卦與體用生剋合起來說明。
-⑤ 行動建議。
+  // 標題字樣與「該段要寫什麼」分開規定：舊版寫成「① 本卦：卦名與卦象含義。」
+  // 一行，模型會把整行連說明照抄成標題（實際輸出裡出現過）。
+  meihua: (g, len, _c, _a, mh) => `梅花易數——content 依下列小標題依序展開，把整個卦象整理成一個完整的故事，而非零碎解釋。標題必須**逐字使用**下列字樣（不可改寫、不可加編號），每個標題單獨成行，換行後才寫該段內容；冒號後面的說明是給你的指引，不要抄進輸出：
+
+${mh.tip}：整個卦對這個提問的總提點，放在最前面。大約三行（80–110 字）的白話：一句大勢、一句關鍵、一句該守或該做的事。不用任何卦象術語——讀者只看這一段就要能抓到方向。
+${mh.ben}：卦名與卦象含義。
+${mh.bian}：卦名與其代表的走向變化。
+${mh.moving}：哪一爻動、它的意義。
+${mh.meaning}：本卦、互卦、變卦與體用生剋合起來說明。
+${mh.advice}：行動建議。
 每個小標題都要出現、有實質敘述，但每段都要精簡。⚠ ${len}，為求達標請適度精簡各段、不要展開過多——這比「寫得很長」更重要。`,
   // 段數刻意不規定：挑幾組配置由這張盤與這個主題決定。小標題也不預先給字樣——
   // 它是「這組配置共同指向什麼」的白話結論，只能由挑出來的配置長出來。
@@ -413,7 +431,7 @@ function buildPrompt(action, p, seg) {
   const closing = (seg.groups && seg.groups.overall)
     || ASTRO_CLOSING[lang] || ASTRO_CLOSING['zh-Hant'];
   const astroLen = ASTRO_LEN[lang] || ASTRO_LEN['zh-Hant'];
-  const structs = tools.map((x) => `〔${label(x)}〕\n${TOOL_STRUCT[x](seg.groups || {}, len, closing, astroLen)}`).join('\n\n');
+  const structs = tools.map((x) => `〔${label(x)}〕\n${TOOL_STRUCT[x](seg.groups || {}, len, closing, astroLen, seg.mh || {})}`).join('\n\n');
   const fixed = tools.filter((x) => FIXED_HEADINGS.has(x)).map(label);
   const free = tools.filter((x) => !FIXED_HEADINGS.has(x)).map(label);
   // 沒有固定小標題的工具（占星）不在這裡補任何說明：它的段落寫法與小標題規則
