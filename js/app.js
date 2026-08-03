@@ -250,6 +250,7 @@ function renderGuide() {
         <div class="gd-label">${esc(s.asksLabel)}</div>
         <ul class="gd-ask-list">${(s.asks || []).map((a) => `<li>${esc(a)}</li>`).join('')}</ul>
       </div>
+      ${s.note ? `<p class="gd-note">${esc(s.note)}</p>` : ''}
     </section>`).join('<div class="rule-orn" aria-hidden="true"></div>');
 
   $('guideHost').innerHTML = `
