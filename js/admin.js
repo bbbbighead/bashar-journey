@@ -17,6 +17,9 @@ const SCREEN_LABELS = {
 // scope 為全域資料範圍（complete／all／incomplete），同時套用到
 // 總覽統計、來源/裝置/停留圓餅圖與使用紀錄清單。
 let allSessions = [];
+// 訪客標註（vid → 「這是誰」），由 sessions 回應整張帶回。放模組層而不是每列
+// 各自存：同一位訪客會出現在很多列，改一次名字要全部一起變。
+let vidLabels = {};
 let sessOffset = 0;
 let exhausted = false;
 const filters = { scope: 'complete', device: '', source: '', lang: '', country: '', vid: '' };
@@ -657,9 +660,10 @@ $('btnMore').addEventListener('click', loadMore);
 
 async function fetchPage() {
   // 帶上 scope：來訪次數要依使用者選的資料範圍計算（見 api/admin.js 的 inScope）
-  const { sessions } = await api({
+  const { sessions, vidLabels: labels } = await api({
     view: 'sessions', offset: String(sessOffset), scope: filters.scope,
   });
+  Object.assign(vidLabels, labels || {});
   sessOffset += 50;
   if (sessions.length < 50) exhausted = true;
   allSessions.push(...sessions);
@@ -729,8 +733,11 @@ function renderSessions() {
     tr.innerHTML = `
       <td class="chk-col"><input type="checkbox" class="row-chk" ${selected.has(s.sid) ? 'checked' : ''}></td>
       <td>${fmtTime(s.ts)}</td>
-      <td><button type="button" class="vid-btn${filters.vid === s.vid ? ' on' : ''}"
-        title="只看這位訪客的紀錄（再點一次取消）"><code>${esc(s.vid)}</code></button></td>
+      <td class="vid-cell">${vidLabels[s.vid]
+    ? `<span class="vid-label" title="你的標註（點筆型圖示可改）">（${esc(vidLabels[s.vid])}）</span>` : ''}
+        <span class="vid-row"><button type="button" class="vid-btn${filters.vid === s.vid ? ' on' : ''}"
+        title="只看這位訪客的紀錄（再點一次取消）"><code>${esc(s.vid)}</code></button><button
+        type="button" class="vid-edit" title="標註這位訪客是誰（例如：我自己、測試員）">✎</button></span></td>
       <td class="visit-cell">${s.visitTotal > 1
         ? `<button type="button" class="badge repeat visit-btn"
             title="展開這位訪客的 ${s.visitTotal} 次來訪，看每次聊了什麼">第 ${s.visitNo} / ${s.visitTotal} 次</button>`
@@ -760,6 +767,22 @@ function renderSessions() {
         ? `<button type="button" class="btn small prev-btn" title="用這一次的紀錄重現使用者看到的結果頁">預覽</button>`
         : '<span class="dim-dash">—</span>'}</td>`;
 
+    const vidEdit = tr.querySelector('.vid-edit');
+    vidEdit.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      // prompt 而不是行內輸入框：這是站主自用的低頻操作，一個原生對話框
+      // 就夠了，省去在表格列裡塞編輯狀態的複雜度。空字串＝清除標註。
+      const cur = vidLabels[s.vid] || '';
+      const input = window.prompt(`這位訪客（${s.vid}）是誰？\n留空並確定＝清除標註`, cur);
+      if (input === null || input.trim() === cur) return;   // 取消或沒改
+      try {
+        const { label } = await api({}, { action: 'vid_label', vid: s.vid, label: input.trim() });
+        if (label) vidLabels[s.vid] = label; else delete vidLabels[s.vid];
+        renderSessions();   // 同一位訪客的每一列一起更新
+      } catch {
+        window.alert('標註儲存失敗，請再試一次。');
+      }
+    });
     const vidBtn = tr.querySelector('.vid-btn');
     vidBtn.addEventListener('click', (e) => {
       e.stopPropagation();                // 點訪客不展開詳情
@@ -794,7 +817,7 @@ function renderSessions() {
 
   // 訪客過濾時要說清楚只在已載入的紀錄裡找——不然會誤以為這就是他的全部紀錄
   $('fltCount').textContent = filters.vid
-    ? `只看訪客 ${filters.vid}：${visible.length} 筆（在已載入的 ${allSessions.length} 筆之中${exhausted ? '，已是全部' : '，可按「載入更多」往前找'}）`
+    ? `只看訪客 ${filters.vid}${vidLabels[filters.vid] ? `（${vidLabels[filters.vid]}）` : ''}：${visible.length} 筆（在已載入的 ${allSessions.length} 筆之中${exhausted ? '，已是全部' : '，可按「載入更多」往前找'}）`
     : `顯示 ${visible.length} 筆／已載入 ${allSessions.length} 筆`;
   $('btnMore').style.display = exhausted ? 'none' : 'inline-block';
   updateBulkBar();
@@ -878,7 +901,7 @@ async function toggleVisitList(tr, s) {
     </li>`).join('');
 
   row.innerHTML = `<td colspan="14" class="detail-cell">
-    <div class="vl-head">訪客 <code>${esc(d.vid)}</code> 共 ${d.total} 次來訪
+    <div class="vl-head">訪客 <code>${esc(d.vid)}</code>${d.label ? ` <span class="vid-label">（${esc(d.label)}）</span>` : ''} 共 ${d.total} 次來訪
       <span class="vl-scope">（${scopeNote}）</span></div>
     <ol class="vl-list">${items}</ol>
     <div class="vl-foot">目前你點開的是<b>第 ${s.visitNo} / ${d.total} 次</b>。點上面任一次即可在這裡直接展開該次的完整內容，不必回主清單找。</div>

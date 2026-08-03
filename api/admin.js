@@ -211,6 +211,25 @@ export default async function handler(req, res) {
         return;
       }
 
+      // 訪客標註：vid → 「這是誰」的對照（例如「我自己」「測試員小林」）。
+      // 存成一個 hash（pi:vidlabels），而不是每個 vid 一支 key——整份對照表
+      // 每次列清單都要整張讀回來，一個 HGETALL 比幾十個 GET 便宜得多。
+      // 空字串＝清除標註。
+      if (action === 'vid_label') {
+        const vid = String(body.vid || '').slice(0, 16).replace(/[^\w-]/g, '');
+        if (!vid) { res.status(400).json({ ok: false, error: 'bad_vid' }); return; }
+        const label = String(body.label || '').trim().slice(0, 40);
+        const [oldR] = await redisPipeline([['HGET', 'pi:vidlabels', vid]]);
+        const old = oldR.result ? String(oldR.result) : '';
+        const size = (v) => (v ? vid.length + v.length + 8 : 0); // 8≈hash 欄位額外負擔
+        await redisPipeline([
+          label ? ['HSET', 'pi:vidlabels', vid, label] : ['HDEL', 'pi:vidlabels', vid],
+          ['INCRBY', 'pi:agg:bytes', String(size(label) - size(old))],
+        ]);
+        res.status(200).json({ ok: true, vid, label });
+        return;
+      }
+
       // 一次性資料修正：把來訪紀錄的語言補成指定語系。
       //
       // 為什麼需要：語言欄一度記的是 navigator.language（瀏覽器系統語言）而不是
@@ -588,9 +607,10 @@ export default async function handler(req, res) {
       const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
       // 這一頁的 50 筆，加上整份清單——「這是第幾次來訪」必須看該 vid 的全部
       // 紀錄才算得出來，只看本頁會把每個人都算成第 1 次。
-      const [listR, allR] = await redisPipeline([
+      const [listR, allR, labelsR] = await redisPipeline([
         ['LRANGE', 'pi:sessions', String(offset), String(offset + 49)],
         ['LRANGE', 'pi:sessions', '0', '-1'],
+        ['HGETALL', 'pi:vidlabels'],   // 訪客標註整張帶回，前端用 vid 對照
       ]);
       const sessions = (listR.result || []).map((s) => parseJSON(s, null)).filter(Boolean);
       // 次數要跟著使用者選的資料範圍算：選「僅有題目的來訪」時，
@@ -636,7 +656,11 @@ export default async function handler(req, res) {
           s.feedback = fb ? { rating: fb.rating, text: fb.text || '', ts: fb.ts } : null;
         });
       }
-      res.status(200).json({ ok: true, offset, sessions });
+      // HGETALL 回平面陣列 [vid1, 名字1, vid2, 名字2, …]，轉成物件給前端對照
+      const vidLabels = {};
+      const flat = labelsR.result || [];
+      for (let i = 0; i + 1 < flat.length; i += 2) vidLabels[flat[i]] = String(flat[i + 1]);
+      res.status(200).json({ ok: true, offset, sessions, vidLabels });
       return;
     }
 
@@ -666,8 +690,10 @@ export default async function handler(req, res) {
           s.feedback = fb ? { rating: fb.rating, text: fb.text || '' } : null;
         });
       }
+      const [vlR] = await redisPipeline([['HGET', 'pi:vidlabels', vid]]);
       res.status(200).json({
-        ok: true, vid, scope: scopeOf(url), total: mine.length,
+        ok: true, vid, label: vlR.result ? String(vlR.result) : '',
+        scope: scopeOf(url), total: mine.length,
         visits: visits.map((s, i) => ({
           visitNo: i + 1, sid: s.sid, ts: s.ts, src: s.src, device: s.device,
           topic: s.topic, tools: s.tools, hasJourney: s.hasJourney, feedback: s.feedback,
