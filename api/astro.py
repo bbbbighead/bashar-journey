@@ -1006,12 +1006,32 @@ def compute_chart(date_str, time_str, time_unknown, city, country, place=None):
     patterns.extend(stelliums)
 
     # 無主相位行星
+    #
+    # 比對範圍是十大行星＋南北交點。傳統定義只算十大行星彼此之間，但那會讓
+    # 「太陽四分北交點 4°55′」這種相位不算數，行星就被誤判成無主相位。交點是
+    # 發展方向的指標，與它構成的主相位必須算進來。
+    #
+    # 同時輸出這顆行星「實際上有哪些相位」。舊版只回傳 minorOnly 布林值，讓
+    # 下游印出「僅有次要相位」或「近乎孤立」——前者在有小行星主相位時是錯的
+    # （太陽三分凱龍星、四分智神星都是主相位），後者是替模型下的詮釋。
+    # 這裡只給事實：有哪些、是主相位還是次要相位；怎麼解讀由模型決定。
+    node_names = {'北交點', '南交點'}
+    core_names = set(TEN) | node_names
+    majors_core = [t for t in aspects if t['major']
+                   and t['a'] in core_names and t['b'] in core_names]
     unaspected = []
     for name in TEN:
-        has_major = any(t for t in majors if name in (t['a'], t['b']))
-        if not has_major:
-            has_minor = any(t for t in aspects if not t['major'] and name in (t['a'], t['b']))
-            unaspected.append({'body': name, 'minorOnly': has_minor})
+        if any(name in (t['a'], t['b']) for t in majors_core):
+            continue
+        mine = [t for t in aspects if name in (t['a'], t['b'])]
+        def counterpart(t, _n=name):
+            return t['b'] if t['a'] == _n else t['a']
+        unaspected.append({
+            'body': name,
+            # 主相位，但對方不在十大行星／交點之內（小行星、四軸、福點等）
+            'majorsOutsideCore': [f"{t['type']}{counterpart(t)}" for t in mine if t['major']],
+            'minors': [f"{t['type']}{counterpart(t)}" for t in mine if not t['major']],
+        })
 
     retro_planets = [n for n in TEN if by_name.get(n, {}).get('retrograde')]
 
