@@ -394,6 +394,26 @@ function legendHtml(stats, labels) {
   return `<div class="cw-legend-box">${out}</div>`;
 }
 
+// 星盤上方的一行出生資料。目的只有一個：讓使用者核對自己有沒有填錯——
+// 這張盤到底是不是他的。所以顯示的是「實際解析到的地點」（meta.place.resolved）
+// 而不是他輸入的字串，因為會出錯的正是解析這一步。
+//
+// 刻意放在盤的上方而不是下方：它是這張盤的身分標示，看盤之前就該看到；
+// 下方已經有放大提示與相位圖例，再擠一行會變雜。
+//
+// 也刻意留在 <figure> 裡而不是寫進 SVG：js/shareCard.js 只取 <svg>，所以
+// 分享出去的圖片不會帶著出生時間與城市。那是分享場景該有的預設。
+function birthLine(chart, labels) {
+  const m = (chart && chart.meta) || {};
+  const i = m.input || {};
+  const where = (m.place && m.place.resolved) || i.city || '';
+  if (!i.date && !where) return '';
+  const when = [i.date, i.timeUnknown ? '' : i.time].filter(Boolean).join(' ');
+  const parts = [when, where].filter(Boolean).join(' · ');
+  const unknown = i.timeUnknown && labels.timeUnknownShort ? `（${esc(labels.timeUnknownShort)}）` : '';
+  return `<p class="cw-birth">${labels.birthLabel ? `<span class="cw-birth-k">${esc(labels.birthLabel)}</span>` : ''}${esc(parts)}${unknown}</p>`;
+}
+
 // ---- 對外 ----
 // chart：/api/astro 回傳的 chart 物件。labels：該語系的文案（aria、approxNote、
 // aspect{角度→名稱}、showMinor、zoomHint…）
@@ -438,6 +458,7 @@ export function chartWheelSvg(chart, labels = {}) {
   const note = approx && labels.approxNote
     ? `<p class="cw-note">${esc(labels.approxNote)}</p>` : '';
   return `<figure class="cw-wrap">
+    ${birthLine(chart, labels)}
     <div class="cw-canvas" role="button" tabindex="0"
       aria-label="${esc(labels.zoomOpen || '')}" title="${esc(labels.zoomOpen || '')}">
       ${svg}

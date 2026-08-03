@@ -205,6 +205,9 @@ export default {
     zoomOut: '縮小',
     zoomReset: 'リセット',
     zoomClose: '閉じる',
+    // ホロスコープ上の出生データ：入力に誤りがないか確認できるように
+    birthLabel: '出生データ',
+    timeUnknownShort: '出生時間なし',
   },
 
   weaving: {

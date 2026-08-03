@@ -204,6 +204,9 @@ export default {
     zoomOut: '축소',
     zoomReset: '초기화',
     zoomClose: '닫기',
+    // 차트 위의 출생 정보 한 줄: 입력이 맞는지 직접 확인할 수 있도록
+    birthLabel: '출생 정보',
+    timeUnknownShort: '출생 시간 미입력',
   },
 
   weaving: {
