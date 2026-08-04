@@ -292,8 +292,9 @@ function renderOverview(o) {
   $('statRow').innerHTML = `
     <div class="stat"><b>${o.totalSessions}</b><span>${scopeLabel}</span></div>
     <div class="stat"><b>${v.unique}</b><span>不重複訪客</span></div>
-    <div class="stat"><b>${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visits : 0)}</b>
-      <span>今日來訪（${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visitors : 0)} 人）</span></div>
+    <div class="stat" title="次數：今天的來訪次數，同一人來兩次算 2 次。訪客數：今天來過的不重複訪客（依瀏覽器辨識，換裝置或無痕會被算成新訪客，所以是下限）。兩個數字都跟著上方「資料範圍」的選擇走。">
+      <b>${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visits : 0)}</b>
+      <span>今日來訪次數<br><i class="stat-note">${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visitors : 0)} 位不重複訪客</i></span></div>
     <div class="stat" title="vid 只認得出「同一個瀏覽器」：換裝置、無痕、清資料，以及 iOS Safari 7 天未回訪清掉 localStorage，都會讓回訪者看起來像新訪客。所以這是下限。">
       <b>${v.repeatPct}%</b><span>回訪率（${v.returning} 人回訪過）<br><i class="stat-note">下限，實際更高</i></span>
     </div>
