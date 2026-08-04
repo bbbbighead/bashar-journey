@@ -1358,8 +1358,12 @@ function copyAnalysis(a) {
 // 從 *.vercel.app 的預覽部署、沒有 www 的網域，或後台預覽的 iframe 進來時，
 // location 推出來的是那個當下的網址——分享給朋友的連結不該長那樣。
 const SITE_URL = 'https://www.intuitive-notes.com/';
+// 分享用的網址依介面語言選：分享預覽的爬蟲按網址快取、不執行 JS，
+// 同一條網址對所有收件人只有一種語言——所以每個語言一條入口網址
+// （/en/、/ja/、/ko/ 是只有 meta 的入口頁，真人會被帶回主站）。
+const SITE_URL_LANG = { en: 'en/', ja: 'ja/', ko: 'ko/' };
 function siteUrl() {
-  return SITE_URL;
+  return SITE_URL + (SITE_URL_LANG[getLocale()] || '');
 }
 
 // ---- 分享圖（把這次抽到的東西畫成一張方形 PNG） ----
