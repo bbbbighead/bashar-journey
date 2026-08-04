@@ -39,6 +39,25 @@ function tally(entries, field) {
   return out;
 }
 
+// 最近 30 天的每日來訪：次數＋不重複訪客數。
+// tzMin＝前端的時區（分鐘，東為正）：日界要照站主看報表的當地時間切，
+// 用 UTC 切的話台灣早上八點前的來訪會被記到「昨天」。
+function dailySeries(entries, tzMin) {
+  const off = Number.isFinite(tzMin) ? Math.max(-840, Math.min(840, tzMin)) : 0;
+  const dayOf = (ts) => Math.floor((ts + off * 60000) / 86400000);
+  const today = dayOf(Date.now());
+  const first = today - 29;
+  const days = Array.from({ length: 30 }, (_, i) => ({ d: first + i, visits: 0, vids: new Set() }));
+  for (const e of entries) {
+    const i = dayOf(Number(e.ts) || 0) - first;
+    if (i >= 0 && i < 30) { days[i].visits += 1; if (e.vid) days[i].vids.add(e.vid); }
+  }
+  return days.map((x) => ({
+    day: new Date(x.d * 86400000).toISOString().slice(0, 10),   // d 已是「當地日」序號
+    visits: x.visits, visitors: x.vids.size,
+  }));
+}
+
 function visitorStats(entries) {
   const perVid = new Map();
   for (const e of entries) {
@@ -547,6 +566,7 @@ export default async function handler(req, res) {
           countries: tally(all, 'country'),
           dwellAvgMs: dwellAvg,
           visitors: visitorStats(all),
+          daily: dailySeries(all, Number(url.searchParams.get('tz'))),
           usage,
         });
         return;
@@ -598,6 +618,7 @@ export default async function handler(req, res) {
         countries,
         dwellAvgMs: dwellAvg,
         visitors,
+        daily: dailySeries(wanted, Number(url.searchParams.get('tz'))),
         usage,
       });
       return;
