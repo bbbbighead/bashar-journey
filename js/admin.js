@@ -68,7 +68,11 @@ async function login() {
 }
 
 async function refreshOverview() {
-  const overview = await api({ view: 'overview', scope: filters.scope });
+  const overview = await api({
+    view: 'overview', scope: filters.scope,
+    // 日界照瀏覽器當地時間切（getTimezoneOffset 是「西為正」，取負變成東為正）
+    tz: String(-new Date().getTimezoneOffset()),
+  });
   renderOverview(overview);
   return overview;
 }
@@ -288,6 +292,8 @@ function renderOverview(o) {
   $('statRow').innerHTML = `
     <div class="stat"><b>${o.totalSessions}</b><span>${scopeLabel}</span></div>
     <div class="stat"><b>${v.unique}</b><span>不重複訪客</span></div>
+    <div class="stat"><b>${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visits : 0)}</b>
+      <span>今日來訪（${(o.daily && o.daily.length ? o.daily[o.daily.length - 1].visitors : 0)} 人）</span></div>
     <div class="stat" title="vid 只認得出「同一個瀏覽器」：換裝置、無痕、清資料，以及 iOS Safari 7 天未回訪清掉 localStorage，都會讓回訪者看起來像新訪客。所以這是下限。">
       <b>${v.repeatPct}%</b><span>回訪率（${v.returning} 人回訪過）<br><i class="stat-note">下限，實際更高</i></span>
     </div>
@@ -338,6 +344,8 @@ function renderOverview(o) {
     .filter((k) => o.dwellAvgMs[k] > 0)
     .map((k) => [SCREEN_LABELS[k] || k, o.dwellAvgMs[k]]);
   renderPie($('dwellChart'), dwellEntries, fmtMs, '（尚無停留資料）');
+  trendDaily = o.daily || [];
+  renderTrend();
 }
 
 // ---- 一次性資料修正：補正舊紀錄的語言 ----
@@ -424,6 +432,72 @@ function topEntries(counts, n) {
 }
 
 // 圓餅圖（conic-gradient 甜甜圈 + 圖例：名稱、數值、百分比）
+// 來訪趨勢：單一序列的直條圖（inline SVG、無相依）。
+// 單一序列不需要圖例；精確數字放在每根 bar 的 <title>（滑過顯示）與今日的
+// 直接標籤上。金色沿用站上的 accent，深淺只用來標「今天」這一根（註記，
+// 不是第二個序列）。
+document.getElementById('trendRange')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-days]');
+  if (!btn) return;
+  trendDays = Number(btn.dataset.days) || 30;
+  document.querySelectorAll('#trendRange [data-days]').forEach((b) => b.classList.toggle('on', b === btn));
+  renderTrend();
+});
+let trendDaily = [];
+let trendDays = 30;
+
+function renderTrend() {
+  const host = $('trendChart');
+  if (!host) return;
+  const data = trendDaily.slice(-trendDays);
+  if (!data.length || data.every((d) => !d.visits)) {
+    host.innerHTML = '<p class="dim">（這段期間沒有來訪）</p>';
+    return;
+  }
+  const W = 640, H = 170, PAD_L = 30, PAD_B = 22, PAD_T = 14;
+  const plotW = W - PAD_L - 6, plotH = H - PAD_T - PAD_B;
+  const max = Math.max(...data.map((d) => d.visits), 1);
+  const step = plotW / data.length;
+  const bw = Math.max(3, Math.min(26, step - 2));   // 2px 間隙
+  const maxIdx = data.reduce((m, d, i) => (d.visits > data[m].visits ? i : m), 0);
+  const fmtDay = (iso) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+
+  const bars = data.map((d, i) => {
+    const h = Math.round((d.visits / max) * plotH);
+    const x = PAD_L + i * step + (step - bw) / 2;
+    const y = PAD_T + plotH - h;
+    const isToday = i === data.length - 1;
+    // 今日＝亮金、其餘深金；rx=2 圓角只留在頂端（底端貼齊基線）
+    return `<g><title>${fmtDay(d.day)}｜${d.visits} 次・${d.visitors} 人</title>
+      <rect x="${x.toFixed(1)}" y="${d.visits ? y : PAD_T + plotH - 1}" width="${bw.toFixed(1)}"
+        height="${d.visits ? h : 1}" rx="2"
+        fill="${isToday ? 'var(--accent)' : 'var(--accent-dim)'}"
+        opacity="${d.visits ? (isToday ? 1 : 0.75) : 0.25}"></rect>
+      ${(isToday || (i === maxIdx && d.visits)) && d.visits
+    ? `<text class="tr-val" x="${(x + bw / 2).toFixed(1)}" y="${y - 4}" text-anchor="middle">${d.visits}</text>` : ''}
+    </g>`;
+  }).join('');
+
+  // X 軸標籤：頭、尾＋大約每 5～7 天一個，避免 30 天時擠成一團
+  const every = trendDays > 14 ? 5 : 1;
+  const labels = data.map((d, i) => {
+    if (i !== 0 && i !== data.length - 1 && i % every !== 0) return '';
+    if (i !== data.length - 1 && data.length - 1 - i < every && i !== 0) return '';   // 避免撞到「今天」
+    const x = PAD_L + i * step + step / 2;
+    return `<text class="tr-lab" x="${x.toFixed(1)}" y="${H - 6}" text-anchor="middle">${
+      i === data.length - 1 ? '今天' : fmtDay(d.day)}</text>`;
+  }).join('');
+
+  const gridY = PAD_T + plotH - plotH;   // 最大值那條（recessive 一條就夠）
+  host.innerHTML = `<svg class="trend-svg" viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="最近 ${trendDays} 天每日來訪">
+    <line class="tr-grid" x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${W - 6}" y2="${PAD_T + plotH}"></line>
+    <line class="tr-grid faint" x1="${PAD_L}" y1="${gridY}" x2="${W - 6}" y2="${gridY}"></line>
+    <text class="tr-lab" x="${PAD_L - 6}" y="${gridY + 4}" text-anchor="end">${max}</text>
+    ${bars}${labels}
+  </svg>`;
+}
+
 function renderPie(host, entries, fmtValue, emptyText) {
   const total = entries.reduce((a, [, v]) => a + v, 0);
   if (!total) { host.innerHTML = `<div class="empty">${emptyText}</div>`; return; }

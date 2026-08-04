@@ -1530,6 +1530,15 @@ button.badge.repeat:hover {
   font-size: 12px; color: var(--ink-faint); opacity: .35; border-radius: 3px;
 }
 .sess-row:hover .vid-edit, .vid-edit:focus-visible { opacity: 1; color: var(--accent-dim); }
+
+/* 後台：來訪趨勢圖。單一序列直條，文字用文字色、不用序列色 */
+.trend-range { float: right; display: inline-flex; gap: 6px; }
+.trend-range .btn.on { border-color: var(--accent-dim); color: var(--accent); }
+.trend-svg { display: block; width: 100%; height: auto; }
+.trend-svg .tr-grid { stroke: rgba(214, 183, 122, .28); stroke-width: 1; }
+.trend-svg .tr-grid.faint { stroke: rgba(214, 183, 122, .12); stroke-dasharray: 3 4; }
+.trend-svg .tr-lab { fill: var(--ink-faint); font-family: var(--sans); font-size: 10.5px; }
+.trend-svg .tr-val { fill: var(--ink-dim); font-family: var(--sans); font-size: 11px; }
 .vid-edit:hover { background: rgba(214, 183, 122, .12); color: var(--accent); }
 /* 工具說明裡的界線註記（目前只有占星用：講明不看流年運勢）。
    字級與字體跟這一頁的內文一致（16.5px 襯線）——它是要被讀完的一段話，
