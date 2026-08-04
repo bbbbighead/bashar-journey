@@ -1535,8 +1535,9 @@ button.badge.repeat:hover {
 .trend-range { float: right; display: inline-flex; gap: 6px; }
 .trend-range .btn.on { border-color: var(--accent-dim); color: var(--accent); }
 .trend-svg { display: block; width: 100%; height: auto; }
-.trend-svg .tr-grid { stroke: rgba(214, 183, 122, .28); stroke-width: 1; }
-.trend-svg .tr-grid.faint { stroke: rgba(214, 183, 122, .12); stroke-dasharray: 3 4; }
+.trend-svg .tr-grid { stroke: rgba(214, 183, 122, .5); stroke-width: 1; }
+/* 站主回報 .12 在黑底上看不清，提到 .3；基線同步提到 .5 保持「基線＞格線」的層次 */
+.trend-svg .tr-grid.faint { stroke: rgba(214, 183, 122, .3); stroke-dasharray: 3 4; }
 .trend-svg .tr-lab { fill: var(--ink-faint); font-family: var(--sans); font-size: 10.5px; }
 .trend-svg .tr-val { fill: var(--ink-dim); font-family: var(--sans); font-size: 11px; }
 /* 滑過某一天：bar 打亮、數字浮出；今天與峰值的常駐數字在滑過那組時讓位 */
