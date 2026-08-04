@@ -1539,6 +1539,11 @@ button.badge.repeat:hover {
 .trend-svg .tr-grid.faint { stroke: rgba(214, 183, 122, .12); stroke-dasharray: 3 4; }
 .trend-svg .tr-lab { fill: var(--ink-faint); font-family: var(--sans); font-size: 10.5px; }
 .trend-svg .tr-val { fill: var(--ink-dim); font-family: var(--sans); font-size: 11px; }
+/* 滑過某一天：bar 打亮、數字浮出；今天與峰值的常駐數字在滑過那組時讓位 */
+.trend-svg .tr-hval { fill: var(--ink); font-family: var(--sans); font-size: 11px; display: none; }
+.trend-svg .tr-bar:hover .tr-hval { display: block; }
+.trend-svg .tr-bar:hover .tr-val { display: none; }
+.trend-svg .tr-bar:hover .tr-fill { fill: var(--accent); opacity: 1; }
 .vid-edit:hover { background: rgba(214, 183, 122, .12); color: var(--accent); }
 /* 工具說明裡的界線註記（目前只有占星用：講明不看流年運勢）。
    字級與字體跟這一頁的內文一致（16.5px 襯線）——它是要被讀完的一段話，
