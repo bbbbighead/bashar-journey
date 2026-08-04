@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 四個網址是同一站的語言版本：每個 <url> 都帶完整的 hreflang 叢集，
+     與各頁 <head> 裡的 link rel=alternate 一致（Google 要求兩邊互相印證）。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://www.intuitive-notes.com/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
+  </url>
+  <url>
+    <loc>https://www.intuitive-notes.com/en/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
+  </url>
+  <url>
+    <loc>https://www.intuitive-notes.com/ja/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
+  </url>
+  <url>
+    <loc>https://www.intuitive-notes.com/ko/</loc>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
+  </url>
+</urlset>
