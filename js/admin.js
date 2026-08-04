@@ -455,27 +455,46 @@ function renderTrend() {
     host.innerHTML = '<p class="dim">（這段期間沒有來訪）</p>';
     return;
   }
-  const W = 640, H = 170, PAD_L = 30, PAD_B = 22, PAD_T = 14;
+  const W = 640, H = 170, PAD_L = 34, PAD_B = 22, PAD_T = 14;
   const plotW = W - PAD_L - 6, plotH = H - PAD_T - PAD_B;
   const max = Math.max(...data.map((d) => d.visits), 1);
+  // Y 軸取「漂亮階距」：1／2／5 ×10ⁿ，抓約 4 條格線，刻度永遠是整數
+  const rawStep = max / 4;
+  const pow = 10 ** Math.floor(Math.log10(Math.max(1, rawStep)));
+  const yStep = Math.max(1, [1, 2, 5, 10].map((m) => m * pow).find((v) => v >= rawStep));
+  const yTop = Math.max(yStep, Math.ceil(max / yStep) * yStep);
+  const yOf = (v) => PAD_T + plotH - (v / yTop) * plotH;
   const step = plotW / data.length;
   const bw = Math.max(3, Math.min(26, step - 2));   // 2px 間隙
   const maxIdx = data.reduce((m, d, i) => (d.visits > data[m].visits ? i : m), 0);
   const fmtDay = (iso) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
 
+  // 格線與左側刻度（0 不畫——基線就是 0）
+  let grid = '';
+  for (let v = yStep; v <= yTop; v += yStep) {
+    grid += `<line class="tr-grid faint" x1="${PAD_L}" y1="${yOf(v).toFixed(1)}" x2="${W - 6}" y2="${yOf(v).toFixed(1)}"></line>
+      <text class="tr-lab" x="${PAD_L - 6}" y="${(yOf(v) + 3.5).toFixed(1)}" text-anchor="end">${v}</text>`;
+  }
+
   const bars = data.map((d, i) => {
-    const h = Math.round((d.visits / max) * plotH);
+    const h = Math.round((d.visits / yTop) * plotH);
     const x = PAD_L + i * step + (step - bw) / 2;
     const y = PAD_T + plotH - h;
     const isToday = i === data.length - 1;
-    // 今日＝亮金、其餘深金；rx=2 圓角只留在頂端（底端貼齊基線）
-    return `<g><title>${fmtDay(d.day)}｜${d.visits} 次・${d.visitors} 人</title>
-      <rect x="${x.toFixed(1)}" y="${d.visits ? y : PAD_T + plotH - 1}" width="${bw.toFixed(1)}"
+    const cx = (x + bw / 2).toFixed(1);
+    // 今日＝亮金、其餘深金；rx=2 圓角只留在頂端（底端貼齊基線）。
+    // 每組多兩個東西：整條直欄的透明命中區（滑過不必精準對到細 bar），
+    // 與滑過才顯示的數字（.tr-hval，CSS 控制；今天與峰值的常駐標籤在
+    // 滑過那一組時隱藏，避免同位置疊字）。
+    return `<g class="tr-bar"><title>${fmtDay(d.day)}｜${d.visits} 次・${d.visitors} 人</title>
+      <rect class="tr-hit" x="${(PAD_L + i * step).toFixed(1)}" y="${PAD_T}" width="${step.toFixed(1)}" height="${plotH}" fill="transparent"></rect>
+      <rect class="tr-fill" x="${x.toFixed(1)}" y="${d.visits ? y : PAD_T + plotH - 1}" width="${bw.toFixed(1)}"
         height="${d.visits ? h : 1}" rx="2"
         fill="${isToday ? 'var(--accent)' : 'var(--accent-dim)'}"
         opacity="${d.visits ? (isToday ? 1 : 0.75) : 0.25}"></rect>
       ${(isToday || (i === maxIdx && d.visits)) && d.visits
-    ? `<text class="tr-val" x="${(x + bw / 2).toFixed(1)}" y="${y - 4}" text-anchor="middle">${d.visits}</text>` : ''}
+    ? `<text class="tr-val" x="${cx}" y="${y - 4}" text-anchor="middle">${d.visits}</text>` : ''}
+      <text class="tr-hval" x="${cx}" y="${(d.visits ? y : PAD_T + plotH - 1) - 4}" text-anchor="middle">${d.visits}</text>
     </g>`;
   }).join('');
 
@@ -489,12 +508,10 @@ function renderTrend() {
       i === data.length - 1 ? '今天' : fmtDay(d.day)}</text>`;
   }).join('');
 
-  const gridY = PAD_T + plotH - plotH;   // 最大值那條（recessive 一條就夠）
   host.innerHTML = `<svg class="trend-svg" viewBox="0 0 ${W} ${H}" role="img"
       aria-label="最近 ${trendDays} 天每日來訪">
+    ${grid}
     <line class="tr-grid" x1="${PAD_L}" y1="${PAD_T + plotH}" x2="${W - 6}" y2="${PAD_T + plotH}"></line>
-    <line class="tr-grid faint" x1="${PAD_L}" y1="${gridY}" x2="${W - 6}" y2="${gridY}"></line>
-    <text class="tr-lab" x="${PAD_L - 6}" y="${gridY + 4}" text-anchor="end">${max}</text>
     ${bars}${labels}
   </svg>`;
 }
