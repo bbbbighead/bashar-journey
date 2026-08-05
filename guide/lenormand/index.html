@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雷諾曼九宮格 · 探索工具介紹 · Intuitive Notes 直覺筆記</title>
+<meta name="description" content="透過九張牌的整體組合，探索事件的過去、現在與未來，釐清事情的脈絡、影響因素，以及可能的發展方向。">
+<link rel="canonical" href="https://www.intuitive-notes.com/guide/lenormand/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Intuitive Notes">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:title" content="雷諾曼九宮格 · 探索工具介紹 · Intuitive Notes 直覺筆記">
+<meta property="og:description" content="透過九張牌的整體組合，探索事件的過去、現在與未來，釐清事情的脈絡、影響因素，以及可能的發展方向。">
+<meta property="og:url" content="https://www.intuitive-notes.com/guide/lenormand/">
+<meta property="og:image" content="https://www.intuitive-notes.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="雷諾曼九宮格 · 探索工具介紹 · Intuitive Notes 直覺筆記">
+<meta name="twitter:description" content="透過九張牌的整體組合，探索事件的過去、現在與未來，釐清事情的脈絡、影響因素，以及可能的發展方向。">
+<meta name="twitter:image" content="https://www.intuitive-notes.com/assets/og.jpg">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "BreadcrumbList",
+ "itemListElement": [
+  {
+   "@type": "ListItem",
+   "position": 1,
+   "name": "直覺筆記",
+   "item": "https://www.intuitive-notes.com/"
+  },
+  {
+   "@type": "ListItem",
+   "position": 2,
+   "name": "探索工具介紹",
+   "item": "https://www.intuitive-notes.com/guide/"
+  },
+  {
+   "@type": "ListItem",
+   "position": 3,
+   "name": "雷諾曼九宮格",
+   "item": "https://www.intuitive-notes.com/guide/lenormand/"
+  }
+ ]
+}
+</script>
+<!-- 沿用前台同一份樣式（.gd-* 等 class 與應用內的「探索工具介紹」完全相同），
+     絕對路徑：這些頁在 /guide/ 底下，相對路徑會解析錯。 -->
+<link rel="stylesheet" href="/css/calm.css">
+<style>
+/* .screen 預設 display:none、且 .active 帶 1 秒淡入。靜態內容頁不需要那套畫面
+   切換機制，所以自己給一個等寬的容器，不去借用 .screen。 */
+.gp-wrap { width: 100%; max-width: 660px; padding: 8vh 22px 60px; text-shadow: 0 1px 3px rgba(3, 7, 13, .75); }
+/* 麵包屑用 flex＋nowrap：手機上整條會換行，但每一層自己不會被拆成兩半
+   （原本是一整串置中文字，窄螢幕會把「雷諾曼九宮格」斷成「雷諾曼九宮／格」） */
+.gp-crumb {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  font-family: var(--sans); font-size: 12px; letter-spacing: .12em;
+  color: var(--ink-faint); margin-bottom: 18px;
+}
+.gp-crumb a, .gp-crumb .gp-here { white-space: nowrap; }
+.gp-crumb a { color: var(--ink-dim); text-decoration: none; }
+.gp-crumb a:hover { color: var(--accent); }
+.gp-crumb .gp-sep { margin: 0 6px; opacity: .5; }
+/* .btn 是給 <button> 寫的：<a> 是行內元素，要補 display 與去底線 */
+.gp-actions { display: flex; justify-content: center; padding: 26px 0 14px; }
+.gp-actions .btn { display: inline-block; text-decoration: none; }
+.gp-more { font-family: var(--sans); font-size: 13.5px; text-align: center; color: var(--ink-faint); padding-bottom: 10px; }
+.gp-more a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px solid rgba(214, 183, 122, .28); padding-bottom: 1px; }
+.gp-more a:hover { color: var(--accent); }
+.gp-more span { margin: 0 8px; opacity: .45; }
+/* 速覽卡在這裡是連結，不是靜態方塊 */
+a.gd-card { display: block; text-decoration: none; color: inherit; }
+a.gd-card:hover .gd-card-name { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<div class="app">
+<main class="gp-wrap">
+<nav class="gp-crumb" aria-label="麵包屑"><a href="/">直覺筆記</a><span class="gp-sep" aria-hidden="true">›</span><a href="/guide/">探索工具介紹</a><span class="gp-sep" aria-hidden="true">›</span><span class="gp-here">雷諾曼九宮格</span></nav>
+  <h1 class="r-title">雷諾曼九宮格</h1>
+  <div class="rule-orn" aria-hidden="true"></div>
+  <p class="gd-lede">透過九張牌的整體組合，探索事件的過去、現在與未來，釐清事情的脈絡、影響因素，以及可能的發展方向。</p>
+  <div class="gd-meta">
+    <h2 class="gd-label">起源</h2>
+    <p class="gd-meta-text">雷諾曼牌源自 19 世紀法國，因法國知名占卜師<b>瑪麗・安妮・雷諾曼</b>（Marie Anne Lenormand）而聞名。現代雷諾曼牌共有 36 張牌，著重牌與牌之間的組合關係，擅長分析現實事件與發展趨勢。</p>
+  </div>
+  <div class="gd-asks">
+    <h2 class="gd-label">參考提問</h2>
+    <ul class="gd-ask-list">
+      <li>如果我現在跨出下一步，最需要留意的是什麼？</li>
+      <li>請給我的新計畫一些靈感。</li>
+      <li>我目前的工作／感情／合作，接下來可能會如何發展？</li>
+    </ul>
+  </div>
+  <div class="rule-orn" aria-hidden="true"></div>
+  <div class="gp-actions"><a class="btn primary" href="/">開始探索</a></div>
+  <p class="gp-more"><a href="/guide/meihua/">梅花易數</a><span aria-hidden="true">·</span><a href="/guide/astrology/">西洋占星（本命星盤）</a><span aria-hidden="true">·</span><a href="/guide/">探索工具介紹</a></p>
+</main>
+</div>
+</body>
+</html>
