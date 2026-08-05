@@ -1574,6 +1574,8 @@ button.badge.repeat:hover {
 /* 字數：數字靠右對齊才好比大小；「+」標記＝觸到 4000 的紀錄上限 */
 .chars-cell { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .chars-cap { color: var(--ink-faint); margin-left: 1px; }
+/* 英文紀錄的 words 換算：退成註記，不要跟字元數搶讀 */
+.chars-w { color: var(--ink-faint); font-size: 11px; margin-left: 2px; }
 .badge.dim { color: var(--ink-faint); border-color: var(--line); }
 .sess-detail .detail-cell {
   background: var(--panel); font-size: 13px; color: var(--ink-dim);

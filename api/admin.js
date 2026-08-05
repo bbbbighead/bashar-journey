@@ -672,6 +672,9 @@ export default async function handler(req, res) {
             s.msgChars = journey ? String(journey.message || '').length : null;
             s.msgCharsExact = false;
           }
+          // 同一份本文的 words（英文的篇幅規定以 words 計）。舊紀錄沒有這個欄位，
+          // 前端會改用字元數推估並標明是估的。
+          s.msgWords = journey && Number.isFinite(journey.bodyWords) ? journey.bodyWords : null;
           s.note = extras[i * STRIDE + 1].result || '';
           const fb = extras[i * STRIDE + 2].result ? parseJSON(extras[i * STRIDE + 2].result, null) : null;
           s.feedback = fb ? { rating: fb.rating, text: fb.text || '', ts: fb.ts } : null;

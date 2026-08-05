@@ -318,6 +318,10 @@ export default async function handler(req, res) {
         // 的組別小標題）。message 被截在 4000，所以字數不能從它回推。
         bodyChars: Number.isFinite(body.bodyChars) && body.bodyChars >= 0
           ? Math.min(Math.round(body.bodyChars), 200000) : null,
+        // 同一份本文的 words。英文的規定以 words 計，字元數在英文上約是它的五倍，
+        // 光看字元數會誤判成爆量，所以兩個數字都存。
+        bodyWords: Number.isFinite(body.bodyWords) && body.bodyWords >= 0
+          ? Math.min(Math.round(body.bodyWords), 200000) : null,
         closing: String(body.closing || '').slice(0, 100),
         offline: !!body.offline,
         astroUsed: !!body.astroUsed,

@@ -139,10 +139,14 @@ function birthRecord(chart) {
 //   ・不算雷諾曼那八個組別小標題（模型被要求逐字使用的字樣）
 // 這個數字必須在這裡算——message 在前端與伺服器端都被切在 4000 字，用存下來的
 // 字串回推永遠會飽和在 4000，看不出真實長度。
-function bodyChars(a) {
+//
+// 先取出「要算的那些行」，再由同一份文字量字元數與 words 兩個數字。刻意不讓
+// bodyChars 與 bodyWords 各走一次過濾：兩邊若各自實作，同一份報告會算出互相
+// 對不上的兩個數字，後台就沒辦法用其中一個去解釋另一個。
+function bodyLines(a) {
   if (!a) return null;
   const sections = Array.isArray(a.sections) ? a.sections : null;
-  if (!sections) return String(a.message || '').replace(/\s+/g, '').length;
+  if (!sections) return [String(a.message || '')];
   const groupLabels = new Set(
     [
       ...['past', 'present', 'future', 'outer', 'event', 'inner', 'combos', 'overall']
@@ -152,23 +156,38 @@ function bodyChars(a) {
         .flatMap((k) => meihuaHeadVariants(k)),
     ].map((x) => String(x).trim()),
   );
-  let n = 0;
+  const out = [];
   for (const sec of sections) {
     const content = String((sec && sec.content) || '');
     if (sec && sec.tool === 'astro') {
       const { ok, segs } = parseAstroSections(content, groupLabelVariants('overall'));
       // 切不出來就整段算——寧可高估，也不要因為切法失效而低報字數
-      n += ok
-        ? segs.reduce((m, g) => m + g.body.join('').replace(/\s+/g, '').length, 0)
-        : content.replace(/\s+/g, '').length;
+      if (ok) for (const g of segs) out.push(...g.body);
+      else out.push(content);
       continue;
     }
-    n += content.split(/\n+/)
+    out.push(...content.split(/\n+/)
       .map((x) => x.trim())
-      .filter((x) => x && !groupLabels.has(x.replace(/[：:]\s*$/, '')))
-      .join('').replace(/\s+/g, '').length;
+      .filter((x) => x && !groupLabels.has(x.replace(/[：:]\s*$/, ''))));
   }
-  return n;
+  return out;
+}
+
+// 字元數。以行為單位接起來再去掉所有空白，所以中日韓＝字數，英文＝字母數。
+// 這兩個計數 export 出來是為了讓測試量到真正在用的那份實作。之前為了測試
+// 另外手抄一份等價邏輯，結果抄錯了還以為量到的是真的（見 astroForAI 的同一個教訓）。
+export function bodyChars(a) {
+  const lines = bodyLines(a);
+  return lines ? lines.join('\n').replace(/\s+/g, '').length : null;
+}
+
+// words。英文的篇幅規定是以 words 寫的（見 api/insight.js 的 LEN_RULE 與
+// ASTRO_LEN），但同一段英文的字元數大約是 words 的五倍——後台只看字元數會誤判
+// 成爆量。這裡實算，後台就不必用「字元數 ÷ 5」去估。
+// 中日韓沒有詞界，這個數字對它們沒有意義，所以後台只在英文紀錄上顯示。
+export function bodyWords(a) {
+  const lines = bodyLines(a);
+  return lines ? lines.join('\n').split(/\s+/).filter(Boolean).length : null;
 }
 
 // ---- 3. 題目與產出結果 ----
@@ -191,6 +210,8 @@ export function trackJourney(state) {
       message: messageText.slice(0, 4000),
       // 真實的分析本文字數（不含標題與配置行）。message 被切在 4000，這個沒有。
       bodyChars: bodyChars(a),
+      // 同一份本文的 words。英文的篇幅規定以 words 計，後台要拿它來對照。
+      bodyWords: bodyWords(a),
       closing: a ? String(a.closing || '').slice(0, 100) : '',
       offline: !!state.usedOffline,
       astroUsed: !!state.astro,
