@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>探索工具介紹 · Intuitive Notes 直覺筆記</title>
+<meta name="description" content="不同工具擅長回答不同層面的問題。雷諾曼九宮格：適合探索事件的發展與全貌。梅花易數：適合探索時機、決策與變化趨勢。西洋占星（本命星盤）：適合探索自我特質、天賦與生命課題。">
+<link rel="canonical" href="https://www.intuitive-notes.com/guide/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23c9b98a' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23c9b98a'/%3E%3C/svg%3E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Intuitive Notes">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:title" content="探索工具介紹 · Intuitive Notes 直覺筆記">
+<meta property="og:description" content="不同工具擅長回答不同層面的問題。雷諾曼九宮格：適合探索事件的發展與全貌。梅花易數：適合探索時機、決策與變化趨勢。西洋占星（本命星盤）：適合探索自我特質、天賦與生命課題。">
+<meta property="og:url" content="https://www.intuitive-notes.com/guide/">
+<meta property="og:image" content="https://www.intuitive-notes.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="探索工具介紹 · Intuitive Notes 直覺筆記">
+<meta name="twitter:description" content="不同工具擅長回答不同層面的問題。雷諾曼九宮格：適合探索事件的發展與全貌。梅花易數：適合探索時機、決策與變化趨勢。西洋占星（本命星盤）：適合探索自我特質、天賦與生命課題。">
+<meta name="twitter:image" content="https://www.intuitive-notes.com/assets/og.jpg">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "BreadcrumbList",
+ "itemListElement": [
+  {
+   "@type": "ListItem",
+   "position": 1,
+   "name": "直覺筆記",
+   "item": "https://www.intuitive-notes.com/"
+  },
+  {
+   "@type": "ListItem",
+   "position": 2,
+   "name": "探索工具介紹",
+   "item": "https://www.intuitive-notes.com/guide/"
+  }
+ ]
+}
+</script>
+<!-- 沿用前台同一份樣式（.gd-* 等 class 與應用內的「探索工具介紹」完全相同），
+     絕對路徑：這些頁在 /guide/ 底下，相對路徑會解析錯。 -->
+<link rel="stylesheet" href="/css/calm.css">
+<style>
+/* .screen 預設 display:none、且 .active 帶 1 秒淡入。靜態內容頁不需要那套畫面
+   切換機制，所以自己給一個等寬的容器，不去借用 .screen。 */
+.gp-wrap { width: 100%; max-width: 660px; padding: 8vh 22px 60px; text-shadow: 0 1px 3px rgba(3, 7, 13, .75); }
+/* 麵包屑用 flex＋nowrap：手機上整條會換行，但每一層自己不會被拆成兩半
+   （原本是一整串置中文字，窄螢幕會把「雷諾曼九宮格」斷成「雷諾曼九宮／格」） */
+.gp-crumb {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  font-family: var(--sans); font-size: 12px; letter-spacing: .12em;
+  color: var(--ink-faint); margin-bottom: 18px;
+}
+.gp-crumb a, .gp-crumb .gp-here { white-space: nowrap; }
+.gp-crumb a { color: var(--ink-dim); text-decoration: none; }
+.gp-crumb a:hover { color: var(--accent); }
+.gp-crumb .gp-sep { margin: 0 6px; opacity: .5; }
+/* .btn 是給 <button> 寫的：<a> 是行內元素，要補 display 與去底線 */
+.gp-actions { display: flex; justify-content: center; padding: 26px 0 14px; }
+.gp-actions .btn { display: inline-block; text-decoration: none; }
+.gp-more { font-family: var(--sans); font-size: 13.5px; text-align: center; color: var(--ink-faint); padding-bottom: 10px; }
+.gp-more a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px solid rgba(214, 183, 122, .28); padding-bottom: 1px; }
+.gp-more a:hover { color: var(--accent); }
+.gp-more span { margin: 0 8px; opacity: .45; }
+/* 速覽卡在這裡是連結，不是靜態方塊 */
+a.gd-card { display: block; text-decoration: none; color: inherit; }
+a.gd-card:hover .gd-card-name { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<div class="app">
+<main class="gp-wrap">
+<nav class="gp-crumb" aria-label="麵包屑"><a href="/">直覺筆記</a><span class="gp-sep" aria-hidden="true">›</span><span class="gp-here">探索工具介紹</span></nav>
+  <h1 class="r-title">探索工具介紹</h1>
+  <div class="rule-orn" aria-hidden="true"></div>
+  <p class="gd-lede" style="text-align:center;max-width:28em;margin:0 auto 20px">不同工具擅長回答不同層面的問題。</p>
+  <div class="gd-cards">
+    <a class="gd-card" href="/guide/lenormand/">
+      <div class="gd-card-name"><span class="gd-mark" aria-hidden="true">✦</span>雷諾曼九宮格</div>
+      <div class="gd-card-line">適合探索事件的發展與全貌。</div>
+    </a>
+    <a class="gd-card" href="/guide/meihua/">
+      <div class="gd-card-name"><span class="gd-mark" aria-hidden="true">✦</span>梅花易數</div>
+      <div class="gd-card-line">適合探索時機、決策與變化趨勢。</div>
+    </a>
+    <a class="gd-card" href="/guide/astrology/">
+      <div class="gd-card-name"><span class="gd-mark" aria-hidden="true">✦</span>西洋占星（本命星盤）</div>
+      <div class="gd-card-line">適合探索自我特質、天賦與生命課題。</div>
+    </a>
+  </div>
+  <div class="rule-orn" aria-hidden="true"></div>
+  <section class="gd-choose">
+    <h2 class="gd-h2">不知道該選哪一個？</h2>
+    <p class="gd-lede">其實不需要擔心選錯。</p>
+    <p class="gd-lede">同一個問題，不同工具會從不同角度提供洞見，彼此互補，而不是互相取代。</p>
+    <div class="gd-label">例如：</div>
+    <p class="gd-example-q">我要如何發展適合自己的事業？</p>
+    <ul class="gd-rows">
+      <li class="gd-row"><span class="gd-row-name">西洋占星</span><span class="gd-row-line">探索你的天賦、特質與適合的發展方向。</span></li>
+      <li class="gd-row"><span class="gd-row-name">雷諾曼九宮格</span><span class="gd-row-line">分析目前的事業狀態，以及未來可能的發展。</span></li>
+      <li class="gd-row"><span class="gd-row-name">梅花易數</span><span class="gd-row-line">了解當下是否為適合行動的時機，以及下一步的方向。</span></li>
+    </ul>
+    <p class="gd-lede">每個工具聚焦於不同層面：</p>
+    <ul class="gd-rows">
+      <li class="gd-row"><span class="gd-row-name">西洋占星</span><span class="gd-row-line">我是誰？我適合什麼？</span></li>
+      <li class="gd-row"><span class="gd-row-name">雷諾曼九宮格</span><span class="gd-row-line">事情正在如何發展？</span></li>
+      <li class="gd-row"><span class="gd-row-name">梅花易數</span><span class="gd-row-line">現在適合怎麼做？</span></li>
+    </ul>
+    <p class="gd-lede">你也可以依照直覺，自由選擇，從不同角度探索同一個主題，獲得更完整的理解。</p>
+  </section>
+  <div class="gp-actions"><a class="btn primary" href="/">開始探索</a></div>
+</main>
+</div>
+</body>
+</html>
