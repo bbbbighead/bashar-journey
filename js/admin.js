@@ -237,6 +237,22 @@ const toolText = (s) => (Array.isArray(s.tools) && s.tools.length
   ? s.tools.map((x) => TOOL_LABEL[x] || x).join('、')
   : '');
 
+// 「字數」欄一律數字元：中日韓 1 個字＝1 個字元，數字可以直接對上 prompt 裡的
+// 規定；但 api/insight.js 對英文的規定是寫 words 的（雷諾曼無上限、梅花 1000
+// words、占星 1800 words），而同一段英文的字元數大約是 words 的五倍——只看
+// 字元數會把正常長度誤判成爆量。所以英文紀錄旁邊加註 words。
+// 新紀錄是產生當下實算的；舊紀錄沒有這個欄位，用字元數推估並標 ≈ 以示區別。
+const CHARS_PER_EN_WORD = 5;   // 英文去掉空白後，平均約 5 個字元一個字
+function wordsNote(s) {
+  if (s.lang !== 'en') return '';
+  if (Number.isFinite(s.msgWords)) {
+    return `<span class="chars-w" title="實算的 words。英文的篇幅規定以 words 計">（${s.msgWords.toLocaleString()} w）</span>`;
+  }
+  if (!Number.isFinite(s.msgChars)) return '';
+  const est = Math.round(s.msgChars / CHARS_PER_EN_WORD);
+  return `<span class="chars-w" title="舊紀錄沒有實算的 words，由字元數推估（約 ${CHARS_PER_EN_WORD} 字元 ≒ 1 word）">（≈${est.toLocaleString()} w）</span>`;
+}
+
 // 排序狀態（點表頭切換 遞增／遞減）。預設依時間新到舊。
 let sort = { key: 'ts', dir: 'desc' };
 
@@ -847,7 +863,8 @@ function renderSessions() {
           // 新紀錄是精確的分析本文字數（不含標題與配置行），沒有上限問題。
           // 只有舊紀錄要退回 message.length，那個寫入時截在 4000，所以標 +。
           s.msgCharsExact === false && s.msgChars >= 4000
-            ? '<span class="chars-cap" title="舊紀錄：只能由截斷在 4000 字的內容回推，實際產出可能更長">+</span>' : ''}`
+            ? '<span class="chars-cap" title="舊紀錄：只能由截斷在 4000 字的內容回推，實際產出可能更長">+</span>' : ''}${
+          wordsNote(s)}`
         : '<span class="dim-dash">—</span>'}</td>
       <td class="fb-cell" title="${esc(s.feedback ? `${s.feedback.rating} 星${s.feedback.text ? `：${s.feedback.text}` : ''}` : '')}">${
         s.feedback
