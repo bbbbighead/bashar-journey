@@ -1,38 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 四個網址是同一站的語言版本：每個 <url> 都帶完整的 hreflang 叢集，
-     與各頁 <head> 裡的 link rel=alternate 一致（Google 要求兩邊互相印證）。 -->
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<!-- 只列首頁一條。
+     /en/、/ja/、/ko/ 刻意不列：那三頁是給「不執行 JS」的分享預覽爬蟲讀 <head>
+     用的入口頁，載入後會 location.replace('/') 回主站。Googlebot 會執行 JS，
+     看到的是一次轉址加上一個幾乎空的 body，所以不可能被建立索引——在網址審查
+     裡按「要求建立索引」也只會失敗。
+     sitemap 的語意是「請收錄這些網址」。把明知不會被收錄的網址放進來，只會讓
+     Search Console 長期回報錯誤，變成蓋掉真問題的雜訊。
+     各頁 <head> 裡的 link rel=alternate hreflang 保留不動（那是給爬蟲的關係
+     宣告，放著無害）：日後若把那三頁改成真正可收錄的頁面、不再轉址，這裡再一併
+     把 hreflang 叢集補回來。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.intuitive-notes.com/</loc>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
-    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
-  </url>
-  <url>
-    <loc>https://www.intuitive-notes.com/en/</loc>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
-    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
-  </url>
-  <url>
-    <loc>https://www.intuitive-notes.com/ja/</loc>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
-    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
-  </url>
-  <url>
-    <loc>https://www.intuitive-notes.com/ko/</loc>
-    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://www.intuitive-notes.com/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://www.intuitive-notes.com/en/"/>
-    <xhtml:link rel="alternate" hreflang="ja" href="https://www.intuitive-notes.com/ja/"/>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://www.intuitive-notes.com/ko/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.intuitive-notes.com/"/>
   </url>
 </urlset>
