@@ -97,6 +97,53 @@ const TRANS_SCHEMA = {
 
 const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
 
+// 每百萬 token 的美金單價，用來估算單張牌卡的成本。
+//
+// ⚠ 這是**估算**，不是帳單。三件事會讓它與實際請款不同：
+//   ・價目會變，而且這份寫死在程式裡的表不會自己更新
+//   ・免費額度、批次折扣、稅金都不在這裡
+//   ・供應商回報的 token 數與計費 token 數偶爾會有差
+// 所以全部可以用環境變數覆寫，後台顯示的金額一律標「估算」。
+// 預設值是 gpt-5.1 與 gpt-image-1 的檯面價；用 Anthropic 走文字時改 ORACLE_PRICE_A_*。
+const price = (name, fallback) => {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v >= 0 ? v : fallback;
+};
+const PRICE = {
+  openai: {
+    in: price('ORACLE_PRICE_IN', 1.25),
+    cachedIn: price('ORACLE_PRICE_CACHED_IN', 0.125),
+    out: price('ORACLE_PRICE_OUT', 10),
+  },
+  anthropic: {
+    in: price('ORACLE_PRICE_A_IN', 15),
+    cachedIn: price('ORACLE_PRICE_A_CACHED_IN', 1.5),
+    out: price('ORACLE_PRICE_A_OUT', 75),
+  },
+  // gpt-image-1：輸入是文字 token，輸出是「圖像 token」，兩者單價不同。
+  image: {
+    in: price('ORACLE_PRICE_IMG_IN', 5),
+    out: price('ORACLE_PRICE_IMG_OUT', 40),
+  },
+};
+
+// usage（供應商實際回報的 token 數）→ 美金。拿不到 usage 就回 0，
+// 但呼叫端會另外記 usage 是不是 null，後台才能分辨「免費」與「沒回報」。
+function costOf(usage, rate) {
+  if (!usage) return 0;
+  return ((usage.in || 0) * rate.in
+    + (usage.cachedIn || 0) * (rate.cachedIn != null ? rate.cachedIn : rate.in)
+    + (usage.out || 0) * rate.out) / 1e6;
+}
+
+// 一張牌卡的總估算成本。text／translate 走文字供應商的價目，image 走圖像的。
+// 圖是最貴的一段（1024×1536 medium 大約是文字那一段的十倍以上），所以分開列。
+function totalCost(usage, provider) {
+  const textRate = provider === 'anthropic' ? PRICE.anthropic : PRICE.openai;
+  const u = usage || {};
+  return costOf(u.text, textRate) + costOf(u.translate, textRate) + costOf(u.image, PRICE.image);
+}
+
 const clean = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
 
 // 與 api/insight.js 同一支雜湊。system prompt 每次呼叫都一樣（約 2.8 萬字，整副牌
@@ -152,7 +199,28 @@ async function callOpenAIText(apiKey, systemPrompt, userPrompt, schema = SCHEMA,
   const json = await res.json();
   const msg = json.choices && json.choices[0] && json.choices[0].message;
   if (!msg || msg.refusal || !msg.content) throw new Error('refusal or empty');
-  return JSON.parse(msg.content);
+  return { data: JSON.parse(msg.content), usage: openaiUsage(json.usage) };
+}
+
+// 用量一律取供應商實際回報的數字，不自己估——估出來的數字沒有對帳的價值。
+// 拿不到就回 null，後台顯示「沒有回報用量」而不是顯示 0（0 會被誤讀成免費）。
+function openaiUsage(u) {
+  if (!u) return null;
+  const cached = (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0;
+  return {
+    in: Number(u.prompt_tokens || 0) - Number(cached),
+    cachedIn: Number(cached),
+    out: Number(u.completion_tokens || 0),
+  };
+}
+
+function anthropicUsage(u) {
+  if (!u) return null;
+  return {
+    in: Number(u.input_tokens || 0) + Number(u.cache_creation_input_tokens || 0),
+    cachedIn: Number(u.cache_read_input_tokens || 0),
+    out: Number(u.output_tokens || 0),
+  };
 }
 
 async function callAnthropicText(apiKey, systemPrompt, userPrompt, schema = SCHEMA) {
@@ -176,7 +244,7 @@ async function callAnthropicText(apiKey, systemPrompt, userPrompt, schema = SCHE
   if (json.stop_reason === 'refusal') throw new Error('refusal');
   const block = (json.content || []).find((b) => b.type === 'text');
   if (!block) throw new Error('no text block');
-  return JSON.parse(block.text);
+  return { data: JSON.parse(block.text), usage: anthropicUsage(json.usage) };
 }
 
 // 牌義的翻譯。只有在使用者語言不是繁體中文時才會走到這裡。
@@ -193,13 +261,13 @@ ${card.essence}
 洞見：
 ${card.insights}`;
   try {
-    const out = keys.openai
+    const { data, usage } = keys.openai
       ? await callOpenAIText(keys.openai, systemPrompt, userPrompt, TRANS_SCHEMA, 'oracle_translation')
       : await callAnthropicText(keys.anthropic, systemPrompt, userPrompt, TRANS_SCHEMA);
-    const essence = clean(out.essence, 600);
-    const insights = clean(out.insights, 2000);
+    const essence = clean(data.essence, 600);
+    const insights = clean(data.insights, 2000);
     if (!essence || !insights) return null;
-    return { essence, insights };
+    return { essence, insights, usage };
   } catch (e) {
     console.error('[oracle] translate', lang, e && e.message);
     return null;
@@ -238,7 +306,7 @@ ${reading}
   const sysHash = djb2(systemPrompt);
 
   const t0 = Date.now();
-  const out = openaiKey
+  const { data: out, usage: textUsage } = openaiKey
     ? await callOpenAIText(openaiKey, systemPrompt, userPrompt)
     : await callAnthropicText(anthropicKey, systemPrompt, userPrompt);
 
@@ -251,16 +319,34 @@ ${reading}
     return;
   }
 
+  // 卡面兩樣文字缺一樣就算這次失敗，而且是**在生圖之前**擋掉。
+  // 為什麼要有這一關：模型照 schema 一定會給這兩個欄位，但欄位可以是空字串，
+  // 而空字串排進版面就是一張只有畫、只有一條金線與站名的卡——看起來不像壞了，
+  // 只像做得很爛。實際production上出現過一次（站主回報「產出的版本沒有文字」）。
+  // 擋在這裡而不是在前端：前端擋的話錢已經花掉了（圖是最貴的一段）。
+  const keyword = clean(out.keyword, 40);
+  const sentence = clean(out.sentence, 300);
+  if (!keyword || !sentence) {
+    console.error('[oracle] empty card face', JSON.stringify({ keyword, sentence, cardId: out.cardId }));
+    res.status(200).json({ ok: false, reason: 'failed' });
+    return;
+  }
+
   // 牌義：繁中照抄原文，其他語言翻譯（失敗就用原文）。
   // 這兩段永遠不是模型自己寫的——見 prompts/oracle.js 的檔頭。
   let essence = deck.essence;
   let insights = deck.insights;
   let translated = false;
+  let transUsage = null;
   if (lang !== 'zh-Hant') {
     const tr = await translateCard({ openai: openaiKey, anthropic: anthropicKey }, lang, deck);
-    if (tr) { essence = tr.essence; insights = tr.insights; translated = true; }
+    if (tr) {
+      essence = tr.essence; insights = tr.insights; translated = true; transUsage = tr.usage;
+    }
   }
   const textMs = Date.now() - t0;
+  const provider = openaiKey ? 'openai' : 'anthropic';
+  const usage = { text: textUsage, translate: transUsage, image: null };
 
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const record = {
@@ -280,8 +366,8 @@ ${reading}
     // 卡面文字（英文）。keyword 規定是單字，但不在這裡截成第一個字——
     // 真的回了詞組時截斷會變成沒有意義的字，版面本來也吃得下（見 titleSize）。
     // 違規看得到就好：站主在後台審核時會看到原樣。
-    keyword: clean(out.keyword, 40),
-    sentence: clean(out.sentence, 300),
+    keyword,
+    sentence,
     keywordLocal: clean(out.keywordLocal, 60),
     sentenceLocal: clean(out.sentenceLocal, 300),
     // 牌義（使用者看到的版本）
@@ -296,8 +382,12 @@ ${reading}
     // 每次呼叫的 system prompt 都一樣（整副牌都在裡面，約 2.8 萬字），所以按內容
     // 雜湊只存一份，紀錄裡只留 hash。
     sysHash,
-    provider: openaiKey ? 'openai' : 'anthropic',
+    provider,
     model: openaiKey ? TEXT_MODEL_OPENAI : TEXT_MODEL_ANTHROPIC,
+    // 供應商實際回報的 token 數，加上依 PRICE 表估算的美金成本。
+    // image 這一段要等 action:'image' 回來才補上，所以這裡的 costUsd 只含文字。
+    usage,
+    costUsd: totalCost(usage, provider),
     textMs,
     imaged: false,
   };
@@ -384,8 +474,24 @@ async function doImage(body, res) {
   if (!b64) throw new Error('image empty');
   const imageMs = Date.now() - t0;
 
-  await redisPipeline([['SET', `pi:oracle:${id}`,
-    JSON.stringify({ ...record, imaged: true, imageMs })]]);
+  // gpt-image-1 會回報 usage：輸入是文字 token、輸出是圖像 token（單價差 8 倍）。
+  // 這一段通常佔單張成本的九成以上，所以務必記進去，否則後台的金額會嚴重低估。
+  const iu = json.usage || null;
+  const imageUsage = iu
+    ? { in: Number(iu.input_tokens || 0), out: Number(iu.output_tokens || 0) }
+    : null;
+  const usage = { ...(record.usage || {}), image: imageUsage };
+
+  await redisPipeline([['SET', `pi:oracle:${id}`, JSON.stringify({
+    ...record,
+    imaged: true,
+    imageMs,
+    imageModel: IMAGE_MODEL,
+    imageSize: IMAGE_SIZE,
+    imageQuality: IMAGE_QUALITY,
+    usage,
+    costUsd: totalCost(usage, record.provider),
+  })]]);
 
   res.status(200).json({ ok: true, image: `data:image/png;base64,${b64}` });
 }

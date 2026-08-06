@@ -1796,7 +1796,10 @@ button.badge.repeat:hover {
 /* ---- 專屬靈感牌卡 ---- */
 .oracle-wrap { padding-top: 9vh; }
 /* ---- 後台：靈感牌卡審核 ---- */
-.oa-count { font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint); letter-spacing: .1em; }
+.oa-count {
+  font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint); letter-spacing: .1em;
+}
+.oa-count + .oa-count { margin-left: 14px; }
 .oa-list { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; }
 .oa-card {
   border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px;
@@ -1841,6 +1844,17 @@ button.badge.repeat:hover {
 }
 /* 圖像 prompt 是英文，強制左至右並用等寬字，方便逐字比對 */
 .oa-ltr { direction: ltr; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+/* 用量與成本：數字用等寬字才對得齊，掃一眼就能比較幾張之間的差異 */
+.oa-usage { font-family: var(--sans); font-size: 12.5px; line-height: 2; }
+.oa-usage > div { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+/* 標籤固定寬度，右邊的 token 數字才對得齊（兩行一眼就能比較） */
+.oa-ulab { display: inline-block; min-width: 12.5em; color: var(--ink-faint); }
+.oa-usub { margin-left: 14px; color: var(--ink-faint); font-size: 11.5px; }
+.oa-utotal { margin-top: 4px; color: var(--accent-dim) !important; }
+.oa-cost {
+  font-family: var(--sans); font-size: 11.5px; color: var(--accent-dim);
+  font-variant-numeric: tabular-nums;
+}
 /* 原始 prompt 很長（約 3 萬字，整副牌都在裡面），所以給固定高度＋自己滾，
    否則一展開就把整頁推到幾十個螢幕高，別的紀錄都找不到了。 */
 .oa-promptdump {

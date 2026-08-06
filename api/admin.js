@@ -837,6 +837,11 @@ export default async function handler(req, res) {
             ...rec,
             hasImage: Number((imgs[i] || {}).result) === 1,
             hasArt: Number((arts[i] || {}).result) === 1,
+            // 圖像模型實際收到的完整 prompt。收尾那段約束是程式接上去的，不在模型
+            // 寫的那一段裡——只顯示前半段會讓人以為指定尺寸與「不要有文字」的要求
+            // 不見了（站主就是這樣誤會過一次）。
+            imagePromptFull: rec.imagePrompt
+              ? `${rec.imagePrompt}\n\n${IMAGE_SUFFIX}` : '',
           });
         });
       }
