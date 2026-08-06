@@ -15,7 +15,7 @@ import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { buildShareCardSvg, svgToPng, shareCardPng, downloadPng } from './shareCard.js';
-import { oracleCardPng, oracleCardPreview } from './oracleCard.js';
+import { oracleCardPng, imagePreview } from './oracleCard.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { parseAstroSections, parseMeihuaSections } from './astroFormat.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
@@ -552,11 +552,19 @@ async function oracleResult(card, imageDataUrl) {
       });
     }
 
-    // 存檔給站主審核品質。壓成小張 JPEG 再送——原圖 PNG 約 1.5–3 MB，
-    // 而審核用不到原始解析度。失敗一律靜默：這是站方的資料，不該影響使用者。
-    oracleCardPreview(blob)
-      .then((preview) => oracleApi({ action: 'archive', id: card.id, preview }))
-      .catch(() => {});
+    // 存檔給站主審核品質。兩張都送：合成好的卡（使用者拿到的東西）與圖像模型畫的
+    // 原始 artwork（要拿來對照 imagePrompt 的那一張）。都壓成小張 JPEG——原圖 PNG
+    // 約 1.5–3 MB，審核用不到原始解析度。
+    // 一次請求送兩張，不是兩次：這支端點只是存檔，多一趟往返沒有意義。
+    // 失敗一律靜默，而且 artwork 壓失敗時仍然把卡送出去——這是站方的資料，
+    // 不該影響使用者，也不該因為其中一張壞了就兩張都沒存到。
+    Promise.all([
+      imagePreview(blob).catch(() => ''),
+      imageDataUrl ? imagePreview(imageDataUrl).catch(() => '') : '',
+    ]).then(([preview, art]) => {
+      if (!preview && !art) return;
+      return oracleApi({ action: 'archive', id: card.id, preview, art });
+    }).catch(() => {});
   }
 }
 

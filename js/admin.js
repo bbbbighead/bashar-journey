@@ -1404,7 +1404,7 @@ function closePreview() {
 // pi:oracles 裡，不該因為改版就變成一片空白。
 //
 // 存檔圖不隨清單一起拉（一張約 30 KB，五十張就 1.5 MB），點「看圖」才另外要一張。
-const oaLoaded = new Set();   // 已經載過圖的 id，避免重複請求
+const oaLoaded = new Set();   // 已經載過的 `${id}:${kind}`，避免重複請求
 
 // 中日韓算字、英文算 words——與後台「字數」欄同一套判斷（英文的規定以 words 計）
 function oaLen(text, lang) {
@@ -1495,22 +1495,53 @@ async function refreshOracles() {
         <summary>送給圖像模型的 prompt</summary>
         <div class="oa-pre oa-ltr">${esc(o.imagePrompt)}</div>
       </details>
-      ${o.hasImage ? `<div class="oa-imgbox">
-        <button type="button" class="btn ghost small oa-img-btn">看圖</button>
+      ${o.sysHash ? `<details class="oa-more">
+        <summary>送給文字模型的原始 prompt${o.model ? `（${esc(o.model)}）` : ''}</summary>
+        <div class="oa-load" data-load="prompt">
+          <button type="button" class="btn ghost small oa-load-btn">載入（約 3 萬字，點了才拉）</button>
+        </div>
+      </details>` : ''}
+      ${o.hasImage || o.hasArt ? `<div class="oa-imgbox">
+        ${o.hasArt ? `<div class="oa-load" data-load="art">
+          <div class="oa-imgcap">圖像模型畫的原始畫作</div>
+          <button type="button" class="btn ghost small oa-load-btn">看圖</button>
+        </div>` : ''}
+        ${o.hasImage ? `<div class="oa-load" data-load="card">
+          <div class="oa-imgcap">合成後的整張卡（使用者拿到的）</div>
+          <button type="button" class="btn ghost small oa-load-btn">看圖</button>
+        </div>` : ''}
       </div>` : '<div class="a-hint small">（沒有存檔圖）</div>'}
     </div>`).join('');
 
-  host.querySelectorAll('.oa-img-btn').forEach((btn) => {
+  // 圖與原始 prompt 都是點了才拉：一張圖約 30 KB、一份 prompt 約 3 萬字，
+  // 五十筆全部預載沒有道理。載過的不重複請求。
+  host.querySelectorAll('.oa-load-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const card = btn.closest('.oa-card');
-      const id = card.dataset.id;
-      if (oaLoaded.has(id)) return;
+      const box = btn.closest('.oa-load');
+      const id = btn.closest('.oa-card').dataset.id;
+      const kind = box.dataset.load;
+      if (oaLoaded.has(`${id}:${kind}`)) return;
       btn.disabled = true;
       btn.textContent = '載入中……';
       try {
-        const r = await api({ view: 'oracleimg', id });
+        if (kind === 'prompt') {
+          const r = await api({ view: 'oracleprompt', id });
+          if (!r.system && !r.user) throw new Error('no prompt');
+          oaLoaded.add(`${id}:${kind}`);
+          const pre = document.createElement('div');
+          pre.className = 'oa-pre oa-promptdump';
+          pre.textContent = [
+            `── provider／model ──\n${r.provider || '?'}　${r.model || '?'}`,
+            `── system prompt（${(r.system || '').length} 字）──\n${r.system || '(沒有存到)'}`,
+            `── user prompt（${(r.user || '').length} 字）──\n${r.user || '(沒有存到)'}`,
+            `── 送給圖像模型的完整 prompt ──\n${r.imagePrompt || '(沒有存到)'}`,
+          ].join('\n\n');
+          btn.replaceWith(pre);
+          return;
+        }
+        const r = await api({ view: 'oracleimg', id, ...(kind === 'art' ? { kind: 'art' } : {}) });
         if (!r.image) throw new Error('no image');
-        oaLoaded.add(id);
+        oaLoaded.add(`${id}:${kind}`);
         btn.replaceWith(Object.assign(document.createElement('img'), {
           className: 'oa-img', src: r.image, alt: '',
         }));

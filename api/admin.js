@@ -7,7 +7,8 @@
 //   feedback?limit=200  使用者回饋清單（新到舊）＋筆數、平均星等與分布
 //   timings?limit=200   處理時間清單（新到舊）＋各階段的中位數與 P90
 //   oracles?limit=50    專屬靈感牌卡清單（新到舊）：挑中的牌與原因、卡面、譯文、牌義、圖像 prompt
-//   oracleimg?id=xxx    單張牌卡的存檔預覽圖（清單刻意不帶圖，一張約 30 KB）
+//   oracleimg?id=xxx[&kind=art]  單張牌卡的存檔圖：合成卡，或圖像模型的原始 artwork
+//   oracleprompt?id=xxx 那一張卡實際送給模型的原始 prompt（文字 system＋user、圖像）
 // POST actions（body JSON）：
 //   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
 //   { action:'delete', sid|sids[] }  刪除紀錄（清單/題目/停留/標註），並回扣聚合統計與用量
@@ -15,6 +16,9 @@
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
 import { chatComplete, llmConfigured } from '../lib/llm.js';
+// 圖像模型收到的收尾約束是程式接上去的，不在模型寫的 prompt 裡。後台要顯示「實際
+// 送出去的完整 prompt」就得把它接回來，否則看起來像少了那些禁令。
+import { IMAGE_SUFFIX } from '../prompts/oracle.js';
 
 const KEY_OVERHEAD = 64;
 const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
@@ -821,12 +825,19 @@ export default async function handler(req, res) {
       const items = [];
       if (ids.length) {
         const rows = await redisPipeline(ids.map((id) => ['GET', `pi:oracle:${id}`]));
-        // 同時問哪幾筆有存檔圖，前端才知道要不要顯示「看圖」
+        // 同時問哪幾筆有存檔圖，前端才知道要不要顯示按鈕。兩種各問一次：
+        // 合成後的卡與圖像模型的原始 artwork 是分開存的，可能只有其中一張
+        //（artwork 是後來才加的，之前的紀錄只有合成卡）。
         const imgs = await redisPipeline(ids.map((id) => ['EXISTS', `pi:oracleimg:${id}`]));
+        const arts = await redisPipeline(ids.map((id) => ['EXISTS', `pi:oracleart:${id}`]));
         ids.forEach((id, i) => {
           const rec = parseJSON(rows[i] && rows[i].result, null);
           if (!rec) return;
-          items.push({ ...rec, hasImage: Number((imgs[i] || {}).result) === 1 });
+          items.push({
+            ...rec,
+            hasImage: Number((imgs[i] || {}).result) === 1,
+            hasArt: Number((arts[i] || {}).result) === 1,
+          });
         });
       }
       const [lenR] = await redisPipeline([['LLEN', 'pi:oracles']]);
@@ -836,11 +847,46 @@ export default async function handler(req, res) {
       return;
     }
 
+    // 單張牌卡的存檔圖。kind=art 是圖像模型畫的原始 artwork（對照 prompt 用），
+    // 預設是合成後的整張卡（使用者拿到的東西）。兩張都是壓縮預覽，各約 30 KB。
     if (view === 'oracleimg') {
       const id = String(url.searchParams.get('id') || '').slice(0, 40).replace(/[^\w-]/g, '');
       if (!id) { res.status(400).json({ ok: false, error: 'bad_id' }); return; }
-      const [r] = await redisPipeline([['GET', `pi:oracleimg:${id}`]]);
+      const key = url.searchParams.get('kind') === 'art' ? 'pi:oracleart' : 'pi:oracleimg';
+      const [r] = await redisPipeline([['GET', `${key}:${id}`]]);
       res.status(200).json({ ok: true, image: r.result || null });
+      return;
+    }
+
+    // 這一張卡實際送給文字模型的原始 prompt，供站主 debug。
+    // system 與 user 分開存（system 每次都一樣，按內容雜湊只存一份），這裡合起來回。
+    // 刻意不隨清單一起回傳：system prompt 約 2.8 萬字（整副牌都在裡面），
+    // 50 筆就是 1.4 MB——要看的時候才單筆調。
+    if (view === 'oracleprompt') {
+      const id = String(url.searchParams.get('id') || '').slice(0, 40).replace(/[^\w-]/g, '');
+      if (!id) { res.status(400).json({ ok: false, error: 'bad_id' }); return; }
+      const [recR, userR] = await redisPipeline([
+        ['GET', `pi:oracle:${id}`],
+        ['GET', `pi:oracleuser:${id}`],
+      ]);
+      const rec = parseJSON(recR.result, null);
+      let system = null;
+      if (rec && rec.sysHash) {
+        const hash = String(rec.sysHash).replace(/[^\w]/g, '').slice(0, 16);
+        const [sysR] = await redisPipeline([['GET', `pi:oraclesys:${hash}`]]);
+        system = sysR.result || null;
+      }
+      res.status(200).json({
+        ok: true,
+        provider: (rec && rec.provider) || null,
+        model: (rec && rec.model) || null,
+        system,
+        user: userR.result || null,
+        // 圖像模型收到的完整 prompt＝模型寫的那段 ＋ 程式固定接上的收尾約束。
+        // 只回前半段會讓人以為缺了那些禁令，實際上是程式加的。
+        imagePrompt: rec && rec.imagePrompt
+          ? `${rec.imagePrompt}\n\n${IMAGE_SUFFIX}` : null,
+      });
       return;
     }
 
