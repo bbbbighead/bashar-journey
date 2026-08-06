@@ -154,8 +154,9 @@ js/analytics.js          前端埋點（sendBeacon，失敗靜默）
 js/shareCard.js          分享圖：把這次抽到的東西重畫成自給自足的 SVG → PNG（零套件）
 assets/og.jpg            連結預覽用的固定品牌圖（1200×630）
 prompts/system.js        分析引擎人格、各工具解析規範與交叉綜合方法
-prompts/oracle.js        專屬靈感牌卡：靈魂精髓判準、世界建構、藝術指導、反宿命規則
-api/oracle.js            牌卡端點（text 產文字與圖像 prompt／image 生圖／archive 存預覽）
+prompts/oracle.js        專屬靈感牌卡：挑卡判準、卡面文字萃取、世界建構、藝術指導
+data/oracleDeck.js       神諭卡牌組（100 張，繁中原文）——牌義的唯一來源，模型不改寫
+api/oracle.js            牌卡端點（text 挑卡＋卡面＋圖像 prompt／image 生圖／archive 存預覽）
 js/oracleCard.js         把 artwork 合成成 2:3 神諭卡（象牙白邊框＋細金框＋英文卡面文字）
 ```
 

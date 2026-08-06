@@ -27,13 +27,15 @@ const FRAME = 8;                 // 金框與外緣之間的距離
 const ART_TOP = PAD + FRAME;
 const ART_W = W - (PAD + FRAME) * 2;
 const ART_H = Math.round(H * 0.70);   // artwork 佔全卡 70%（規格：70–75%）
-// artwork 底下只剩約 136px 要放標題、關鍵詞、細線、訊息、站名——每一段的間距都是
-// 量過的，不是隨手給的。第一版把站名放在固定的 H-PAD-10，結果與訊息的第二行疊在
-// 一起（實際截圖看到站名消失了），所以站名改成跟著最後一行走。
-const T_TITLE = 32;   // artwork 下緣 → 標題基線
-const T_KW = 19;      // 標題 → 關鍵詞
-const T_RULE = 14;    // 關鍵詞 → 細金線
-const T_MSG = 18;     // 細金線 → 訊息第一行
+// artwork 底下只剩約 136px 要放關鍵字、細線、句子、站名——每一段的間距都是量過的，
+// 不是隨手給的。第一版把站名放在固定的 H-PAD-10，結果與句子的第二行疊在一起
+// （實際截圖看到站名消失了），所以站名改成跟著最後一行走。
+// 這一版卡面只有三行（關鍵字／細金線／句子），比舊版少一行，所以整塊往下移一點——
+// 不移的話句子與站名之間會空出一塊，看起來像漏了東西。三行的句子仍然放得下：
+// 句子第一行在 526，三行後 559，站名 577。
+const T_KEY = 40;     // artwork 下緣 → 關鍵字基線
+const T_RULE = 21;    // 關鍵字 → 細金線
+const T_MSG = 19;     // 細金線 → 句子第一行
 
 const IVORY = '#f3ece0';
 const IVORY_EDGE = '#e6dcc9';
@@ -65,8 +67,9 @@ function wrapLatin(text, fontSize, maxWidth) {
   return lines;
 }
 
-// title 可能是 1–3 個字但可以很長（例如 "The Unclaimed Morning"），
-// 字級隨長度縮，不換行——標題換行在這個版面上會擠掉 keywords。
+// 關鍵字規定是一個英文單字（見 prompts/oracle.js），所以正常情況下都落在最大的
+// 字級。字級仍然隨長度退：模型偶爾會回一個詞組，那時候縮小總比撐出金框好。
+// 一律不換行——關鍵字換行在這個版面上會把句子頂下去。
 function titleSize(title) {
   const n = String(title || '').length;
   if (n <= 12) return 27;
@@ -76,39 +79,32 @@ function titleSize(title) {
 }
 
 // artworkDataUrl：data:image/png;base64,…（伺服器回傳的原樣）
-// title / keywords / message：卡面文字，英文
+// keyword / sentence：卡面文字，英文（一個單字 ＋ 一句話）
 // footer：卡片下緣的站名
-export function buildOracleCardSvg({ artworkDataUrl, title, keywords, message, footer }) {
-  const kw = (Array.isArray(keywords) ? keywords : []).filter(Boolean);
-  const tSize = titleSize(title);
+export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }) {
+  const tSize = titleSize(keyword);
 
-  // 文字區從 artwork 下方開始，往下依序排：標題 → 關鍵詞 → 細金線 → 訊息 → 站名。
+  // 文字區從 artwork 下方開始，往下依序排：關鍵字 → 細金線 → 句子 → 站名。
   const textTop = ART_TOP + ART_H;
-  const yTitle = textTop + T_TITLE;
-  const yKw = yTitle + T_KW;
-  const yRule = yKw + T_RULE;
+  const yKey = textTop + T_KEY;
+  const yRule = yKey + T_RULE;
   const yMsg = yRule + T_MSG;
 
-  // 訊息最多三行。規格允許 12–28 words，最長的那種在 11.5px 下會排到四行、
+  // 句子最多三行。規格允許 8–18 words，最長的那種在 11.5px 下會排到四行、
   // 把站名頂出卡外，所以字級隨行數退——退到 9.5 就不再退（再小讀不動了）。
   let msgSize = 11.5;
-  let msgLines = wrapLatin(message, msgSize, ART_W - 24);
+  let msgLines = wrapLatin(sentence, msgSize, ART_W - 24);
   while (msgLines.length > 3 && msgSize > 9.5) {
     msgSize -= 1;
-    msgLines = wrapLatin(message, msgSize, ART_W - 24);
+    msgLines = wrapLatin(sentence, msgSize, ART_W - 24);
   }
   const msgLH = msgSize * 1.45;
   const yFoot = Math.max(H - PAD - 5, yMsg + (msgLines.length - 1) * msgLH + 15);
 
-  const kwText = kw.map((x) => esc(x)).join('<tspan class="oc-dot"> · </tspan>');
-
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
 <style>
-  .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.16em;text-anchor:middle}
-  .oc-kw{fill:${GOLD};font-size:9.5px;letter-spacing:.3em;text-anchor:middle;
-    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
-  .oc-dot{fill:${GOLD_SOFT}}
+  .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.18em;text-anchor:middle}
   .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:italic}
   .oc-foot{fill:${GOLD_SOFT};font-size:7.5px;letter-spacing:.34em;text-anchor:middle;
     font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
@@ -136,8 +132,7 @@ export function buildOracleCardSvg({ artworkDataUrl, title, keywords, message, f
 <line x1="${PAD + FRAME}" y1="${ART_TOP + ART_H}" x2="${W - PAD - FRAME}" y2="${ART_TOP + ART_H}"
   stroke="${GOLD_SOFT}" stroke-width="0.7"/>
 
-<text x="${W / 2}" y="${yTitle}" class="oc-title">${esc(title)}</text>
-${kw.length ? `<text x="${W / 2}" y="${yKw}" class="oc-kw">${kwText}</text>` : ''}
+<text x="${W / 2}" y="${yKey}" class="oc-title">${esc(keyword)}</text>
 <line x1="${W / 2 - 26}" y1="${yRule}" x2="${W / 2 + 26}" y2="${yRule}"
   stroke="${GOLD_SOFT}" stroke-width="0.7"/>
 ${msgLines.map((line, i) => `<text x="${W / 2}" y="${yMsg + i * msgLH}" class="oc-msg">${esc(line)}</text>`).join('\n')}
