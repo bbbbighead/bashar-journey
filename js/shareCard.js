@@ -227,6 +227,17 @@ export function svgToPng(svg, size = OUT, h = size) {
   });
 }
 
+// 純下載。牌卡頁把「下載」與「分享」分成兩顆按鈕，所以要能單獨呼叫。
+export function downloadPng(blob, fileName) {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href; a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 4000);
+}
+
 // 分享（或退回下載）。回傳 'shared' | 'downloaded'，讓呼叫端決定提示什麼。
 export async function shareCardPng(blob, { fileName, title, text, url }) {
   const file = new File([blob], fileName, { type: 'image/png' });
@@ -237,12 +248,12 @@ export async function shareCardPng(blob, { fileName, title, text, url }) {
     await navigator.share({ files: [file], title, text });
     return 'shared';
   }
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = href; a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 4000);
+  // 不能分享檔案、但能分享文字時，至少把文字送出去（牌卡的解讀本身就有價值）。
+  // 注意：能不能同時保留文字要看接收端——多數社群平台收到圖片就會丟掉文字。
+  if (navigator.share) {
+    await navigator.share({ title, text });
+    return 'shared';
+  }
+  downloadPng(blob, fileName);
   return 'downloaded';
 }

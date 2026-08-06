@@ -4,6 +4,7 @@
 //   text     解讀全文 → 文字模型 → 靈魂精髓、卡面文字、頁面那段話、圖像 prompt
 //   image    依 id 取出圖像 prompt → 圖像模型 → 回傳 PNG（base64）
 //   archive  前端把合成好的卡片壓成小張 JPEG 傳回來存檔，供站主審核品質
+//   info     只讀今天已用張數與上限（不累加），給畫面顯示「今天已使用 n ／ 上限」
 //
 // 為什麼 text 與 image 要分成兩次請求：兩次模型呼叫加起來很可能超過函式的執行
 // 上限（文字 15–25s ＋ 圖像 20–40s）。拆開之後每次都在上限內，而且畫面可以先把
@@ -67,13 +68,25 @@ const clean = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
 
 // 每位訪客每日上限。算在 text 這一段（比較便宜的那一段），所以連文字都拿不到
 // 的人也不會有機會觸發圖像生成。Redis 沒設定時不限制——本機開發要能跑。
-async function overDailyLimit(vid) {
-  if (!redisConfigured() || !vid) return false;
+// 回傳 used 是為了讓畫面能顯示「今天第幾張／共幾張」，並在用完時把「再生成」關掉。
+// 只讀，不累加。開啟牌卡頁時用它把「今天已使用 n ／ 上限」顯示出來——
+// 上限不寫死在前端，否則改了 ORACLE_DAILY_LIMIT 之後畫面上的數字會是舊的。
+async function dailyUsed(vid) {
+  if (!redisConfigured() || !vid) return 0;
+  const day = new Date().toISOString().slice(0, 10);
+  const out = await redisPipeline([['GET', `pi:oraclelim:${vid}:${day}`]]);
+  const n = Number((out && out[0] && out[0].result) || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function dailyUse(vid) {
+  if (!redisConfigured() || !vid) return { used: 0, over: false };
   const day = new Date().toISOString().slice(0, 10);
   const key = `pi:oraclelim:${vid}:${day}`;
   const out = await redisPipeline([['INCR', key], ['EXPIRE', key, 172800]]);
   const n = out && out[0] && Number(out[0].result);
-  return Number.isFinite(n) && n > DAILY_LIMIT;
+  const used = Number.isFinite(n) ? n : 0;
+  return { used, over: used > DAILY_LIMIT };
 }
 
 async function callOpenAIText(apiKey, systemPrompt, userPrompt) {
@@ -143,7 +156,8 @@ async function doText(body, res) {
   const vid = clean(body.vid, 32);
   const sid = clean(body.sid, 64);
 
-  if (await overDailyLimit(vid)) {
+  const use = await dailyUse(vid);
+  if (use.over) {
     res.status(200).json({ ok: false, reason: 'daily_limit', limit: DAILY_LIMIT });
     return;
   }
@@ -210,6 +224,9 @@ ${reading}
   res.status(200).json({
     ok: true,
     id,
+    // 給畫面顯示「今天第 used／limit 張」，並在用完時把「再生成」關掉
+    used: use.used,
+    limit: DAILY_LIMIT,
     title: record.title,
     keywords: record.keywords,
     message: record.message,
@@ -308,6 +325,11 @@ export default async function handler(req, res) {
   body = body || {};
 
   try {
+    if (body.action === 'info') {
+      const used = await dailyUsed(clean(body.vid, 32));
+      res.status(200).json({ ok: true, used, limit: DAILY_LIMIT });
+      return;
+    }
     if (body.action === 'text') return await doText(body, res);
     if (body.action === 'image') return await doImage(body, res);
     if (body.action === 'archive') return await doArchive(body, res);

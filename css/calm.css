@@ -1833,7 +1833,16 @@ button.badge.repeat:hover {
   font-family: var(--sans); font-size: 12px; line-height: 1.8; color: var(--ink-faint);
 }
 .oc-hint { margin-top: 8px; }
-.oc-note { text-align: center; margin: 24px 0 4px; }
+.oc-note { text-align: center; margin: 24px 0 4px; min-height: 1.8em; }
+.oc-note-out { color: #d9a08a; }
+/* 結果頁的用量：主要按鈕下方一行小字，不搶注意力 */
+.oc-usage {
+  font-family: var(--sans); font-size: 12px; letter-spacing: .1em;
+  color: var(--ink-faint); text-align: center;
+}
+/* 「換一則解讀」是次要動作，與上排的下載／分享／再生成分開 */
+.oc-actions-sub { padding: 6px 0 24px; }
+.oc-actions-sub .btn { font-size: 12.5px; padding: 9px 22px; }
 .oc-err { font-family: var(--sans); font-size: 13px; color: #d9a08a; text-align: center; margin-top: 14px; }
 .oc-err-block { margin: 30px 0; line-height: 1.9; }
 .oc-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 24px 0 10px; }
