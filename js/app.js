@@ -443,16 +443,26 @@ async function oracleResult(card, imageDataUrl) {
   }
 
   oracleRepaint = null;
+  // 卡面文字是英文，所以牌卡下方先列出使用者語言的版本，再接解讀。
+  // 圖沒生出來時也照樣顯示這一塊——那時候讀者手上沒有卡片，這裡就是他唯一
+  // 看得到卡面內容的地方。英文原文不另外再列一次：沒有卡可以對照，列了只是重複
+  //（英文使用者的 Local 欄位本來就等於原文）。
+  const trans = `
+    <div class="oc-trans">
+      <div class="oc-t-title">${esc(card.titleLocal || card.title)}</div>
+      ${(card.keywordsLocal && card.keywordsLocal.length ? card.keywordsLocal : card.keywords || [])
+    .length ? `<div class="oc-t-kw">${(card.keywordsLocal && card.keywordsLocal.length
+      ? card.keywordsLocal : card.keywords).map(esc).join(' · ')}</div>` : ''}
+      <div class="oc-t-msg">${esc(card.messageLocal || card.message)}</div>
+    </div>`;
+
   const host = $('oracleHost');
   host.innerHTML = `
     ${previewSrc
     ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.title)}"></div>`
-    : `<div class="oc-err oc-err-block">${esc(t('oracle.imageFailed'))}</div>
-       <div class="oc-card-text">
-         <div class="oc-t-title">${esc(card.title)}</div>
-         <div class="oc-t-kw">${(card.keywords || []).map(esc).join(' · ')}</div>
-         <div class="oc-t-msg">${esc(card.message)}</div>
-       </div>`}
+    : `<div class="oc-err oc-err-block">${esc(t('oracle.imageFailed'))}</div>`}
+    ${trans}
+    <div class="rule-orn" aria-hidden="true"></div>
     <div class="oc-long">${(card.longMessage || '').split(/\n+/).filter(Boolean)
     .map((p) => `<p>${esc(p)}</p>`).join('')}</div>
     <div class="oc-actions">

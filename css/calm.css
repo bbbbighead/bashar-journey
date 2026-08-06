@@ -1858,14 +1858,21 @@ button.badge.repeat:hover {
   width: 100%; max-width: 340px; height: auto; border-radius: 4px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, .55), 0 0 0 1px rgba(214, 183, 122, .18);
 }
-/* 圖沒生出來時的退路：把卡面文字照排版顯示，文字仍然是有價值的 */
-.oc-card-text { text-align: center; margin-bottom: 26px; }
+/* 牌卡下方的譯文區：卡面是英文，這裡是使用者語言的版本（英文使用者＝原文）。
+   圖沒生出來時，這一塊就是讀者唯一看得到卡面內容的地方。 */
+.oc-trans { text-align: center; margin: 2px 0 26px; }
 .oc-t-title { font-family: var(--serif); font-size: 22px; letter-spacing: .14em; color: var(--ink); }
 .oc-t-kw {
   font-family: var(--sans); font-size: 11px; letter-spacing: .28em;
   color: var(--accent-dim); margin: 10px 0 14px;
 }
-.oc-t-msg { font-family: var(--serif); font-size: 15px; line-height: 1.9; color: var(--ink-dim); font-style: italic; }
+/* 刻意不用 italic：中日韓字型沒有真正的斜體，瀏覽器會機械地把字斜過去，
+   看起來是歪的而不是斜的。改用字級與顏色與上下文區隔。
+   （卡面上的英文訊息仍然用 italic——英文有真的斜體字。） */
+.oc-t-msg {
+  font-family: var(--serif); font-size: 15.5px; line-height: 1.95;
+  color: var(--ink);
+}
 .oc-long p {
   font-family: var(--serif); font-size: 16px; line-height: 2.05;
   color: var(--ink-dim); margin-bottom: 16px;
