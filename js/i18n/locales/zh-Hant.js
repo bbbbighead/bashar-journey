@@ -316,6 +316,33 @@ export default {
     starAria: (n) => `${n} 顆星`,
   },
 
+  // 專屬靈感牌卡（神諭卡）。卡面文字一律英文（見 prompts/oracle.js），
+  // 所以這裡沒有 title／keywords／message 的字樣——只有介面文案。
+  oracle: {
+    title: '專屬靈感牌卡',
+    lede: '貼上一則你喜歡的解讀，讓它變成一張從更高處看見此刻的牌卡。',
+    readingLabel: '貼上解讀',
+    readingPh: '把整則解讀複製貼上——雷諾曼、梅花易數或西洋占星都可以。',
+    sexLabel: '生理性別',
+    sexHint: '用於牌卡畫面裡的人物形象。',
+    male: '生理男性',
+    female: '生理女性',
+    submit: '生成牌卡',
+    once: '一則解讀只生成一張牌卡，生成之後無法重做。',
+    tooShort: '解讀內容太短了，請貼上完整的一則。',
+    needSex: '請先選擇生理男性或生理女性。',
+    step1: '正在讀完整則解讀……',
+    step2: '正在描繪那個世界……',
+    download: '儲存牌卡',
+    share: '分享牌卡',
+    saved: '已儲存 ✓',
+    shared: '已分享 ✓',
+    again: '用另一則解讀再做一張',
+    failed: '這次沒能生成，請稍後再試。',
+    imageFailed: '文字已經好了，但這次的畫面沒能畫出來。',
+    limit: (n) => `今天的次數用完了（每天 ${n} 張），明天再來。`,
+  },
+
   history: {
     title: '我的靈感訊息',
     sub: '過去在這裡留下的占卜紀錄',

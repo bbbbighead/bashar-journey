@@ -83,7 +83,7 @@
     <button type="button" class="menu-item" data-act="guide" role="menuitem" data-i18n="menu.guide">探索工具介紹</button>
     <!-- 一對一諮詢只以中文提供，所以只在繁體中文介面出現（見 applyLocaleOnly） -->
     <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-locale-only="zh-Hant" data-i18n="menu.dialogue">直覺對話（1 對 1 諮詢）</button>
-    <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-i18n="menu.cards">專屬靈感牌卡</button>
+    <button type="button" class="menu-item" data-act="cards" role="menuitem" data-i18n="menu.cards">專屬靈感牌卡</button>
     <div class="menu-lang">
       <div class="menu-lang-label" data-i18n="menu.lang">語言</div>
       <div class="menu-lang-row" id="langRow"></div>
@@ -263,6 +263,15 @@
       <div class="r-title" data-i18n="guide.title">探索工具介紹</div>
       <div class="rule-orn" aria-hidden="true"></div>
       <div id="guideHost"></div>
+    </div>
+  </section>
+
+  <!-- 專屬靈感牌卡：貼上一則解讀 → 神諭卡。內容全由 js/app.js 的 renderOracle 畫 -->
+  <section class="screen" id="screenOracle">
+    <div class="reading-wrap oracle-wrap">
+      <div class="r-title" data-i18n="oracle.title">專屬靈感牌卡</div>
+      <div class="rule-orn" aria-hidden="true"></div>
+      <div id="oracleHost"></div>
     </div>
   </section>
 
