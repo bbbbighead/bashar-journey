@@ -36,7 +36,7 @@ const IMAGE_SIZE = process.env.ORACLE_IMAGE_SIZE || '1024x1536';
 // 否則使用者會看到逾時而不是更好的圖。
 const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 
-const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 3);
+const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 2);
 const READING_MAX = 12000;   // 貼上的解讀長度上限（一則完整占星報告約 3000–4000 字）
 const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB 的 JPEG）
 

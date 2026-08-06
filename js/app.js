@@ -396,7 +396,7 @@ async function runOracle(reading, sex) {
     const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
     if (!text.ok) {
       oracleFailed(text.reason === 'daily_limit'
-        ? t('oracle.limit', text.limit || 3)
+        ? t('oracle.limit', text.limit || 2)
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
       return;
     }
