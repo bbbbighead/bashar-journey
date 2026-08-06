@@ -329,7 +329,7 @@ export default {
     sexHint: 'Used for the figure in the artwork.',
     male: 'Male',
     female: 'Female',
-    submit: 'Create the card',
+    submit: 'Create your oracle card',
     tooShort: 'That reading is too short — paste the whole thing.',
     needSex: 'Choose male or female first.',
     step1: 'Reading it through…',
