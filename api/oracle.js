@@ -3,8 +3,15 @@
 // 三個 action，刻意拆開而不是一次做完：
 //   text     解讀全文 → 文字模型 → 挑一張牌（data/oracleDeck.js）、卡面文字、圖像 prompt
 //   image    依 id 取出圖像 prompt → 圖像模型 → 回傳 PNG（base64）
-//   archive  前端把合成好的卡片壓成小張 JPEG 傳回來存檔，供站主審核品質
+//   archive  前端把「合成好的卡」與「原始 artwork」各壓成小張 JPEG 傳回來存檔
 //   info     只讀今天已用張數與上限（不累加），並回報功能有沒有開著
+//
+// 除錯資料（都只有後台看得到）：
+//   pi:oraclesys:<hash>  實際送給文字模型的 system prompt（同一份只存一次）
+//   pi:oracleuser:<id>   實際送出去的 user prompt（貼過來的解讀全文）
+//   pi:oracleart:<id>    圖像模型畫出來的原始 artwork（壓縮預覽）
+//   pi:oracleimg:<id>    合成後的整張卡（壓縮預覽）
+// 有這四樣，任何一張卡都能回頭問「這段字為什麼變成這張圖」。
 //
 // 牌卡下方那兩段牌義（核心訊息／洞見）**不是模型寫的**，是從 data/oracleDeck.js
 // 照抄的。模型只負責挑哪一張、萃取卡面的一個英文關鍵字與一句短句、以及寫圖像
@@ -91,6 +98,14 @@ const TRANS_SCHEMA = {
 const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
 
 const clean = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
+
+// 與 api/insight.js 同一支雜湊。system prompt 每次呼叫都一樣（約 2.8 萬字，整副牌
+// 都在裡面），所以按內容雜湊只存一份，紀錄裡只留 hash——否則 50 筆就是 1.4 MB。
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(16);
+}
 
 // 每位訪客每日上限。算在 text 這一段（比較便宜的那一段），所以連文字都拿不到
 // 的人也不會有機會觸發圖像生成。Redis 沒設定時不限制——本機開發要能跑。
@@ -220,6 +235,7 @@ async function doText(body, res) {
 """
 ${reading}
 """`;
+  const sysHash = djb2(systemPrompt);
 
   const t0 = Date.now();
   const out = openaiKey
@@ -272,17 +288,27 @@ ${reading}
     essence,
     insights,
     translated,
-    // 貼過來的解讀只留開頭一段：站主要能認出這張卡是從哪一則解讀來的，
-    // 但沒有必要把整則再存一次（原本那一則已經在 pi:journey 裡了）。
+    // 貼過來的解讀只留開頭一段給清單顯示；完整的那一份在 pi:oracleuser:<id>
+    //（就是實際送出去的 user prompt），站主要 debug 時整段都調得出來。
     readingHead: reading.slice(0, 300),
     readingChars: reading.length,
+    // 除錯用：實際送給文字模型的 system prompt 存在 pi:oraclesys:<sysHash>。
+    // 每次呼叫的 system prompt 都一樣（整副牌都在裡面，約 2.8 萬字），所以按內容
+    // 雜湊只存一份，紀錄裡只留 hash。
+    sysHash,
+    provider: openaiKey ? 'openai' : 'anthropic',
+    model: openaiKey ? TEXT_MODEL_OPENAI : TEXT_MODEL_ANTHROPIC,
     textMs,
     imaged: false,
   };
 
   if (redisConfigured()) {
+    // system prompt 用 NX：同一份只寫第一次。user prompt 逐筆存（那是唯一每次
+    // 都不同、而且 debug 時真正想看的東西）。
     await redisPipeline([
       ['SET', `pi:oracle:${id}`, JSON.stringify(record)],
+      ['SET', `pi:oraclesys:${sysHash}`, systemPrompt, 'NX'],
+      ['SET', `pi:oracleuser:${id}`, userPrompt],
       ['LPUSH', 'pi:oracles', id],
       ['LTRIM', 'pi:oracles', 0, 999],
     ]);
@@ -371,18 +397,27 @@ async function doImage(body, res) {
 //   ・審核品質用不到原始解析度，壓過的預覽肉眼幾乎等同
 //   ・存的是「合成後」的樣子（含邊框與文字），那才是使用者真正拿到的東西
 // 日後不想存了：把前端這一支呼叫拿掉即可，紀錄的其他欄位不受影響。
+// 兩張都存：
+//   preview 合成後的整張卡（含邊框與文字）＝使用者真正拿到的東西
+//   art     圖像模型畫的原始 artwork（未裁切的完整 2:3）＝要拿來對照 prompt 的那一張
+// 卡面上的 artwork 被裁掉了邊緣、也只佔 70%，光看合成卡沒辦法判斷「這段 prompt
+// 到底畫出了什麼」。兩張都是前端壓過的小 JPEG（各約 30 KB）。
 async function doArchive(body, res) {
   const id = clean(body.id, 40);
-  const preview = String(body.preview || '');
   if (!id || !redisConfigured()) { res.status(204).end(); return; }
-  if (!preview.startsWith('data:image/jpeg;base64,') || preview.length > ARCHIVE_MAX) {
-    res.status(204).end();
-    return;
+  const ok = (s) => s.startsWith('data:image/jpeg;base64,') && s.length <= ARCHIVE_MAX;
+  const preview = String(body.preview || '');
+  const art = String(body.art || '');
+  const cmds = [];
+  if (ok(preview)) {
+    cmds.push(['SET', `pi:oracleimg:${id}`, preview]);
+    cmds.push(['INCRBY', 'pi:agg:bytes', String(preview.length)]);
   }
-  await redisPipeline([
-    ['SET', `pi:oracleimg:${id}`, preview],
-    ['INCRBY', 'pi:agg:bytes', String(preview.length)],
-  ]);
+  if (ok(art)) {
+    cmds.push(['SET', `pi:oracleart:${id}`, art]);
+    cmds.push(['INCRBY', 'pi:agg:bytes', String(art.length)]);
+  }
+  if (cmds.length) await redisPipeline(cmds);
   res.status(204).end();
 }
 

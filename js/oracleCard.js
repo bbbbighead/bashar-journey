@@ -146,26 +146,33 @@ export function oracleCardPng(parts) {
 }
 
 // 存檔用的小張預覽：長邊 900px 的 JPEG。
-// 站主初期要審核牌卡品質，但原圖 PNG 約 1.5–3 MB，Redis 不該裝那種東西；
-// 壓過的預覽肉眼幾乎等同，而且存的是「合成後」的樣子——那才是使用者拿到的東西。
-export function oracleCardPreview(blob, longEdge = 900, quality = 0.72) {
+// 站主要審核牌卡品質，但原圖 PNG 約 1.5–3 MB，Redis 不該裝那種東西；
+// 壓過的預覽肉眼幾乎等同。
+//
+// src 可以是 Blob（合成好的卡）或 data: URI（圖像模型回的 artwork）。兩張都要存：
+// 合成卡是使用者拿到的東西，artwork 才是拿來對照 imagePrompt 的那一張——卡面上的
+// artwork 被裁過邊、又只佔 70%，光看合成卡判斷不出「這段 prompt 畫出了什麼」。
+export function imagePreview(src, longEdge = 900, quality = 0.72) {
   return new Promise((resolve, reject) => {
-    const href = URL.createObjectURL(blob);
+    const isBlob = typeof src !== 'string';
+    const href = isBlob ? URL.createObjectURL(src) : src;
+    const free = () => { if (isBlob) URL.revokeObjectURL(href); };
     const img = new Image();
-    const done = (v) => { URL.revokeObjectURL(href); resolve(v); };
-    const timer = setTimeout(() => { URL.revokeObjectURL(href); reject(new Error('preview_timeout')); }, 8000);
+    const timer = setTimeout(() => { free(); reject(new Error('preview_timeout')); }, 8000);
     img.onload = () => {
       clearTimeout(timer);
       try {
-        const k = longEdge / Math.max(img.width, img.height);
+        const k = Math.min(1, longEdge / Math.max(img.width, img.height));
         const c = document.createElement('canvas');
         c.width = Math.round(img.width * k);
         c.height = Math.round(img.height * k);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        done(c.toDataURL('image/jpeg', quality));
-      } catch (e) { URL.revokeObjectURL(href); reject(e); }
+        const out = c.toDataURL('image/jpeg', quality);
+        free();
+        resolve(out);
+      } catch (e) { free(); reject(e); }
     };
-    img.onerror = () => { clearTimeout(timer); URL.revokeObjectURL(href); reject(new Error('preview_failed')); };
+    img.onerror = () => { clearTimeout(timer); free(); reject(new Error('preview_failed')); };
     img.src = href;
   });
 }
