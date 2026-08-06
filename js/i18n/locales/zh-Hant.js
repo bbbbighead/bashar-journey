@@ -328,6 +328,7 @@ export default {
     male: '生理男性',
     female: '生理女性',
     submit: '製作專屬靈感牌卡',
+        soon: '這個功能正在準備中，即將開放。',
     tooShort: '解讀內容太短了，請貼上完整的一則。',
     needSex: '請先選擇生理男性或生理女性。',
     step1: '正在讀完整則解讀……',

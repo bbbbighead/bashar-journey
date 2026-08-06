@@ -59,6 +59,7 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 | 變數 | 預設 | 說明 |
 |---|---|---|
+| `ORACLE_ENABLED` | `1` | 功能總開關。設 `0`／`false`／`off` 即整個關閉：端點拒絕所有請求，牌卡頁改顯示「即將開放」。**改這個變數不必改程式**，關閉也不刪任何已產生的資料 |
 | `ORACLE_IMAGE_MODEL` | `gpt-image-1` | 圖像模型 |
 | `ORACLE_IMAGE_SIZE` | `1024x1536` | 2:3 直式（神諭卡比例） |
 | `ORACLE_IMAGE_QUALITY` | `medium` | 改 `high` 前先確認方案允許更長的 `maxDuration`——high 在這個尺寸常要 40–90 秒，會頂到 `vercel.json` 設的 60 秒 |

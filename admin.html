@@ -45,6 +45,7 @@
         <button class="a-tab-btn" data-tab="sessions" role="tab">使用紀錄</button>
         <button class="a-tab-btn" data-tab="feedback" role="tab">使用者回饋</button>
         <button class="a-tab-btn" data-tab="timings" role="tab">處理時間</button>
+        <button class="a-tab-btn" data-tab="oracles" role="tab">靈感牌卡</button>
       </nav>
     </div>
 
@@ -175,6 +176,15 @@
         <div class="fb-summary" id="fbSummary"></div>
         <div class="fb-list" id="fbList"></div>
         <div class="a-actions"><button class="btn" id="btnFbMore" style="display:none">載入更多回饋</button></div>
+      </div>
+    </div>
+
+    <!-- ── 分頁五：專屬靈感牌卡（審核產出品質用） ── -->
+    <div class="a-pane" data-pane="oracles">
+      <div class="a-block">
+        <div class="a-hint">每一張牌卡的整條產出鏈，由上游到下游攤開：<b>靈魂精髓</b>（所有東西的源頭）→ 圖像 prompt → 卡面英文 → 譯文 → 解讀。精髓與圖像 prompt 從來不會給使用者看到，這裡是唯一看得到它們的地方——產出不對的時候，先看精髓就知道是第一步錯還是最後一步錯。不受「資料範圍」影響。</div>
+        <div class="oa-summary" id="oaSummary"></div>
+        <div class="oa-list" id="oaList"></div>
       </div>
     </div>
 

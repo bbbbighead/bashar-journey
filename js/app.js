@@ -342,6 +342,16 @@ function oracleError(msg) {
   if (box) { box.textContent = msg; box.hidden = !msg; }
 }
 
+// 功能被站主關閉時的畫面。選單那一項仍然點得進來（與站上其他未開放項目一致），
+// 但這裡不給表單——避免使用者填完一大段才發現送不出去。
+function oracleSoon() {
+  oracleRepaint = () => {
+    const el = $('oracleHost').querySelector('.oc-soon');
+    if (el) el.textContent = t('oracle.soon');
+  };
+  $('oracleHost').innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
+}
+
 function oracleStage(text) {
   oracleRepaint = null;
   $('oracleHost').innerHTML = `
@@ -404,10 +414,13 @@ function renderOracle() {
     });
   };
 
-  // 今天已用幾張／上限。上限不寫死在前端——改了 ORACLE_DAILY_LIMIT 之後畫面上的
-  // 數字才不會是舊的。拿不到就不顯示任何數字，寧可留白也不要顯示錯的。
+  // 一次拿兩件事：功能有沒有開著、今天已用幾張／上限。
+  // 都由伺服器決定：站主在 Vercel 切 ORACLE_ENABLED／ORACLE_DAILY_LIMIT 就生效，
+  // 不必改程式也不必發版。拿不到就維持原樣（留白、不鎖），寧可不顯示也不要顯示錯的。
   oracleApi({ action: 'info' }).then((info) => {
-    if (!info || !info.ok || !$('oracleNote')) return;
+    if (!info || !info.ok) return;
+    if (info.enabled === false) { oracleSoon(); return; }
+    if (!$('oracleNote')) return;
     oracleQuota = { used: Number(info.used) || 0, limit: Number(info.limit) || 0 };
     paintOracleQuota();
   }).catch(() => {});
@@ -433,6 +446,7 @@ async function runOracle(reading, sex) {
   try {
     const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
     if (!text.ok) {
+      if (text.reason === 'disabled') { oracleSoon(); return; }
       oracleFailed(text.reason === 'daily_limit'
         ? t('oracle.limit', text.limit || 0)
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
