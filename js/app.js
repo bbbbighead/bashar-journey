@@ -300,7 +300,7 @@ let oracleBusy = false;
 // 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的 300 字是用當時的
 // 輸出語言寫的，跟主報告一樣不隨介面語言改寫）。
 let oracleRepaint = null;
-// 這一次的輸入（解讀全文與性別）。「再生成」用同一則解讀重跑，不必再貼一次。
+// 這一次貼的解讀全文。「再生成」用同一則重跑，不必再貼一次。
 let oracleLast = null;
 // 今天已用張數與上限。由伺服器給（action:'info' 只讀、不累加），不寫死在前端。
 let oracleQuota = null;
@@ -363,22 +363,13 @@ function oracleStage(text) {
 
 function renderOracle() {
   const host = $('oracleHost');
-  let sex = null;
   host.innerHTML = `
     <p class="oc-lede">${esc(t('oracle.lede'))}</p>
     <div class="oc-panel">
-      <div class="oc-field">
+      <div class="oc-field oc-field-last">
         <label class="oc-label" id="oracleReadLabel" for="oracleReading">${esc(t('oracle.readingLabel'))}</label>
         <textarea id="oracleReading" rows="8" maxlength="12000"
           placeholder="${esc(t('oracle.readingPh'))}"></textarea>
-      </div>
-      <div class="oc-field oc-field-last">
-        <div class="oc-label" id="oracleSexLabel">${esc(t('oracle.sexLabel'))}</div>
-        <div class="oc-sex" id="oracleSex">
-          <button type="button" class="oc-sex-opt" data-sex="male" aria-pressed="false">${esc(t('oracle.male'))}</button>
-          <button type="button" class="oc-sex-opt" data-sex="female" aria-pressed="false">${esc(t('oracle.female'))}</button>
-        </div>
-        <div class="oc-hint" id="oracleSexHint">${esc(t('oracle.sexHint'))}</div>
       </div>
     </div>
     <div class="oc-note" id="oracleNote"></div>
@@ -387,31 +378,14 @@ function renderOracle() {
       <button type="button" class="btn primary" id="btnOracleGo">${esc(t('oracle.submit'))}</button>
     </div>`;
 
-  $('oracleSex').addEventListener('click', (e) => {
-    const el = e.target.closest('.oc-sex-opt');
-    if (!el) return;
-    sex = el.dataset.sex;
-    $('oracleSex').querySelectorAll('.oc-sex-opt').forEach((b) => {
-      const on = b === el;
-      b.classList.toggle('sel', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-    oracleError('');
-  });
-
   oracleRepaint = () => {
     const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
     set('oracleReadLabel', t('oracle.readingLabel'));
-    set('oracleSexLabel', t('oracle.sexLabel'));
-    set('oracleSexHint', t('oracle.sexHint'));
     set('btnOracleGo', t('oracle.submit'));
     paintOracleQuota();
     const lede = host.querySelector('.oc-lede');
     if (lede) lede.textContent = t('oracle.lede');
     $('oracleReading').placeholder = t('oracle.readingPh');
-    host.querySelectorAll('.oc-sex-opt').forEach((b) => {
-      b.textContent = t(b.dataset.sex === 'male' ? 'oracle.male' : 'oracle.female');
-    });
   };
 
   // 一次拿兩件事：功能有沒有開著、今天已用幾張／上限。
@@ -428,23 +402,22 @@ function renderOracle() {
   $('btnOracleGo').addEventListener('click', () => {
     const reading = $('oracleReading').value.trim();
     if (reading.length < 80) { oracleError(t('oracle.tooShort')); return; }
-    if (!sex) { oracleError(t('oracle.needSex')); return; }
-    runOracle(reading, sex);
+    runOracle(reading);
   });
 
   showScreen('screenOracle');
 }
 
-async function runOracle(reading, sex) {
+async function runOracle(reading) {
   if (oracleBusy) return;
   oracleBusy = true;
-  // 記住這次的輸入，「再生成」要用同一則解讀重跑一次。
+  // 記住這次貼的解讀，「再生成」要用同一則重跑一次。
   // 重跑會走完整流程（新的 id、新的圖），所以會再吃掉一次每日額度——這是刻意的：
   // 圖像生成有實際成本，每日上限是唯一的成本控制。
-  oracleLast = { reading, sex };
+  oracleLast = { reading };
   oracleStage(t('oracle.step1'));
   try {
-    const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
+    const text = await oracleApi({ action: 'text', reading, lang: getLocale() });
     if (!text.ok) {
       if (text.reason === 'disabled') { oracleSoon(); return; }
       oracleFailed(text.reason === 'daily_limit'
@@ -541,7 +514,7 @@ async function oracleResult(card, imageDataUrl) {
   if (regen) {
     regen.addEventListener('click', () => {
       if (!oracleLast) { renderOracle(); return; }
-      runOracle(oracleLast.reading, oracleLast.sex);
+      runOracle(oracleLast.reading);
     });
   }
   if (blob) {

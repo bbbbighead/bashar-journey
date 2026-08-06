@@ -1399,7 +1399,6 @@ function closePreview() {
 // 精髓與圖像 prompt 從來不回傳給使用者（見 api/oracle.js），這裡是唯一看得到的地方。
 //
 // 存檔圖不隨清單一起拉（一張約 30 KB，五十張就 1.5 MB），點「看圖」才另外要一張。
-const OA_SEX = { male: '生理男性', female: '生理女性' };
 const oaLoaded = new Set();   // 已經載過圖的 id，避免重複請求
 
 // 中日韓算字、英文算 words——與後台「字數」欄同一套判斷（英文的規定以 words 計）
@@ -1433,7 +1432,6 @@ async function refreshOracles() {
       <div class="oa-meta">
         <span>${fmtTime(o.ts)}</span>
         <span>${esc(LANG_LABEL[o.lang] || o.lang || '—')}</span>
-        <span>${esc(OA_SEX[o.sex] || '未提供')}</span>
         <code>${esc(o.vid || '')}</code>
         ${o.textMs ? `<span class="oa-ms">文字 ${(o.textMs / 1000).toFixed(1)}s</span>` : ''}
         ${o.imageMs ? `<span class="oa-ms">圖 ${(o.imageMs / 1000).toFixed(1)}s</span>` : ''}

@@ -74,7 +74,6 @@ const SCHEMA = {
 };
 
 const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
-const SEXES = new Set(['male', 'female']);
 
 const clean = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
 
@@ -164,7 +163,6 @@ async function doText(body, res) {
     res.status(200).json({ ok: false, reason: 'reading_too_short' });
     return;
   }
-  const sex = SEXES.has(body.sex) ? body.sex : null;
   const lang = LANGS.has(body.lang) ? body.lang : 'zh-Hant';
   const vid = clean(body.vid, 32);
   const sid = clean(body.sid, 64);
@@ -176,9 +174,7 @@ async function doText(body, res) {
   }
 
   const systemPrompt = buildOraclePrompt(lang);
-  const userPrompt = `使用者的生理性別：${sex === 'male' ? '生理男性' : sex === 'female' ? '生理女性' : '未提供'}
-
-使用者貼上的解讀全文：
+  const userPrompt = `使用者貼上的解讀全文：
 """
 ${reading}
 """`;
@@ -206,7 +202,6 @@ ${reading}
     sid,
     vid,
     lang,
-    sex,
     essence: clean(card.essence, 400),
     imagePrompt: clean(card.imagePrompt, 4000),
     title: clean(card.title, 60),
