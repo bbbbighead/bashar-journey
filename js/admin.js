@@ -1413,6 +1413,23 @@ function oaLen(text, lang) {
   return `${t.replace(/\s+/g, '').length} 字`;
 }
 
+const num = (n) => Number(n || 0).toLocaleString('en-US');
+
+// 一段呼叫的 token 明細。null＝供應商沒回報用量，要與「0 個 token」分清楚：
+// 顯示 0 會被讀成免費，顯示「沒回報」才知道那筆金額是少算的。
+function oaTokens(u) {
+  if (!u) return '<span class="dim-dash">沒回報用量</span>';
+  const parts = [`輸入 ${num(u.in)}`];
+  if (u.cachedIn) parts.push(`快取 ${num(u.cachedIn)}`);
+  if (u.out) parts.push(`輸出 ${num(u.out)}`);
+  return esc(parts.join('　'));
+}
+
+// 金額一律標「≈」：那是用程式裡的價目表乘出來的估算，不是帳單
+//（價目會變、免費額度與稅金不算在內）。見 api/oracle.js 的 PRICE。
+const oaCost = (v) => (Number.isFinite(Number(v)) && Number(v) > 0
+  ? `≈ US$${Number(v).toFixed(4)}` : '—');
+
 async function refreshOracles() {
   const host = $('oaList');
   host.innerHTML = '<div class="a-hint">載入中……</div>';
@@ -1424,8 +1441,14 @@ async function refreshOracles() {
     return;
   }
   const items = data.items || [];
+  // 合計只加「顯示中的這幾張」，並且明說——寫成「總花費」會被當成全站累計，
+  // 但清單只拉最近 50 張，那個數字是錯的。
+  const sum = items.reduce((a, o) => a + (Number(o.costUsd) || 0), 0);
+  const priced = items.filter((o) => Number(o.costUsd) > 0).length;
   $('oaSummary').innerHTML = items.length
     ? `<span class="oa-count">共 ${data.total} 張，顯示最近 ${items.length} 張</span>`
+      + (sum > 0 ? `<span class="oa-count">這 ${items.length} 張的估算成本合計 ≈ US$${sum.toFixed(3)}`
+        + `（每張平均 ≈ US$${(sum / priced).toFixed(4)}）</span>` : '')
     : '';
   if (!items.length) {
     host.innerHTML = '<div class="a-hint">還沒有人做過牌卡。</div>';
@@ -1441,6 +1464,7 @@ async function refreshOracles() {
         ${o.textMs ? `<span class="oa-ms">文字 ${(o.textMs / 1000).toFixed(1)}s</span>` : ''}
         ${o.imageMs ? `<span class="oa-ms">圖 ${(o.imageMs / 1000).toFixed(1)}s</span>` : ''}
         ${o.imaged ? '' : '<span class="oa-noimg">沒生圖</span>'}
+        ${Number(o.costUsd) > 0 ? `<span class="oa-cost">${esc(oaCost(o.costUsd))}</span>` : ''}
       </div>
 
       ${o.cardId ? `<div class="oa-row oa-essence">
@@ -1491,9 +1515,22 @@ async function refreshOracles() {
         <summary>來源解讀開頭（共 ${Number(o.readingChars) || 0} 字）</summary>
         <div class="oa-pre">${esc(o.readingHead)}</div>
       </details>
+      ${o.usage ? `<div class="oa-row">
+        <div class="oa-k">用量與成本<br><span class="oa-len">估算</span></div>
+        <div class="oa-v oa-usage">
+          <div><span class="oa-ulab">文字（${esc(o.model || o.provider || '?')}）</span>${oaTokens(o.usage.text)}</div>
+          ${o.usage.translate ? `<div><span class="oa-ulab">牌義翻譯</span>${oaTokens(o.usage.translate)}</div>` : ''}
+          <div><span class="oa-ulab">圖像（${esc(o.imageModel || 'gpt-image-1')}）</span>${o.imaged ? oaTokens(o.usage.image) : '<span class="dim-dash">沒生圖</span>'}${o.imageQuality ? `<span class="oa-usub">${esc(o.imageQuality)}　${esc(o.imageSize || '')}</span>` : ''}</div>
+          <div class="oa-utotal">合計 ${esc(oaCost(o.costUsd))}</div>
+        </div>
+      </div>` : ''}
+
       <details class="oa-more">
         <summary>送給圖像模型的 prompt</summary>
-        <div class="oa-pre oa-ltr">${esc(o.imagePrompt)}</div>
+        <div class="oa-pre oa-ltr">${esc(o.imagePromptFull || o.imagePrompt)}</div>
+        <div class="a-hint small">最後一段（Vertical composition… no border）是程式固定接上去的，
+          不是模型寫的；尺寸與品質不在 prompt 裡，是 API 參數
+          （${esc(o.imageSize || '1024x1536')}／${esc(o.imageQuality || 'medium')}）。</div>
       </details>
       ${o.sysHash ? `<details class="oa-more">
         <summary>送給文字模型的原始 prompt${o.model ? `（${esc(o.model)}）` : ''}</summary>

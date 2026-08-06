@@ -65,6 +65,17 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 | `ORACLE_IMAGE_QUALITY` | `medium` | 改 `high` 前先確認方案允許更長的 `maxDuration`——high 在這個尺寸常要 40–90 秒，會頂到 `vercel.json` 設的 60 秒 |
 | `ORACLE_DAILY_LIMIT` | `0`（＝不限制） | 每位訪客每日張數。**這是全站唯一每次呼叫都有明確單張成本的功能**，沒有上限的話成本無上限。測試期間暫時放開；測完把預設改回 `2`，或在 Vercel 設這個變數 |
 
+每張牌卡都會記下供應商回報的 token 數，並依下表估算成本顯示在後台。
+**那是估算不是帳單**——價目會變、免費額度與稅金不算在內，所以全部可以覆寫，
+覆寫後新產生的紀錄才會用新價目（既有紀錄存的是當時算出來的金額，不會回頭改）。
+單位一律是「每百萬 token 的美金」。
+
+| 變數 | 預設 | 說明 |
+|---|---|---|
+| `ORACLE_PRICE_IN` / `ORACLE_PRICE_CACHED_IN` / `ORACLE_PRICE_OUT` | `1.25` / `0.125` / `10` | 文字模型走 OpenAI 時的輸入／快取輸入／輸出單價 |
+| `ORACLE_PRICE_A_IN` / `ORACLE_PRICE_A_CACHED_IN` / `ORACLE_PRICE_A_OUT` | `15` / `1.5` / `75` | 文字模型走 Anthropic 時的同三項 |
+| `ORACLE_PRICE_IMG_IN` / `ORACLE_PRICE_IMG_OUT` | `5` / `40` | 圖像模型的文字輸入與圖像輸出單價。**圖像那一段通常佔單張成本九成以上** |
+
 **金鑰是必要的**：未設金鑰時前台走不完——按下開始後會停在「解讀沒有完成」的重試畫面。補設金鑰後記得 **Redeploy** 才會生效。
 
 ### Vercel Web Analytics ／ Speed Insights

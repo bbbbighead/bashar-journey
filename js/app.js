@@ -426,6 +426,15 @@ async function runOracle(reading) {
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
       return;
     }
+    // 卡面沒有文字就整件事算失敗，不要進到生圖那一步。
+    // 伺服器端已經擋掉空字串（api/oracle.js），這一關防的是另一件事：前後端版本
+    // 不一致時（例如瀏覽器留著舊版 app.js、伺服器已經是新版）欄位名稱對不上，
+    // 兩個值都會是 undefined，合成出來就是一張只有畫、沒有字的卡——那種卡看起來
+    // 不像壞了，只像做得很爛，比直接說「這次沒能生成」糟得多。
+    if (!text.keyword || !text.sentence) {
+      oracleFailed(t('oracle.failed'));
+      return;
+    }
     oracleQuota = { used: Number(text.used) || 0, limit: Number(text.limit) || 0 };
     $('oracleWaitText').textContent = t('oracle.step2');
 
