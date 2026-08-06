@@ -129,6 +129,7 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
   if (id !== 'screenWeaving') stopWeaveProgress();
+  if (id !== 'screenOracle') stopOracleStage();
   // 放大檢視是 body 層的浮層，換頁不會自動收掉——換語言重繪結果頁時也一樣，
   // 不關的話會蓋著新畫面，而且蓋著的是舊的那張圖
   closeChartZoom();
@@ -346,6 +347,7 @@ function oracleError(msg) {
 // 功能被站主關閉時的畫面。選單那一項仍然點得進來（與站上其他未開放項目一致），
 // 但這裡不給表單——避免使用者填完一大段才發現送不出去。
 function oracleSoon() {
+  stopOracleStage();
   oracleRepaint = () => {
     const el = $('oracleHost').querySelector('.oc-soon');
     if (el) el.textContent = t('oracle.soon');
@@ -353,16 +355,85 @@ function oracleSoon() {
   $('oracleHost').innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
 }
 
-function oracleStage(text) {
-  oracleRepaint = null;
-  $('oracleHost').innerHTML = `
-    <div class="oc-wait">
-      <div class="oc-wait-orb" aria-hidden="true"></div>
-      <p class="oc-wait-text" id="oracleWaitText">${esc(text)}</p>
+// 生成中的過場。用的是與探索工具**完全同一組**動畫（.orbit-stage 的三層星軌與
+// 行星）與同一套階段列（.weave-stage 的文字／進度點／副標）——那是全站等待畫面的
+// 語言，牌卡沒有理由自己長一套。
+//
+// 差別只有一個：主流程的階段是照經過時間推進的（拿不到模型的真實進度），牌卡的
+// 階段是**事件驅動**的——文字那一次回來了才進到「畫那個世界」。所以這裡不需要
+// WEAVE_STAGES 那張時間表，只留一個「比平常久」的計時器。
+//
+// 星軌的 markup 與 index.html 的 #screenWeaving 一字不差（同一組 class 就是同一組
+// 動畫）。刻意複製而不是搬去共用元件：那邊是靜態 HTML、這邊是動態插入的，
+// 為兩個地方共用一段字串要多一層抽象，不值得。改動畫時記得兩邊一起改。
+const ORACLE_SLOW_MS = 55000;   // 與主流程的「比平常久」同一個門檻（≈P90）
+let oracleStep = 0;
+let oracleSlowTimer = null;
+
+function stopOracleStage() {
+  clearTimeout(oracleSlowTimer);
+  oracleSlowTimer = null;
+}
+
+function orbitStageHtml(label) {
+  const ring = (n) => `<svg class="orb-ring or${n}" viewBox="0 0 200 200">`
+    + '<circle class="orb-guide" cx="100" cy="100" r="92"></circle>'
+    + '<circle class="orb-arc" cx="100" cy="100" r="92"></circle></svg>';
+  return `<div class="orbit-stage">
+      <div class="orbit-rig" aria-hidden="true">
+        ${ring(1)}${ring(2)}${ring(3)}
+        <div class="orb-planet op1"><i></i></div>
+        <div class="orb-planet op2"><i></i></div>
+        <div class="orb-planet op3"><i></i></div>
+      </div>
+      <p class="orbit-label" id="oracleBusyLabel">${esc(label)}</p>
     </div>`;
 }
 
+// step：1＝讀解讀並挑牌，2＝畫那個世界
+function oracleStage(step) {
+  const first = !$('oracleDots');
+  oracleStep = step;
+  // 切語言時原地重畫：階段文字是 JS 寫進去的，applyStaticText 管不到
+  oracleRepaint = () => paintOracleStage();
+  if (first) {
+    stopOracleStage();
+    $('oracleHost').innerHTML = `
+      <div class="weaving oc-weaving">
+        ${orbitStageHtml(t('oracle.busy'))}
+        <div class="weave-stage">
+          <p class="weave-stage-text" id="oracleStageText" aria-live="polite"></p>
+          <div class="weave-dots" id="oracleDots" aria-hidden="true"></div>
+          <p class="weave-stage-sub" id="oracleStageSub"></p>
+        </div>
+      </div>`;
+    // 只在第一次進來時起算：兩段加起來才是使用者實際等的時間
+    oracleSlowTimer = setTimeout(() => {
+      oracleSlowTimer = null;
+      paintOracleStage();
+    }, ORACLE_SLOW_MS);
+  }
+  paintOracleStage();
+}
+
+function paintOracleStage() {
+  const txt = $('oracleStageText');
+  if (!txt) return;
+  const label = $('oracleBusyLabel');
+  if (label) label.textContent = t('oracle.busy');
+  txt.textContent = t(oracleStep === 2 ? 'oracle.step2' : 'oracle.step1');
+  // 計時器已經燒完＝這次比平常久。只補一句副標，不改階段文字——階段是事件驅動的，
+  // 把文字換成「比平常久」會讓人以為停在別的步驟上。
+  const slow = !oracleSlowTimer;
+  $('oracleStageSub').textContent = slow
+    ? t('weaving.sub.longer')
+    : (oracleStep === 2 ? t('oracle.sub2') : '');
+  $('oracleDots').innerHTML = [1, 2]
+    .map((n) => `<span class="weave-dot${n <= oracleStep ? ' on' : ''}"></span>`).join('');
+}
+
 function renderOracle() {
+  stopOracleStage();
   const host = $('oracleHost');
   host.innerHTML = `
     <p class="oc-lede">${esc(t('oracle.lede'))}</p>
@@ -416,7 +487,7 @@ async function runOracle(reading) {
   // 重跑會走完整流程（新的 id、新的圖），所以會再吃掉一次每日額度——這是刻意的：
   // 圖像生成有實際成本，每日上限是唯一的成本控制。
   oracleLast = { reading };
-  oracleStage(t('oracle.step1'));
+  oracleStage(1);
   try {
     const text = await oracleApi({ action: 'text', reading, lang: getLocale() });
     if (!text.ok) {
@@ -436,7 +507,7 @@ async function runOracle(reading) {
       return;
     }
     oracleQuota = { used: Number(text.used) || 0, limit: Number(text.limit) || 0 };
-    $('oracleWaitText').textContent = t('oracle.step2');
+    oracleStage(2);
 
     let image = null;
     try {
@@ -453,6 +524,7 @@ async function runOracle(reading) {
 }
 
 function oracleFailed(msg) {
+  stopOracleStage();
   oracleRepaint = null;
   $('oracleHost').innerHTML = `
     <div class="oc-err oc-err-block">${esc(msg)}</div>
@@ -463,6 +535,7 @@ function oracleFailed(msg) {
 }
 
 async function oracleResult(card, imageDataUrl) {
+  stopOracleStage();
   // limit <= 0＝沒有限制（見 api/oracle.js 的 DAILY_LIMIT）：不顯示用量、不鎖再生成
   const limit = Number(card.limit) || 0;
   const used = Number(card.used) || 0;
