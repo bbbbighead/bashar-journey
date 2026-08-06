@@ -307,14 +307,23 @@ let oracleQuota = null;
 
 // 把用量畫到表單上，額度用完時連「生成牌卡」都按不下去。
 // 前端的 disabled 只是為了不讓人白等——真正的擋在伺服器端（api/oracle.js）。
+//
+// limit <= 0＝伺服器端沒有限制：這時候什麼都不顯示、什麼都不鎖。
+// 少了這道判斷，「已使用 0 ／ 0 張」會被算成額度已滿，按鈕一開始就是灰的。
 function paintOracleQuota() {
   const note = $('oracleNote');
   if (!note || !oracleQuota) return;
   const { used, limit } = oracleQuota;
+  const go = $('btnOracleGo');
+  if (!(limit > 0)) {
+    note.textContent = '';
+    note.classList.remove('oc-note-out');
+    if (go) go.disabled = false;
+    return;
+  }
   const out = used >= limit;
   note.textContent = out ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit);
   note.classList.toggle('oc-note-out', out);
-  const go = $('btnOracleGo');
   if (go) go.disabled = out;
 }
 
@@ -425,7 +434,7 @@ async function runOracle(reading, sex) {
     const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
     if (!text.ok) {
       oracleFailed(text.reason === 'daily_limit'
-        ? t('oracle.limit', text.limit || 2)
+        ? t('oracle.limit', text.limit || 0)
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
       return;
     }
@@ -457,8 +466,10 @@ function oracleFailed(msg) {
 }
 
 async function oracleResult(card, imageDataUrl) {
-  const limit = Number(card.limit) || 2;
-  const used = Number(card.used) || 1;
+  // limit <= 0＝沒有限制（見 api/oracle.js 的 DAILY_LIMIT）：不顯示用量、不鎖再生成
+  const limit = Number(card.limit) || 0;
+  const used = Number(card.used) || 0;
+  const quotaOut = limit > 0 && used >= limit;
   let blob = null;
   let previewSrc = '';
   if (imageDataUrl) {
@@ -500,9 +511,10 @@ async function oracleResult(card, imageDataUrl) {
     <div class="oc-actions">
       ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
       ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
-      <button type="button" class="btn" id="btnOracleRegen"${used >= limit ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>
+      <button type="button" class="btn" id="btnOracleRegen"${quotaOut ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>
     </div>
-    <div class="oc-usage">${esc(used >= limit ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>
+    ${limit > 0 ? `<div class="oc-usage">${esc(quotaOut
+    ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>` : ''}
     <div class="oc-hint" id="oracleSaved" hidden></div>
     <div class="oc-actions oc-actions-sub">
       <button type="button" class="btn small" id="btnOracleAgain">${esc(t('oracle.again'))}</button>

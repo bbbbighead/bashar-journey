@@ -37,7 +37,12 @@ const IMAGE_SIZE = process.env.ORACLE_IMAGE_SIZE || '1024x1536';
 // 否則使用者會看到逾時而不是更好的圖。
 const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 
-const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 2);
+// 每位訪客每日張數。**0 或負數＝不限制。**
+// 測試期間暫時設為 0（站主要能連續產很多張來調 prompt，兩張不夠）。測試結束後
+// 改回 2 即可，或在 Vercel 設 ORACLE_DAILY_LIMIT。
+// 提醒：不限制時仍然會累加計數，所以恢復限制後那個數字是真的；但只要 limit <= 0，
+// 前端就完全不顯示用量、也不會鎖任何按鈕（見 js/app.js 的 paintOracleQuota）。
+const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 0);
 const READING_MAX = 12000;   // 貼上的解讀長度上限（一則完整占星報告約 3000–4000 字）
 const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB 的 JPEG）
 
@@ -86,7 +91,8 @@ async function dailyUse(vid) {
   const out = await redisPipeline([['INCR', key], ['EXPIRE', key, 172800]]);
   const n = out && out[0] && Number(out[0].result);
   const used = Number.isFinite(n) ? n : 0;
-  return { used, over: used > DAILY_LIMIT };
+  // limit <= 0＝不限制。仍然累加，只是永遠不判定超量。
+  return { used, over: DAILY_LIMIT > 0 && used > DAILY_LIMIT };
 }
 
 async function callOpenAIText(apiKey, systemPrompt, userPrompt) {
