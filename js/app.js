@@ -1604,14 +1604,21 @@ function astroTextForAI(chart, compact = false) {
   ].filter(Boolean).join('\n');
 }
 
-function fullText(a, compact = false) {
+// compact：只給 AI 連結的 query param 用（見 astroTextForAI 的註解）。
+// astroData：要不要附上星盤的實算資料（度數、宮位、相位表）。
+//   AI 導流＝true：接手的 AI 看不到結果頁上那張星盤圖，沒有這段它只能憑印象亂講。
+//   剪貼簿＝false：使用者按「複製這則內容」是要那段解讀（多半是貼到別處、或貼進
+//     專屬靈感牌卡）。一大塊度數與相位表對他沒有意義，只會把要讀的字埋掉，
+//     而且那張星盤圖就在他眼前，資料他看得到。
+//   雷諾曼的牌名清單與梅花的卦象仍然保留：那兩段短、而且是人讀得懂的內容。
+function fullText(a, { compact = false, astroData = true } = {}) {
   const sections = sectionsOf(a);
   const tools = state.tools || [];
   // 三個工具各自把「實際抽到／起到／算出來的東西」補成文字
   const casts = [
     tools.includes('lenormand') ? spreadTextForAI(state.lenormand) : '',
     tools.includes('meihua') ? meihuaTextForAI(state.meihua) : '',
-    tools.includes('astro') ? astroTextForAI(state.astro, compact) : '',
+    tools.includes('astro') && astroData ? astroTextForAI(state.astro, compact) : '',
   ].filter(Boolean);
   return [
     t('result.myTopic', state.opening),
@@ -1623,7 +1630,7 @@ function fullText(a, compact = false) {
 
 function copyAnalysis(a) {
   const btn = $('btnCopy');
-  navigator.clipboard.writeText(fullText(a)).then(
+  navigator.clipboard.writeText(fullText(a, { astroData: false })).then(
     () => { btn.textContent = t('result.copied'); setTimeout(() => { btn.textContent = t('result.copy'); }, 1800); },
     () => { btn.textContent = t('result.copyFail'); }
   );
@@ -1726,14 +1733,14 @@ function shareSite() {
   );
 }
 
-// 導流用文字：內容 ＋ 接續提問引導（複製與 query param 帶入共用同一份）
+// 導流用文字：內容 ＋ 接續提問引導（連結的 query param 與後備剪貼簿共用同一份）
 // compact：只給 AI 連結的 query param 用（見 astroTextForAI 的註解）。
-// 剪貼簿一律拿完整版。
+// 導流一律帶星盤資料——接手的 AI 需要它。結果頁的「複製這則內容」不帶（見 fullText）。
 function buildHandoff(a, compact = false) {
   return [
     t('result.handoffPrefix'),
     '',
-    fullText(a, compact),
+    fullText(a, { compact }),
     '',
     t('result.handoffSuffix'),
   ].join('\n');
