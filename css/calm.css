@@ -1876,18 +1876,6 @@ button.badge.repeat:hover {
 /* 底色、邊框、內陰影都由全域的 textarea 規則負責（與首頁同一套）；
    這裡只調字級——貼過來的是一整則解讀，比首頁的一句主題長得多。 */
 #oracleReading { font-size: 15px; line-height: 1.8; }
-.oc-sex { display: flex; gap: 10px; }
-.oc-sex-opt {
-  flex: 1; font: inherit; font-size: 14.5px; color: var(--ink-dim);
-  background: rgba(13, 20, 31, .42); border: 1px solid var(--line);
-  border-radius: 3px; padding: 11px 8px; cursor: pointer;
-  transition: color .3s, border-color .3s, background .3s;
-}
-.oc-sex-opt:hover { color: var(--ink); border-color: var(--line-strong); }
-.oc-sex-opt.sel {
-  color: var(--accent); border-color: rgba(214, 183, 122, .6);
-  background: rgba(214, 183, 122, .08);
-}
 .oc-hint, .oc-note {
   font-family: var(--sans); font-size: 12px; line-height: 1.8; color: var(--ink-faint);
 }
