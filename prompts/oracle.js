@@ -167,15 +167,21 @@ const CARD_TEXT = `## 第五步：卡面文字（一律英文）
 - ✗ Brave / Tender / Open —— 三個孤立的情緒形容詞
 可以有由淺到深的層次，但每一個都必須是「值得擁有的東西」，不是「正在發生的動作」。
 
-**message**（一到兩句，20–35 words）
-一句**重新定義**：把讀者原本以為的那件事，換成一個更深的說法。基本句型是「X 不是 A，而是 B」。
-- ✓ Home is not the place where you disappear into another. It is the place where two whole lives learn to become larger together.
+**message**（兩句，25–40 words）
+
+**第一句：重新定義。** 把讀者原本以為的那件事，換成一個更深的說法。句型是「X 不是 A，而是 B」。
+**第二句：直接對他說。** 主詞換成 you，說出他正在長成什麼、或已經在做什麼。這一句讓那個重新定義落到他身上——不要只停在抽象的定義。
+
+- ✓ Home is not the place where you disappear into another. You are learning to come close without vanishing.
+- ✓ Devotion is not the same as merging. You have been building a kind of closeness that leaves you both whole.
+
+第二句直接，但**不是命令句**。不要用 Trust／Build／Let／Remember／Allow 之類的動詞開頭——那是在指使他。要用陳述：「你正在……」「你一直在……」「你已經……」。
+- ✗ Trust your own timing. —— 命令
+- ✗ You are stronger than you know. —— 激勵，沒有內容
 - ✗ You already know which way you are facing; you have not yet let yourself say it aloud.
   ——「你已經知道…只是還沒…」是一個**空框架**：它宣稱讀者知道某件事，卻始終沒有說出那件事是什麼。
-- ✗ Trust your own timing. —— 建議
-- ✗ You are stronger than you know. —— 激勵
 
-⚠ **不要沿用上面任何一句的句法去換名詞。** 那會產生看起來像、實際上什麼都沒說的句子。要真的說出一件有內容的話：一個關於「那個東西究竟是什麼」的判斷。`;
+⚠ **不要沿用上面任何一句的句法去換名詞。** 那會產生看起來像、實際上什麼都沒說的句子。第一句要真的下一個判斷：那個東西究竟是什麼。`;
 
 // 卡面文字一律英文，但讀者不一定讀英文——所以頁面上先把卡上的三樣東西翻成他的
 // 語言，讓他確實知道自己手裡那張卡在說什麼，再進行解讀。
@@ -211,7 +217,9 @@ const TRANSLATE = `## 第六步：先把卡面翻成使用者的語言（titleLo
 //     解禁並改成必須有一段講他自己的模式。
 const LONG_MESSAGE = `## 第七步：牌卡解讀（longMessage）
 
-**280–320 字**（英文 190–220 words），用使用者的語言寫。上一步的卡面翻譯不算在內。
+**長度由內容決定**：把該講的講清楚就好。參考範圍 280–320 字（英文 190–220 words），
+但那是參考不是目標——寧可 240 字說完，也不要 320 字裡有 80 字是墊的。
+上一步的卡面翻譯不算在內。
 
 **這是新的起點，不是回顧。** 不要摘要、不要濃縮、不要重新整理他貼過來的那則解讀——他已經讀過了。
 
@@ -322,7 +330,7 @@ ${RULES}
 - imagePrompt：給圖像模型的英文 prompt。
 - title / keywords / message：卡面文字，**英文**。
 - titleLocal / keywordsLocal / messageLocal：卡面三樣東西的**${langName}**版本（輸出語言是英文時照抄原文）。只翻譯，不解釋。
-- longMessage：牌卡解讀，用**${langName}**寫，280–320 字（不含卡面翻譯）。
+- longMessage：牌卡解讀，用**${langName}**寫，長度由內容決定（參考 280–320 字，不含卡面翻譯）。
 
 每一個視覺與文字決定之前都先問一次：**這讓靈魂精髓更清楚嗎？** 如果沒有，就拿掉。`;
 }
