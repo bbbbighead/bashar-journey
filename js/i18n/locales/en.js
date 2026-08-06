@@ -318,6 +318,33 @@ export default {
     starAria: (n) => `${n} star${n === 1 ? '' : 's'}`,
   },
 
+  // Personal oracle card. The card face is always in English (see prompts/oracle.js),
+  // so there are no strings for title/keywords/message here — only the interface.
+  oracle: {
+    title: 'Your Oracle Card',
+    lede: 'Paste a reading you liked, and let it become a card that sees this moment from higher up.',
+    readingLabel: 'Paste the reading',
+    readingPh: 'Paste the whole reading — Lenormand, Plum Blossom I Ching or natal chart, any of them.',
+    sexLabel: 'Body',
+    sexHint: 'Used for the figure in the artwork.',
+    male: 'Male',
+    female: 'Female',
+    submit: 'Create the card',
+    once: 'One reading makes one card. It cannot be generated again.',
+    tooShort: 'That reading is too short — paste the whole thing.',
+    needSex: 'Choose male or female first.',
+    step1: 'Reading it through…',
+    step2: 'Painting that world…',
+    download: 'Save the card',
+    share: 'Share the card',
+    saved: 'Saved ✓',
+    shared: 'Shared ✓',
+    again: 'Make another from a different reading',
+    failed: "That didn't come through. Please try again later.",
+    imageFailed: 'The words are ready, but the painting did not come through this time.',
+    limit: (n) => `You have used today's cards (${n} a day). Come back tomorrow.`,
+  },
+
   history: {
     title: 'My readings',
     sub: 'The readings you’ve left here',

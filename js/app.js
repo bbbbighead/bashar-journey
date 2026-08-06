@@ -15,6 +15,7 @@ import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
 import { buildShareCardSvg, svgToPng, shareCardPng } from './shareCard.js';
+import { oracleCardPng, oracleCardPreview } from './oracleCard.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { parseAstroSections, parseMeihuaSections } from './astroFormat.js';
 import { mountChartZoom, closeChartZoom } from './chartZoom.js';
@@ -22,7 +23,10 @@ import { cardConstellation } from '../data/lenormandIcons.js';
 import { LENORMAND } from '../data/lenormand.js';
 import { countryList } from '../data/countries.js';
 import { detectCrisis } from './content/crisis.js';
-import { trackVisit, trackLang, trackScreen, trackJourney, trackTiming, sendFeedback } from './analytics.js';
+import {
+  trackVisit, trackLang, trackScreen, trackJourney, trackTiming, sendFeedback,
+  sessionId, visitorIdValue,
+} from './analytics.js';
 import {
   t, dict, cardName, getLocale, setLocale, onLocaleChange, refineByCountry,
   initDocumentLang, LOCALE_LIST, localeName, groupLabelVariants, meihuaHeadVariants,
@@ -221,6 +225,7 @@ $('sideMenu').addEventListener('click', (e) => {
   if (act === 'home') restart();
   else if (act === 'history') renderHistory();
   else if (act === 'guide') renderGuide();
+  else if (act === 'cards') renderOracle();
   // act === 'close'：點背景即關閉（上面已 setMenu(false)）
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
@@ -278,6 +283,205 @@ function renderGuide() {
 
   $('btnGuideStart').addEventListener('click', () => showScreen('screenIntake'));
   showScreen('screenGuide');
+}
+
+// ---- 專屬靈感牌卡（選單頁） ----
+// 使用者貼上一則自己喜歡的解讀，切換成「從高處回看」的視角，得到一張神諭卡。
+// 三個狀態畫在同一個 host 裡：表單 → 生成中 → 結果。
+//
+// 刻意沒有「重新生成」按鈕——而且伺服器端也擋（api/oracle.js 的 imaged 旗標）。
+// 圖像生成是全站唯一每次呼叫都有明確單張成本的功能，只把按鈕藏起來的話，
+// 重送一次請求還是會再付一次錢。
+//
+// 文字與圖像分兩次請求：兩段模型呼叫加起來很可能超過函式執行上限，而且分開之後
+// 可以先把卡面文字拿到手，等圖的時候畫面有東西在動。
+let oracleBusy = false;
+// 切換語系時的輕量重繪。與選牌畫面同一個判斷：不重建，只換文字——重建會清掉
+// 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的 300 字是用當時的
+// 輸出語言寫的，跟主報告一樣不隨介面語言改寫）。
+let oracleRepaint = null;
+
+async function oracleApi(payload) {
+  const res = await fetch('/api/oracle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sid: sessionId(), vid: visitorIdValue(), ...payload }),
+  });
+  if (!res.ok) throw new Error('oracle HTTP ' + res.status);
+  return res.json();
+}
+
+function oracleError(msg) {
+  const box = $('oracleErr');
+  if (box) { box.textContent = msg; box.hidden = !msg; }
+}
+
+function oracleStage(text) {
+  oracleRepaint = null;
+  $('oracleHost').innerHTML = `
+    <div class="oc-wait">
+      <div class="oc-wait-orb" aria-hidden="true"></div>
+      <p class="oc-wait-text" id="oracleWaitText">${esc(text)}</p>
+    </div>`;
+}
+
+function renderOracle() {
+  const host = $('oracleHost');
+  let sex = null;
+  host.innerHTML = `
+    <p class="oc-lede">${esc(t('oracle.lede'))}</p>
+    <div class="oc-panel">
+      <div class="oc-field">
+        <label class="oc-label" id="oracleReadLabel" for="oracleReading">${esc(t('oracle.readingLabel'))}</label>
+        <textarea id="oracleReading" rows="8" maxlength="12000"
+          placeholder="${esc(t('oracle.readingPh'))}"></textarea>
+      </div>
+      <div class="oc-field oc-field-last">
+        <div class="oc-label" id="oracleSexLabel">${esc(t('oracle.sexLabel'))}</div>
+        <div class="oc-sex" id="oracleSex">
+          <button type="button" class="oc-sex-opt" data-sex="male" aria-pressed="false">${esc(t('oracle.male'))}</button>
+          <button type="button" class="oc-sex-opt" data-sex="female" aria-pressed="false">${esc(t('oracle.female'))}</button>
+        </div>
+        <div class="oc-hint" id="oracleSexHint">${esc(t('oracle.sexHint'))}</div>
+      </div>
+    </div>
+    <div class="oc-note" id="oracleNote">${esc(t('oracle.once'))}</div>
+    <div class="oc-err" id="oracleErr" hidden></div>
+    <div class="oc-actions">
+      <button type="button" class="btn primary" id="btnOracleGo">${esc(t('oracle.submit'))}</button>
+    </div>`;
+
+  $('oracleSex').addEventListener('click', (e) => {
+    const el = e.target.closest('.oc-sex-opt');
+    if (!el) return;
+    sex = el.dataset.sex;
+    $('oracleSex').querySelectorAll('.oc-sex-opt').forEach((b) => {
+      const on = b === el;
+      b.classList.toggle('sel', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    oracleError('');
+  });
+
+  oracleRepaint = () => {
+    const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+    set('oracleReadLabel', t('oracle.readingLabel'));
+    set('oracleSexLabel', t('oracle.sexLabel'));
+    set('oracleSexHint', t('oracle.sexHint'));
+    set('oracleNote', t('oracle.once'));
+    set('btnOracleGo', t('oracle.submit'));
+    const lede = host.querySelector('.oc-lede');
+    if (lede) lede.textContent = t('oracle.lede');
+    $('oracleReading').placeholder = t('oracle.readingPh');
+    host.querySelectorAll('.oc-sex-opt').forEach((b) => {
+      b.textContent = t(b.dataset.sex === 'male' ? 'oracle.male' : 'oracle.female');
+    });
+  };
+
+  $('btnOracleGo').addEventListener('click', () => {
+    const reading = $('oracleReading').value.trim();
+    if (reading.length < 80) { oracleError(t('oracle.tooShort')); return; }
+    if (!sex) { oracleError(t('oracle.needSex')); return; }
+    runOracle(reading, sex);
+  });
+
+  showScreen('screenOracle');
+}
+
+async function runOracle(reading, sex) {
+  if (oracleBusy) return;
+  oracleBusy = true;
+  oracleStage(t('oracle.step1'));
+  try {
+    const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
+    if (!text.ok) {
+      oracleFailed(text.reason === 'daily_limit'
+        ? t('oracle.limit', text.limit || 3)
+        : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
+      return;
+    }
+    $('oracleWaitText').textContent = t('oracle.step2');
+
+    let image = null;
+    try {
+      const img = await oracleApi({ action: 'image', id: text.id });
+      if (img.ok) image = img.image;
+    } catch { /* 圖失敗不算整件事失敗——文字仍然值得給他 */ }
+
+    await oracleResult(text, image);
+  } catch {
+    oracleFailed(t('oracle.failed'));
+  } finally {
+    oracleBusy = false;
+  }
+}
+
+function oracleFailed(msg) {
+  oracleRepaint = null;
+  $('oracleHost').innerHTML = `
+    <div class="oc-err oc-err-block">${esc(msg)}</div>
+    <div class="oc-actions">
+      <button type="button" class="btn" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
+    </div>`;
+  $('btnOracleAgain').addEventListener('click', renderOracle);
+}
+
+async function oracleResult(card, imageDataUrl) {
+  let blob = null;
+  let previewSrc = '';
+  if (imageDataUrl) {
+    try {
+      blob = await oracleCardPng({
+        artworkDataUrl: imageDataUrl,
+        title: card.title,
+        keywords: card.keywords,
+        message: card.message,
+        footer: 'INTUITIVE NOTES',
+      });
+      previewSrc = URL.createObjectURL(blob);
+    } catch { blob = null; }
+  }
+
+  oracleRepaint = null;
+  const host = $('oracleHost');
+  host.innerHTML = `
+    ${previewSrc
+    ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.title)}"></div>`
+    : `<div class="oc-err oc-err-block">${esc(t('oracle.imageFailed'))}</div>
+       <div class="oc-card-text">
+         <div class="oc-t-title">${esc(card.title)}</div>
+         <div class="oc-t-kw">${(card.keywords || []).map(esc).join(' · ')}</div>
+         <div class="oc-t-msg">${esc(card.message)}</div>
+       </div>`}
+    <div class="oc-long">${(card.longMessage || '').split(/\n+/).filter(Boolean)
+    .map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    <div class="oc-actions">
+      ${blob ? `<button type="button" class="btn primary" id="btnOracleSave">${esc(t('oracle.share'))}</button>` : ''}
+      <button type="button" class="btn" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
+    </div>
+    <div class="oc-hint" id="oracleSaved" hidden></div>`;
+
+  $('btnOracleAgain').addEventListener('click', renderOracle);
+  if (blob) {
+    $('btnOracleSave').addEventListener('click', async () => {
+      try {
+        const how = await shareCardPng(blob, {
+          fileName: `intuitive-notes-oracle-${Date.now()}.png`,
+          title: card.title,
+          text: card.message,
+        });
+        const note = $('oracleSaved');
+        note.textContent = t(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
+        note.hidden = false;
+      } catch { /* 使用者取消分享不是錯誤 */ }
+    });
+
+    // 存檔給站主審核品質。壓成小張 JPEG 再送——原圖 PNG 約 1.5–3 MB，
+    // 而審核用不到原始解析度。失敗一律靜默：這是站方的資料，不該影響使用者。
+    oracleCardPreview(blob)
+      .then((preview) => oracleApi({ action: 'archive', id: card.id, preview }))
+      .catch(() => {});
+  }
 }
 
 // ---- 我的靈感訊息（本機歷史回顧） ----
@@ -1517,6 +1721,7 @@ function repaintCurrentScreen() {
   if (id === 'screenResult' && state && state.analysis) { renderResult(state.analysis); return; }
   if (id === 'screenHistory') { renderHistory(); return; }
   if (id === 'screenGuide') { renderGuide(); return; }
+  if (id === 'screenOracle') { if (oracleRepaint) oracleRepaint(); return; }
   if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
   if (id === 'screenWeaving') { repaintWeaving(); return; }
   if (id === 'screenNumbers') {

@@ -205,7 +205,8 @@ ${part.body}
 }
 
 // SVG 字串 → PNG Blob。走 <img> ＋ canvas，不需要任何外部套件。
-export function svgToPng(svg, size = OUT) {
+// 高度預設等於寬度（分享卡是方的）；神諭卡是 2:3，所以另外傳 h。
+export function svgToPng(svg, size = OUT, h = size) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     // 逾時保護：某些瀏覽器遇到不支援的內容會既不 load 也不 error
@@ -214,9 +215,9 @@ export function svgToPng(svg, size = OUT) {
       clearTimeout(timer);
       try {
         const c = document.createElement('canvas');
-        c.width = size; c.height = size;
+        c.width = size; c.height = h;
         const ctx = c.getContext('2d');
-        ctx.drawImage(img, 0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, h);
         c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob_null'))), 'image/png');
       } catch (e) { reject(e); }
     };

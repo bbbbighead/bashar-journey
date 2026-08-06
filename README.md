@@ -54,6 +54,16 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
    - `ANTHROPIC_API_KEY` — 走 Claude（[Anthropic Console](https://platform.claude.com) 取得）
 3. Deploy。開啟 `https://<專案名>.vercel.app/` 即可開始。
 
+**專屬靈感牌卡（`/api/oracle`）另外需要 `OPENAI_API_KEY`**——Anthropic 沒有圖像生成，
+只設 `ANTHROPIC_API_KEY` 的話卡面文字產得出來、圖產不出來。可調的環境變數：
+
+| 變數 | 預設 | 說明 |
+|---|---|---|
+| `ORACLE_IMAGE_MODEL` | `gpt-image-1` | 圖像模型 |
+| `ORACLE_IMAGE_SIZE` | `1024x1536` | 2:3 直式（神諭卡比例） |
+| `ORACLE_IMAGE_QUALITY` | `medium` | 改 `high` 前先確認方案允許更長的 `maxDuration`——high 在這個尺寸常要 40–90 秒，會頂到 `vercel.json` 設的 60 秒 |
+| `ORACLE_DAILY_LIMIT` | `3` | 每位訪客每日張數。**這是全站唯一每次呼叫都有明確單張成本的功能**，沒有上限的話成本無上限 |
+
 **金鑰是必要的**：未設金鑰時前台走不完——按下開始後會停在「解讀沒有完成」的重試畫面。補設金鑰後記得 **Redeploy** 才會生效。
 
 ### Vercel Web Analytics ／ Speed Insights
@@ -143,6 +153,9 @@ js/analytics.js          前端埋點（sendBeacon，失敗靜默）
 js/shareCard.js          分享圖：把這次抽到的東西重畫成自給自足的 SVG → PNG（零套件）
 assets/og.jpg            連結預覽用的固定品牌圖（1200×630）
 prompts/system.js        分析引擎人格、各工具解析規範與交叉綜合方法
+prompts/oracle.js        專屬靈感牌卡：靈魂精髓判準、世界建構、藝術指導、反宿命規則
+api/oracle.js            牌卡端點（text 產文字與圖像 prompt／image 生圖／archive 存預覽）
+js/oracleCard.js         把 artwork 合成成 2:3 神諭卡（象牙白邊框＋細金框＋英文卡面文字）
 ```
 
 ## 內容來源與聲明

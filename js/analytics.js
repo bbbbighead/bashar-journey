@@ -50,6 +50,9 @@ const VID = visitorId();
 
 // 供其他模組（如 analyze 呼叫）帶上本次 session id，讓 server 端記錄可對上這筆來訪
 export function sessionId() { return SID; }
+// 訪客 ID。牌卡的每日次數上限要按人算（圖像生成是唯一有單張成本的功能），
+// 所以那支端點需要拿到它。預覽模式回 'preview'，見 visitorId()。
+export function visitorIdValue() { return VID; }
 
 function send(payload) {
   if (PREVIEW) return;
