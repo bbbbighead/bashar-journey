@@ -329,7 +329,7 @@ export default {
     sexHint: '카드 그림 속 인물의 모습에 사용됩니다.',
     male: '신체 남성',
     female: '신체 여성',
-    submit: '카드 만들기',
+    submit: '전용 영감 카드 만들기',
     tooShort: '풀이가 너무 짧습니다. 전문을 붙여 넣어 주세요.',
     needSex: '먼저 신체 성별을 선택해 주세요.',
     step1: '풀이를 끝까지 읽고 있습니다……',
