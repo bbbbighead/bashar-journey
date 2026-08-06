@@ -56,12 +56,15 @@ const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 // 前端就完全不顯示用量、也不會鎖任何按鈕（見 js/app.js 的 paintOracleQuota）。
 const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 0);
 
-// 功能總開關。在 Vercel 設 ORACLE_ENABLED=0（或 false／off）即可整個關閉，不必改
-// 程式、不必發版：端點拒絕所有請求，牌卡頁改成顯示「即將開放」。
-// 為什麼要有這個：站主會一邊調 prompt 一邊決定何時對外開放，開開關關是常態，
-// 每次都靠改一行程式再部署太慢，而且那一行很容易被下一次改動蓋掉。
+// 功能總開關。端點拒絕所有請求，牌卡頁改成顯示「即將開放」。
 // 關閉不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
-const ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.ORACLE_ENABLED ?? '1').trim());
+//
+// **預設是關閉的**（站主要求，2026-08）。要開的話兩種方式，任一即可：
+//   ・在 Vercel 設 ORACLE_ENABLED=1（改完要 Redeploy 才生效），不必改程式
+//   ・或把下面那個預設值改回 '1' 再部署
+// 為什麼預設關而不是預設開：這是全站唯一每次呼叫都有明確單張成本的功能（圖像生成），
+// 而且畫風還在調。預設關的話，任何一次意外部署都不會把它打開。
+const ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.ORACLE_ENABLED ?? '0').trim());
 const READING_MAX = 12000;   // 貼上的解讀長度上限（一則完整占星報告約 3000–4000 字）
 const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB 的 JPEG）
 
