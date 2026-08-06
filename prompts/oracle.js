@@ -180,8 +180,11 @@ const WORLD = `## 第四步：把牌與這個人的處境合成一個世界
   五官的臉會立刻變成「某個別人」，讀者就放不進自己了。
 - **人物不超過畫面高度的四分之一，永遠不是肖像。** 人是這個世界裡的一個存在，
   不是被拍的對象。要讓讀者先看到那個地方，再看到裡面有一個人。
-- prompt 裡要明寫這兩件事（seen from behind／face turned away, no facial features；
-  the figure small within the scene）。`;
+- **人物要被光照著，不要是一團暗。** 看不到五官不等於畫成黑影：光要落在他的肩上、
+  頭髮的邊緣、手上——暖暖的、被照著的。一個陰暗的人形會讓整張變沉重，那與這張卡
+  要給的祝福感相反。
+- prompt 裡要明寫這三件事（seen from behind／face turned away, no facial features；
+  the figure small within the scene；warm light catching their shoulders and hair）。`;
 
 // ── 藝術指導 ──
 // 這一段的對照表是實測結果，不是品味主張：把「不要過多細節」寫成禁令，圖像模型
@@ -204,7 +207,7 @@ const ART = `## 第五步：藝術指導
 | 留白 | no empty-space issues、不要畫滿 | large areas of untouched paper along one edge; the lower third fading to bare wash |
 | 樹不要畫滿 | 不要每片葉子都畫滿 | tree canopies suggested with three or four wet strokes, no individual leaves |
 | 邊緣鬆 | 不要邊緣鋒利 | edges bleeding into damp paper; outlines breaking and disappearing in places |
-| 溶解 | 要有溶解的形體 | the far side of the scene dissolving into pale ochre, its shapes unreadable |
+| 溶解 | 要有溶解的形體 | the far side of the scene dissolving into pale mist, its shapes unreadable |
 | 不完整 | 允許未完成 | one whole passage left as a single flat wash, unpainted |
 
 至少要點名**三個具體的位置**是鬆的、空的、或沒畫完的。
@@ -225,27 +228,39 @@ const ART = `## 第五步：藝術指導
 | 焦點 | 整張都是柔邊、主體也糊 | the seated figure's shoulders and hands drawn with confident, readable edges |
 | 遠景 | 遠景也畫滿細節 | the far shore dissolving into mist, its shapes unreadable |
 
-### 明度與色溫
+### 光、色與明度：整張要是**亮的、有希望的**
 
-這兩項不寫進去，圖像模型每次都會滑進同一個地方：通篇中間調的暖褐色。
+⚠ 這一段整個重寫過。前一版只寫「要有一處真的暗」，結果每一張都往沉重走。
+神諭卡是一張祝福，不是一張心情低落的畫——**基調必須是明亮、通透、樂觀的**。
+現在的規則是：亮是主調，暗只是用來撐出空間的那一小塊。
 
-- **明度**：畫面裡要有一處**真的暗**（深藍黑、深墨綠、幾乎黑的剪影）與一處**真的亮**
-  （近乎留白的紙、水面上的一片反光）。通篇中間調會讓整張看起來灰、糊、沒有空氣。
-  「真的暗」是指**接近黑**，不是深一點的棕或灰。實測兩次都得到通篇中間調，
-  所以 prompt 裡要明寫最暗的那一處是什麼、而且它幾乎是黑的。
-- **不要粉彩、不要通篇高明度的柔和色調。** 顏色可以淡，但明度必須有落差；
-  整張都是淺紫淺橘的柔和色就會變成插畫小品，不是水彩寫生。
-- **色溫**：至少要有兩個色溫家族。做法是**一大片冷或中性的場**（灰藍、霧綠、石灰白、
-  暮色的紫灰）配**一小塊暖**（窗裡的燈、一盞提燈、夕陽落在一片牆上）——或者反過來。
-  那一小塊暖不能超過畫面的十分之一，它是強調，不是主色。
-- **不要整張都是同一個色調的暖褐／土黃／赭色**。那會變成一張單色的泥土畫：空氣感
-  沒有了、深度沒有了、優雅也沒有了。這是實測中最常出錯的一項，一定要在 prompt 裡
-  明講主色場是什麼色溫、那一小塊反向色溫在哪裡。
+- **基調亮**：整張畫面的主調偏亮、有空氣、光是流動的。看完的感覺要是被祝福、
+  被打開，不是被壓住。
+- **暗只留一小塊**：畫面裡可以有一處夠深的暗（門洞裡、樹叢深處、水面的陰影），
+  用來撐出空間感與明度落差——但**不超過畫面的十分之一**，而且**絕對不是**整體的調性。
+  絕對不要把人物畫成一團暗。
+- **一定要處理光源**。這是「質感好起來」最有效的一件事：
+  白天用逆光的光暈與穿過葉隙的光；傍晚用低角度的暖光落在牆與水面上；
+  夜晚一定要有燈——窗裡的燈火、提燈、街燈、月光在水上的一道。
+  **不要有沒有光源的夜景**（那就是沉悶的來源）。
+- **柔和而繽紛**：至少三個色相，而且都是柔的、不是豔的。天空最好帶顏色
+  （粉橘、淡青、薰衣草紫可以同時出現在一片天裡），水面與牆面接得到它們的反光。
+- **不要整張都是土黃／暖褐／赭色的單色調**。這是實測中最常出錯的一項：模型每次都
+  往那裡滑。prompt 裡要明講這一張的三個色相各是什麼、各在哪裡。
+- **加一點亮晶晶的細節**：光裡浮動的塵、露珠、水面碎光、遠處的點點燈火、
+  空氣中細小的光斑。小小的、散落的，不是特效——那一點閃爍就是希望感的來源。
 
-### 氣質
+### 氣質：歐式古典 ＋ 一點夢境
 
 克制、優雅、有空氣。近似**十九世紀末到二十世紀初歐洲的戶外寫生水彩與淡墨風景**：
 講究光、空間與明度關係，不靠裝飾花紋、不靠飽和的顏色、不靠圖騰或紋樣堆出情緒。
+場景與建築也往那個傳統靠——歐式的窗、石階、拱門、庭院、長廊、海岸、田野。
+
+**再加一點夢境感**（這是神諭卡與寫生習作的差別）：光比現實再柔一點、遠處比現實
+再溶一點、邊界比現實再模糊一點。像是記得的那個地方，不是拍下來的那個地方。
+
+**大量用暈染**：濕中濕（wet-in-wet）讓顏色在紙上自己相遇、天空與遠景用一次過的
+柔和漸層、顏色與顏色的交界不用線分開而是讓它們互相滲進去。
 
 **紙與顏料要看得出來。** 這是「手畫的水彩」與「數位柔和插畫」最好認的分界，
 所以 prompt 裡一定要點名至少兩項：顏料在紙上的顆粒沉澱（granulation）、
@@ -275,12 +290,15 @@ const IMAGE_PROMPT_RULE = `## 第六步：寫出給圖像模型的 prompt（imag
 - 依序帶到：**媒材與畫法**（放最前面——圖像模型對開頭的權重最高）→ 場景與地點 → 氣候與光 → 生態裡活著的元素 → 人物（若有，含姿態與存在感）→ 鏡頭與構圖。
 - 媒材那一段不要只寫 watercolour：要具體寫出**哪裡鬆、哪裡空、哪裡沒畫完**（見第五步的對照表），至少三個位置。這是整段 prompt 裡最重要的部分，寫不夠具體就會得到一張完稿的插畫。
 - 但**一定要另外寫一句：焦點在哪裡、而且那裡是畫清楚的**（例如 the figure's posture and hands drawn with confident readable edges, everything beyond them loosening）。少了這一句，整張會糊成一片——實測過。
-- **明度**：明確寫出畫面最暗的那一處與最亮的那一處是什麼。
-- **色溫**：明確寫出主色場的色溫（cool grey-blue／misty green／limestone neutral 之類），以及那**一小塊**反向色溫的暖點在哪裡（一扇窗的燈光、一盞提燈）。不要讓整張變成同一個暖褐土黃調——這是圖像模型最常自己滑進去的地方。
+- **基調要亮**：明寫這是一張明亮、通透、有希望的畫（luminous, airy, hopeful）。夠深的暗只留一小塊（門洞裡、樹叢深處、水面陰影），寫出它在哪裡，並且不要讓它成為整體調性。
+- **光源**：明寫光從哪裡來、怎麼落下（backlit haze／low warm sun raking across a wall／lamplight in a window／moonlight laid across water）。**夜景一定要有燈**——沒有光源的夜景就是沉悶的來源。
+- **顏色**：明寫**三個**柔和的色相各在哪裡（例如 a sky of soft apricot, pale teal and lavender；牆與水面接到它們的反光）。柔，不要豔。不要讓整張變成同一個暖褐土黃調——這是圖像模型最常自己滑進去的地方。
+- **亮晶晶的細節**：寫出一兩處小小的閃爍（dust motes drifting in the light／dew on leaves／broken highlights on ripples／distant lamps as small points of light）。散落的小點，不是特效。
+- **暈染**：明寫濕中濕（wet-in-wet washes bleeding into one another, colours meeting on damp paper）與天空那一片柔和漸層。
 - **開頭第一句**就要定位畫種並排除那幾種畫風，例如：\`Late-19th-century European plein-air watercolour and ink wash on rough cotton paper — not children's-book illustration, not anime, not cel-shaded, not airbrushed digital pastel.\` 這一句放最前面，權重最高。
 - **紙與顏料**：至少寫出兩項物理痕跡（pigment granulating in the paper's tooth／hard-edged blooms where a wash dried／dry-brush edges breaking over the grain）。少了這些會得到一張乾淨平滑的數位插畫。
-- **人物**（若有）：明寫看不到臉、以及人在畫面裡很小（seen from behind, face turned away, no facial features; the figure small within the scene, not a portrait）。這兩句是硬規定，見第四步。
-- 最暗的那一處要寫成**幾乎是黑的**（near-black），不要只寫 dark 或 deep brown。
+- **人物**（若有）：明寫看不到臉、人在畫面裡很小、而且**被光照著**（seen from behind, face turned away, no facial features; the figure small within the scene, not a portrait; warm light catching their shoulders and hair）。這三句是硬規定，見第四步。
+- 開頭那句畫種定位順便帶到氣質：European plein-air watercolour、a little dreamlike、luminous 這一路。
 - 不要在 prompt 裡堆負面詞（no glossy、no excessive detail 這類）。實測那些幾乎沒有作用，而且會擠掉真正有效的正面描述。唯一保留的負面要求是文字與邊框，那一段由程式固定接在後面，你不必自己寫。
 - 只描述**畫**本身，不要要求任何文字、標題、簽名、邊框、外框。
 - 直式構圖（2:3）。
