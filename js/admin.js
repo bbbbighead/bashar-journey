@@ -120,7 +120,7 @@ async function enterDash() {
 // 只有總覽與使用紀錄吃「資料範圍」，其他分頁把那條列隱藏起來，
 // 免得使用者以為切了範圍卻沒反應。
 const SCOPED_TABS = new Set(['overview', 'sessions']);
-const tabLoaded = { feedback: false, timings: false };
+const tabLoaded = { feedback: false, timings: false, oracles: false };
 
 function showTab(name) {
   document.querySelectorAll('.a-tab-btn').forEach((b) => {
@@ -140,6 +140,10 @@ function showTab(name) {
   if (name === 'timings' && !tabLoaded.timings) {
     tabLoaded.timings = true;
     refreshTimings();
+  }
+  if (name === 'oracles' && !tabLoaded.oracles) {
+    tabLoaded.oracles = true;
+    refreshOracles();
   }
 }
 
@@ -1386,4 +1390,116 @@ function closePreview() {
   if (previewCleanup) { previewCleanup(); previewCleanup = null; }
   document.querySelectorAll('.pv-overlay').forEach((x) => x.remove());
   document.body.classList.remove('pv-open');
+}
+
+
+// ---- 專屬靈感牌卡：審核產出品質 ----
+// 把整條產出鏈由上游到下游攤開。順序刻意是「精髓 → 圖像 prompt → 卡面 → 譯文 →
+// 解讀」而不是照畫面上的顯示順序：產出不好的時候，要先看得到最上游的那一步。
+// 精髓與圖像 prompt 從來不回傳給使用者（見 api/oracle.js），這裡是唯一看得到的地方。
+//
+// 存檔圖不隨清單一起拉（一張約 30 KB，五十張就 1.5 MB），點「看圖」才另外要一張。
+const OA_SEX = { male: '生理男性', female: '生理女性' };
+const oaLoaded = new Set();   // 已經載過圖的 id，避免重複請求
+
+// 中日韓算字、英文算 words——與後台「字數」欄同一套判斷（英文的規定以 words 計）
+function oaLen(text, lang) {
+  const t = String(text || '');
+  if (lang === 'en') return `${t.split(/\s+/).filter(Boolean).length} words`;
+  return `${t.replace(/\s+/g, '').length} 字`;
+}
+
+async function refreshOracles() {
+  const host = $('oaList');
+  host.innerHTML = '<div class="a-hint">載入中……</div>';
+  let data;
+  try {
+    data = await api({ view: 'oracles', limit: 50 });
+  } catch {
+    host.innerHTML = '<div class="a-hint">讀取失敗，請重新整理。</div>';
+    return;
+  }
+  const items = data.items || [];
+  $('oaSummary').innerHTML = items.length
+    ? `<span class="oa-count">共 ${data.total} 張，顯示最近 ${items.length} 張</span>`
+    : '';
+  if (!items.length) {
+    host.innerHTML = '<div class="a-hint">還沒有人做過牌卡。</div>';
+    return;
+  }
+
+  host.innerHTML = items.map((o) => `
+    <div class="oa-card" data-id="${esc(o.id)}">
+      <div class="oa-meta">
+        <span>${fmtTime(o.ts)}</span>
+        <span>${esc(LANG_LABEL[o.lang] || o.lang || '—')}</span>
+        <span>${esc(OA_SEX[o.sex] || '未提供')}</span>
+        <code>${esc(o.vid || '')}</code>
+        ${o.textMs ? `<span class="oa-ms">文字 ${(o.textMs / 1000).toFixed(1)}s</span>` : ''}
+        ${o.imageMs ? `<span class="oa-ms">圖 ${(o.imageMs / 1000).toFixed(1)}s</span>` : ''}
+        ${o.imaged ? '' : '<span class="oa-noimg">沒生圖</span>'}
+      </div>
+
+      <div class="oa-row oa-essence">
+        <div class="oa-k">靈魂精髓</div>
+        <div class="oa-v">${esc(o.essence) || '<span class="dim-dash">—</span>'}</div>
+      </div>
+
+      <div class="oa-row">
+        <div class="oa-k">卡面（英文）</div>
+        <div class="oa-v">
+          <div class="oa-title">${esc(o.title)}</div>
+          <div class="oa-kw">${(o.keywords || []).map(esc).join(' · ')}</div>
+          <div class="oa-msg">${esc(o.message)}</div>
+        </div>
+      </div>
+
+      <div class="oa-row">
+        <div class="oa-k">譯文</div>
+        <div class="oa-v">
+          <div class="oa-title">${esc(o.titleLocal) || '<span class="dim-dash">—</span>'}</div>
+          <div class="oa-kw">${(o.keywordsLocal || []).map(esc).join(' · ')}</div>
+          <div class="oa-msg">${esc(o.messageLocal)}</div>
+        </div>
+      </div>
+
+      <div class="oa-row">
+        <div class="oa-k">解讀 <span class="oa-len">${esc(oaLen(o.longMessage, o.lang))}</span></div>
+        <div class="oa-v oa-long">${(String(o.longMessage || '').split(/\n+/).filter(Boolean)
+    .map((x) => `<p>${esc(x)}</p>`).join('')) || '<span class="dim-dash">—</span>'}</div>
+      </div>
+
+      <details class="oa-more">
+        <summary>來源解讀開頭（共 ${Number(o.readingChars) || 0} 字）</summary>
+        <div class="oa-pre">${esc(o.readingHead)}</div>
+      </details>
+      <details class="oa-more">
+        <summary>送給圖像模型的 prompt</summary>
+        <div class="oa-pre oa-ltr">${esc(o.imagePrompt)}</div>
+      </details>
+      ${o.hasImage ? `<div class="oa-imgbox">
+        <button type="button" class="btn ghost small oa-img-btn">看圖</button>
+      </div>` : '<div class="a-hint small">（沒有存檔圖）</div>'}
+    </div>`).join('');
+
+  host.querySelectorAll('.oa-img-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.oa-card');
+      const id = card.dataset.id;
+      if (oaLoaded.has(id)) return;
+      btn.disabled = true;
+      btn.textContent = '載入中……';
+      try {
+        const r = await api({ view: 'oracleimg', id });
+        if (!r.image) throw new Error('no image');
+        oaLoaded.add(id);
+        btn.replaceWith(Object.assign(document.createElement('img'), {
+          className: 'oa-img', src: r.image, alt: '',
+        }));
+      } catch {
+        btn.disabled = false;
+        btn.textContent = '載入失敗，再試一次';
+      }
+    });
+  });
 }

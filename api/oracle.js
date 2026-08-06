@@ -4,7 +4,7 @@
 //   text     解讀全文 → 文字模型 → 靈魂精髓、卡面文字、頁面那段話、圖像 prompt
 //   image    依 id 取出圖像 prompt → 圖像模型 → 回傳 PNG（base64）
 //   archive  前端把合成好的卡片壓成小張 JPEG 傳回來存檔，供站主審核品質
-//   info     只讀今天已用張數與上限（不累加），給畫面顯示「今天已使用 n ／ 上限」
+//   info     只讀今天已用張數與上限（不累加），並回報功能有沒有開著
 //
 // 為什麼 text 與 image 要分成兩次請求：兩次模型呼叫加起來很可能超過函式的執行
 // 上限（文字 15–25s ＋ 圖像 20–40s）。拆開之後每次都在上限內，而且畫面可以先把
@@ -43,6 +43,13 @@ const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 // 提醒：不限制時仍然會累加計數，所以恢復限制後那個數字是真的；但只要 limit <= 0，
 // 前端就完全不顯示用量、也不會鎖任何按鈕（見 js/app.js 的 paintOracleQuota）。
 const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 0);
+
+// 功能總開關。在 Vercel 設 ORACLE_ENABLED=0（或 false／off）即可整個關閉，不必改
+// 程式、不必發版：端點拒絕所有請求，牌卡頁改成顯示「即將開放」。
+// 為什麼要有這個：站主會一邊調 prompt 一邊決定何時對外開放，開開關關是常態，
+// 每次都靠改一行程式再部署太慢，而且那一行很容易被下一次改動蓋掉。
+// 關閉不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
+const ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.ORACLE_ENABLED ?? '1').trim());
 const READING_MAX = 12000;   // 貼上的解讀長度上限（一則完整占星報告約 3000–4000 字）
 const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB 的 JPEG）
 
@@ -331,11 +338,14 @@ export default async function handler(req, res) {
   body = body || {};
 
   try {
+    // info 在關閉時仍然回 ok，只是帶 enabled:false——前端要靠它把畫面切成
+    //「即將開放」。其他 action 一律直接拒絕。
     if (body.action === 'info') {
-      const used = await dailyUsed(clean(body.vid, 32));
-      res.status(200).json({ ok: true, used, limit: DAILY_LIMIT });
+      const used = ENABLED ? await dailyUsed(clean(body.vid, 32)) : 0;
+      res.status(200).json({ ok: true, enabled: ENABLED, used, limit: DAILY_LIMIT });
       return;
     }
+    if (!ENABLED) { res.status(200).json({ ok: false, reason: 'disabled' }); return; }
     if (body.action === 'text') return await doText(body, res);
     if (body.action === 'image') return await doImage(body, res);
     if (body.action === 'archive') return await doArchive(body, res);

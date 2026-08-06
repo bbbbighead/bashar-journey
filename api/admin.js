@@ -6,6 +6,8 @@
 //   session?sid=xxx     單一 session 詳情（題目/選牌/報數/產出/完整訊息/各畫面停留/標註/回饋）
 //   feedback?limit=200  使用者回饋清單（新到舊）＋筆數、平均星等與分布
 //   timings?limit=200   處理時間清單（新到舊）＋各階段的中位數與 P90
+//   oracles?limit=50    專屬靈感牌卡清單（新到舊）：靈魂精髓、圖像 prompt、卡面、譯文、解讀
+//   oracleimg?id=xxx    單張牌卡的存檔預覽圖（清單刻意不帶圖，一張約 30 KB）
 // POST actions（body JSON）：
 //   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
 //   { action:'delete', sid|sids[] }  刪除紀錄（清單/題目/停留/標註），並回扣聚合統計與用量
@@ -802,6 +804,43 @@ export default async function handler(req, res) {
         dist,
         items,
       });
+      return;
+    }
+
+    // 專屬靈感牌卡的清單。給站主審核產出品質用，所以把整條鏈都攤開：
+    // 靈魂精髓（所有東西的源頭）→ 圖像 prompt → 卡面英文 → 譯文 → 解讀。
+    // 精髓與圖像 prompt 從來不回傳給使用者（見 api/oracle.js），這裡是唯一看得到
+    // 它們的地方——上一版少了這一頁，出問題時完全無法判斷是第一步錯還是最後一步錯。
+    //
+    // 存檔的預覽圖刻意不隨清單一起回傳：一張約 30 KB，50 張就 1.5 MB，
+    // 每次開分頁都拉那麼多不合理。改成點開單筆才另外要（view=oracleimg）。
+    if (view === 'oracles') {
+      const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+      const [idsR] = await redisPipeline([['LRANGE', 'pi:oracles', '0', String(limit - 1)]]);
+      const ids = (idsR.result || []).filter(Boolean);
+      const items = [];
+      if (ids.length) {
+        const rows = await redisPipeline(ids.map((id) => ['GET', `pi:oracle:${id}`]));
+        // 同時問哪幾筆有存檔圖，前端才知道要不要顯示「看圖」
+        const imgs = await redisPipeline(ids.map((id) => ['EXISTS', `pi:oracleimg:${id}`]));
+        ids.forEach((id, i) => {
+          const rec = parseJSON(rows[i] && rows[i].result, null);
+          if (!rec) return;
+          items.push({ ...rec, hasImage: Number((imgs[i] || {}).result) === 1 });
+        });
+      }
+      const [lenR] = await redisPipeline([['LLEN', 'pi:oracles']]);
+      res.status(200).json({
+        ok: true, total: Number(lenR.result || 0), loaded: items.length, items,
+      });
+      return;
+    }
+
+    if (view === 'oracleimg') {
+      const id = String(url.searchParams.get('id') || '').slice(0, 40).replace(/[^\w-]/g, '');
+      if (!id) { res.status(400).json({ ok: false, error: 'bad_id' }); return; }
+      const [r] = await redisPipeline([['GET', `pi:oracleimg:${id}`]]);
+      res.status(200).json({ ok: true, image: r.result || null });
       return;
     }
 

@@ -1795,6 +1795,65 @@ button.badge.repeat:hover {
 /* ---- 探索工具介紹 ---- */
 /* ---- 專屬靈感牌卡 ---- */
 .oracle-wrap { padding-top: 9vh; }
+/* ---- 後台：靈感牌卡審核 ---- */
+.oa-count { font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint); letter-spacing: .1em; }
+.oa-list { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; }
+.oa-card {
+  border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px;
+  background: rgba(10, 15, 24, .55);
+}
+.oa-meta {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline;
+  font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
+  padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.oa-meta code { color: var(--accent-dim); font-size: 11.5px; }
+.oa-ms { color: var(--ink-faint); opacity: .8; }
+.oa-noimg { color: #d9a08a; }
+/* 兩欄：左邊是欄位名，右邊是內容。窄螢幕改成上下排 */
+.oa-row { display: grid; grid-template-columns: 108px 1fr; gap: 14px; margin-bottom: 14px; }
+.oa-k {
+  font-family: var(--sans); font-size: 11.5px; letter-spacing: .14em;
+  color: var(--accent-dim); padding-top: 3px;
+}
+.oa-len { display: block; margin-top: 4px; color: var(--ink-faint); letter-spacing: .06em; }
+.oa-v { font-family: var(--serif); font-size: 14.5px; line-height: 1.85; color: var(--ink-dim); }
+/* 靈魂精髓是所有東西的源頭，所以在視覺上也給它最高的權重 */
+.oa-essence .oa-v {
+  color: var(--ink); font-size: 15.5px;
+  border-left: 2px solid rgba(214, 183, 122, .5); padding-left: 12px;
+}
+.oa-title { color: var(--ink); font-size: 16px; letter-spacing: .06em; }
+.oa-kw { font-family: var(--sans); font-size: 11.5px; letter-spacing: .18em; color: var(--accent-dim); margin: 5px 0 6px; }
+.oa-msg { font-size: 14px; }
+.oa-long p { margin-bottom: 9px; }
+.oa-long p:last-child { margin-bottom: 0; }
+.oa-more { margin-bottom: 8px; }
+.oa-more summary {
+  font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
+  cursor: pointer; padding: 4px 0;
+}
+.oa-more summary:hover { color: var(--accent-dim); }
+.oa-pre {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.85;
+  color: var(--ink-dim); white-space: pre-wrap; word-break: break-word;
+  background: rgba(0, 0, 0, .25); border-radius: 3px; padding: 10px 12px; margin-top: 6px;
+}
+/* 圖像 prompt 是英文，強制左至右並用等寬字，方便逐字比對 */
+.oa-ltr { direction: ltr; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.oa-imgbox { margin-top: 10px; }
+.oa-img { display: block; width: 100%; max-width: 240px; height: auto; border-radius: 3px; }
+@media (max-width: 720px) {
+  .oa-row { grid-template-columns: 1fr; gap: 4px; }
+  .oa-k { padding-top: 0; }
+  .oa-len { display: inline; margin-left: 8px; }
+}
+
+/* 功能被關閉時的「即將開放」 */
+.oc-soon {
+  font-family: var(--serif); font-size: 16px; line-height: 2;
+  color: var(--ink-dim); text-align: center; padding: 46px 10px 30px;
+}
 .oc-lede {
   font-family: var(--serif); font-size: 16px; line-height: 1.95;
   color: var(--ink-dim); text-align: center; max-width: 26em; margin: 0 auto 26px;

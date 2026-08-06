@@ -330,6 +330,7 @@ export default {
     male: 'Male',
     female: 'Female',
     submit: 'Create your oracle card',
+        soon: 'This is still being prepared — coming soon.',
     tooShort: 'That reading is too short — paste the whole thing.',
     needSex: 'Choose male or female first.',
     step1: 'Reading it through…',
