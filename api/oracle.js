@@ -1,10 +1,14 @@
 // oracle.js — 「專屬靈感牌卡」的 serverless 端點。
 //
 // 三個 action，刻意拆開而不是一次做完：
-//   text     解讀全文 → 文字模型 → 靈魂精髓、卡面文字、頁面那段話、圖像 prompt
+//   text     解讀全文 → 文字模型 → 挑一張牌（data/oracleDeck.js）、卡面文字、圖像 prompt
 //   image    依 id 取出圖像 prompt → 圖像模型 → 回傳 PNG（base64）
 //   archive  前端把合成好的卡片壓成小張 JPEG 傳回來存檔，供站主審核品質
 //   info     只讀今天已用張數與上限（不累加），並回報功能有沒有開著
+//
+// 牌卡下方那兩段牌義（核心訊息／洞見）**不是模型寫的**，是從 data/oracleDeck.js
+// 照抄的。模型只負責挑哪一張、萃取卡面的一個英文關鍵字與一句短句、以及寫圖像
+// prompt。為什麼這樣改：見 prompts/oracle.js 的檔頭。
 //
 // 為什麼 text 與 image 要分成兩次請求：兩次模型呼叫加起來很可能超過函式的執行
 // 上限（文字 15–25s ＋ 圖像 20–40s）。拆開之後每次都在上限內，而且畫面可以先把
@@ -18,7 +22,8 @@
 // 按鈕——前端的按鈕藏起來，重送請求還是會再花一次圖像生成的錢。
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
-import { buildOraclePrompt, IMAGE_SUFFIX } from '../prompts/oracle.js';
+import { buildOraclePrompt, buildTranslatePrompt, IMAGE_SUFFIX } from '../prompts/oracle.js';
+import { deckCard, DECK_SIZE } from '../data/oracleDeck.js';
 
 const OPENAI_CHAT = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_IMAGE = 'https://api.openai.com/v1/images/generations';
@@ -56,20 +61,30 @@ const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['essence', 'imagePrompt', 'title', 'keywords', 'message',
-    'titleLocal', 'keywordsLocal', 'messageLocal', 'longMessage'],
+  required: ['cardId', 'why', 'keyword', 'sentence', 'keywordLocal', 'sentenceLocal', 'imagePrompt'],
+  properties: {
+    // 挑中的牌（data/oracleDeck.js 的 id，1–100）
+    cardId: { type: 'integer' },
+    // 為什麼挑這張。只給站主看，不回傳給前端。
+    why: { type: 'string' },
+    // 卡面文字，一律英文
+    keyword: { type: 'string' },
+    sentence: { type: 'string' },
+    // 同兩樣東西的使用者語言版本（輸出語言是英文時＝原文）
+    keywordLocal: { type: 'string' },
+    sentenceLocal: { type: 'string' },
+    imagePrompt: { type: 'string' },
+  },
+};
+
+// 牌義翻譯（只在使用者語言不是繁中時用）。忠實翻譯，不改結構。
+const TRANS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['essence', 'insights'],
   properties: {
     essence: { type: 'string' },
-    imagePrompt: { type: 'string' },
-    // 卡面文字，一律英文
-    title: { type: 'string' },
-    keywords: { type: 'array', items: { type: 'string' } },
-    message: { type: 'string' },
-    // 同三樣東西的使用者語言版本（輸出語言是英文時＝原文）
-    titleLocal: { type: 'string' },
-    keywordsLocal: { type: 'array', items: { type: 'string' } },
-    messageLocal: { type: 'string' },
-    longMessage: { type: 'string' },
+    insights: { type: 'string' },
   },
 };
 
@@ -101,7 +116,7 @@ async function dailyUse(vid) {
   return { used, over: DAILY_LIMIT > 0 && used > DAILY_LIMIT };
 }
 
-async function callOpenAIText(apiKey, systemPrompt, userPrompt) {
+async function callOpenAIText(apiKey, systemPrompt, userPrompt, schema = SCHEMA, name = 'oracle_card') {
   const res = await fetch(OPENAI_CHAT, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + apiKey },
@@ -114,7 +129,7 @@ async function callOpenAIText(apiKey, systemPrompt, userPrompt) {
       ],
       response_format: {
         type: 'json_schema',
-        json_schema: { name: 'oracle_card', strict: true, schema: SCHEMA },
+        json_schema: { name, strict: true, schema },
       },
     }),
   });
@@ -125,7 +140,7 @@ async function callOpenAIText(apiKey, systemPrompt, userPrompt) {
   return JSON.parse(msg.content);
 }
 
-async function callAnthropicText(apiKey, systemPrompt, userPrompt) {
+async function callAnthropicText(apiKey, systemPrompt, userPrompt, schema = SCHEMA) {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -137,7 +152,7 @@ async function callAnthropicText(apiKey, systemPrompt, userPrompt) {
       model: TEXT_MODEL_ANTHROPIC,
       max_tokens: 3000,
       system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
+      output_config: { format: { type: 'json_schema', schema } },
       messages: [{ role: 'user', content: userPrompt }],
     }),
   });
@@ -147,6 +162,33 @@ async function callAnthropicText(apiKey, systemPrompt, userPrompt) {
   const block = (json.content || []).find((b) => b.type === 'text');
   if (!block) throw new Error('no text block');
   return JSON.parse(block.text);
+}
+
+// 牌義的翻譯。只有在使用者語言不是繁體中文時才會走到這裡。
+//
+// 為什麼是另外一次呼叫：主提示裡刻意沒有牌組的 insights（模型看不到就改不到，
+// 那一段的原文因此有結構上的保證）。這一支只餵它挑中的那一張，輸入很短。
+// 失敗時回 null，呼叫端改用繁中原文——顯示原文總比什麼都沒有好，而且紀錄上會
+// 留下 translated:false，站主看得到。
+async function translateCard(keys, lang, card) {
+  const systemPrompt = buildTranslatePrompt(lang);
+  const userPrompt = `核心訊息：
+${card.essence}
+
+洞見：
+${card.insights}`;
+  try {
+    const out = keys.openai
+      ? await callOpenAIText(keys.openai, systemPrompt, userPrompt, TRANS_SCHEMA, 'oracle_translation')
+      : await callAnthropicText(keys.anthropic, systemPrompt, userPrompt, TRANS_SCHEMA);
+    const essence = clean(out.essence, 600);
+    const insights = clean(out.insights, 2000);
+    if (!essence || !insights) return null;
+    return { essence, insights };
+  } catch (e) {
+    console.error('[oracle] translate', lang, e && e.message);
+    return null;
+  }
 }
 
 // ---- action: text ----
@@ -180,20 +222,29 @@ ${reading}
 """`;
 
   const t0 = Date.now();
-  const card = openaiKey
+  const out = openaiKey
     ? await callOpenAIText(openaiKey, systemPrompt, userPrompt)
     : await callAnthropicText(anthropicKey, systemPrompt, userPrompt);
-  const textMs = Date.now() - t0;
 
-  // keywords 規定恰好三個。schema 的 strict 模式不支援 minItems／maxItems，
-  // 所以在這裡收斂——少於三個就照原樣給前端排版，不要為了湊數自己編字。
-  const kw = (arr) => (Array.isArray(arr) ? arr : [])
-    .map((x) => clean(x, 40)).filter(Boolean).slice(0, 3);
-  const keywords = kw(card.keywords);
-  // 翻譯版的關鍵詞要與英文版一一對應（那是轉化的三個階段，順序有意義）。
-  // 數量對不上時寧可整個不顯示翻譯，也不要讓兩排字錯位對照。
-  const keywordsLocal = kw(card.keywordsLocal);
-  const localOk = keywordsLocal.length === keywords.length;
+  // 挑中的牌。id 不在牌組裡就算這次失敗——不要退而求其次隨機給一張：
+  // 這個功能的承諾是「這張牌對得上你貼的那則解讀」，隨機來的卡違背那個承諾。
+  const deck = deckCard(out.cardId);
+  if (!deck) {
+    console.error('[oracle] bad cardId', out && out.cardId, 'of', DECK_SIZE);
+    res.status(200).json({ ok: false, reason: 'failed' });
+    return;
+  }
+
+  // 牌義：繁中照抄原文，其他語言翻譯（失敗就用原文）。
+  // 這兩段永遠不是模型自己寫的——見 prompts/oracle.js 的檔頭。
+  let essence = deck.essence;
+  let insights = deck.insights;
+  let translated = false;
+  if (lang !== 'zh-Hant') {
+    const tr = await translateCard({ openai: openaiKey, anthropic: anthropicKey }, lang, deck);
+    if (tr) { essence = tr.essence; insights = tr.insights; translated = true; }
+  }
+  const textMs = Date.now() - t0;
 
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const record = {
@@ -202,15 +253,25 @@ ${reading}
     sid,
     vid,
     lang,
-    essence: clean(card.essence, 400),
-    imagePrompt: clean(card.imagePrompt, 4000),
-    title: clean(card.title, 60),
-    keywords,
-    message: clean(card.message, 400),
-    titleLocal: clean(card.titleLocal, 80),
-    keywordsLocal: localOk ? keywordsLocal : [],
-    messageLocal: clean(card.messageLocal, 400),
-    longMessage: clean(card.longMessage, 1200),
+    // 挑中的牌。cardTitle（卡名）目前不顯示給使用者——卡面上已經有一個英文關鍵字
+    // 當標題，再放一個中文卡名只是兩個標題互相搶。留在紀錄裡是給站主看的：
+    // 要判斷挑卡準不準，得知道挑到了哪一張。
+    cardId: deck.id,
+    cardTitle: deck.title,
+    cardCategory: deck.category,
+    why: clean(out.why, 200),
+    imagePrompt: clean(out.imagePrompt, 4000),
+    // 卡面文字（英文）。keyword 規定是單字，但不在這裡截成第一個字——
+    // 真的回了詞組時截斷會變成沒有意義的字，版面本來也吃得下（見 titleSize）。
+    // 違規看得到就好：站主在後台審核時會看到原樣。
+    keyword: clean(out.keyword, 40),
+    sentence: clean(out.sentence, 300),
+    keywordLocal: clean(out.keywordLocal, 60),
+    sentenceLocal: clean(out.sentenceLocal, 300),
+    // 牌義（使用者看到的版本）
+    essence,
+    insights,
+    translated,
     // 貼過來的解讀只留開頭一段：站主要能認出這張卡是從哪一則解讀來的，
     // 但沒有必要把整則再存一次（原本那一則已經在 pi:journey 裡了）。
     readingHead: reading.slice(0, 300),
@@ -227,7 +288,7 @@ ${reading}
     ]);
   }
 
-  // essence 與 imagePrompt 不回傳給前端：那是站主檢查用的資料，
+  // cardId／cardTitle／why／imagePrompt 不回傳給前端：那是站主檢查用的資料，
   // 使用者看到「這是系統對你的判斷」反而會影響他讀卡的方式。
   res.status(200).json({
     ok: true,
@@ -235,13 +296,12 @@ ${reading}
     // 給畫面顯示「今天第 used／limit 張」，並在用完時把「再生成」關掉
     used: use.used,
     limit: DAILY_LIMIT,
-    title: record.title,
-    keywords: record.keywords,
-    message: record.message,
-    titleLocal: record.titleLocal,
-    keywordsLocal: record.keywordsLocal,
-    messageLocal: record.messageLocal,
-    longMessage: record.longMessage,
+    keyword: record.keyword,
+    sentence: record.sentence,
+    keywordLocal: record.keywordLocal,
+    sentenceLocal: record.sentenceLocal,
+    essence: record.essence,
+    insights: record.insights,
   });
 }
 

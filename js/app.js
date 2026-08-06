@@ -286,7 +286,8 @@ function renderGuide() {
 }
 
 // ---- 專屬靈感牌卡（選單頁） ----
-// 使用者貼上一則自己喜歡的解讀，切換成「從高處回看」的視角，得到一張神諭卡。
+// 使用者貼上一則自己喜歡的解讀，系統從固定的神諭卡牌組（data/oracleDeck.js）挑出
+// 接得上的那一張，畫出那張牌的世界。牌義是牌組原文，不是為這一則現寫的。
 // 三個狀態畫在同一個 host 裡：表單 → 生成中 → 結果。
 //
 // 刻意沒有「重新生成」按鈕——而且伺服器端也擋（api/oracle.js 的 imaged 旗標）。
@@ -297,8 +298,8 @@ function renderGuide() {
 // 可以先把卡面文字拿到手，等圖的時候畫面有東西在動。
 let oracleBusy = false;
 // 切換語系時的輕量重繪。與選牌畫面同一個判斷：不重建，只換文字——重建會清掉
-// 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的 300 字是用當時的
-// 輸出語言寫的，跟主報告一樣不隨介面語言改寫）。
+// 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的牌義是用當時的輸出
+// 語言取得的，跟主報告一樣不隨介面語言改寫）。
 let oracleRepaint = null;
 // 這一次貼的解讀全文。「再生成」用同一則重跑，不必再貼一次。
 let oracleLast = null;
@@ -463,9 +464,8 @@ async function oracleResult(card, imageDataUrl) {
     try {
       blob = await oracleCardPng({
         artworkDataUrl: imageDataUrl,
-        title: card.title,
-        keywords: card.keywords,
-        message: card.message,
+        keyword: card.keyword,
+        sentence: card.sentence,
         footer: 'INTUITIVE NOTES',
       });
       previewSrc = URL.createObjectURL(blob);
@@ -473,28 +473,30 @@ async function oracleResult(card, imageDataUrl) {
   }
 
   oracleRepaint = null;
-  // 卡面文字是英文，所以牌卡下方先列出使用者語言的版本，再接解讀。
+  // 卡面文字是英文，所以牌卡下方先列出使用者語言的版本，再接牌義。
   // 圖沒生出來時也照樣顯示這一塊——那時候讀者手上沒有卡片，這裡就是他唯一
   // 看得到卡面內容的地方。英文原文不另外再列一次：沒有卡可以對照，列了只是重複
   //（英文使用者的 Local 欄位本來就等於原文）。
   const trans = `
     <div class="oc-trans">
-      <div class="oc-t-title">${esc(card.titleLocal || card.title)}</div>
-      ${(card.keywordsLocal && card.keywordsLocal.length ? card.keywordsLocal : card.keywords || [])
-    .length ? `<div class="oc-t-kw">${(card.keywordsLocal && card.keywordsLocal.length
-      ? card.keywordsLocal : card.keywords).map(esc).join(' · ')}</div>` : ''}
-      <div class="oc-t-msg">${esc(card.messageLocal || card.message)}</div>
+      <div class="oc-t-title">${esc(card.keywordLocal || card.keyword)}</div>
+      <div class="oc-t-msg">${esc(card.sentenceLocal || card.sentence)}</div>
     </div>`;
+
+  // 牌義是牌組原文（data/oracleDeck.js），不是為這一則寫的——所以這裡只排版，
+  // 不做任何加工。核心訊息一段、洞見一段。
+  const para = (s) => String(s || '').split(/\n+/).filter(Boolean)
+    .map((p) => `<p>${esc(p)}</p>`).join('');
 
   const host = $('oracleHost');
   host.innerHTML = `
     ${previewSrc
-    ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.title)}"></div>`
+    ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.keyword)}"></div>`
     : `<div class="oc-err oc-err-block">${esc(t('oracle.imageFailed'))}</div>`}
     ${trans}
     <div class="rule-orn" aria-hidden="true"></div>
-    <div class="oc-long">${(card.longMessage || '').split(/\n+/).filter(Boolean)
-    .map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+    <div class="oc-essence">${para(card.essence)}</div>
+    <div class="oc-long">${para(card.insights)}</div>
     <div class="oc-actions">
       ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
       ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
@@ -522,11 +524,12 @@ async function oracleResult(card, imageDataUrl) {
     // 分享時把解讀文字一併帶出去。注意：多數社群平台收到圖片就會丟掉文字，
     // 這不是我們能控制的——但帶上去至少讓支援的地方（訊息類 App）拿得到。
     const shareText = [
-      card.titleLocal || card.title,
-      (card.keywordsLocal && card.keywordsLocal.length ? card.keywordsLocal : card.keywords || []).join(' · '),
-      card.messageLocal || card.message,
+      card.keywordLocal || card.keyword,
+      card.sentenceLocal || card.sentence,
       '',
-      card.longMessage || '',
+      card.essence || '',
+      '',
+      card.insights || '',
     ].filter((x) => x !== null && x !== undefined).join('\n');
     const note = (key) => {
       const el = $('oracleSaved');
@@ -542,7 +545,7 @@ async function oracleResult(card, imageDataUrl) {
       shareBtn.addEventListener('click', async () => {
         try {
           const how = await shareCardPng(blob, {
-            fileName, title: card.titleLocal || card.title, text: shareText,
+            fileName, title: card.keywordLocal || card.keyword, text: shareText,
           });
           note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
         } catch { /* 使用者取消分享不是錯誤 */ }

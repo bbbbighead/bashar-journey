@@ -1918,16 +1918,23 @@ button.badge.repeat:hover {
    圖沒生出來時，這一塊就是讀者唯一看得到卡面內容的地方。 */
 .oc-trans { text-align: center; margin: 2px 0 26px; }
 .oc-t-title { font-family: var(--serif); font-size: 22px; letter-spacing: .14em; color: var(--ink); }
-.oc-t-kw {
-  font-family: var(--sans); font-size: 11px; letter-spacing: .28em;
-  color: var(--accent-dim); margin: 10px 0 14px;
-}
+.oc-t-title + .oc-t-msg { margin-top: 12px; }
 /* 刻意不用 italic：中日韓字型沒有真正的斜體，瀏覽器會機械地把字斜過去，
    看起來是歪的而不是斜的。改用字級與顏色與上下文區隔。
-   （卡面上的英文訊息仍然用 italic——英文有真的斜體字。） */
+   （卡面上的英文句子仍然用 italic——英文有真的斜體字。） */
 .oc-t-msg {
   font-family: var(--serif); font-size: 15.5px; line-height: 1.95;
   color: var(--ink);
+}
+/* 牌義的第一段（核心訊息）：牌組原文，是這張牌最核心的一兩句，所以比洞見重一級。
+   左側金線與後台的精髓欄同一個手法——一眼就知道這一段的份量不一樣。 */
+.oc-essence {
+  border-left: 2px solid var(--accent-dim);
+  padding-left: 14px; margin: 0 0 22px;
+}
+.oc-essence p {
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.95;
+  color: var(--ink); margin: 0;
 }
 .oc-long p {
   font-family: var(--serif); font-size: 16px; line-height: 2.05;

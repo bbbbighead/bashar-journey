@@ -1394,9 +1394,14 @@ function closePreview() {
 
 
 // ---- 專屬靈感牌卡：審核產出品質 ----
-// 把整條產出鏈由上游到下游攤開。順序刻意是「精髓 → 圖像 prompt → 卡面 → 譯文 →
-// 解讀」而不是照畫面上的顯示順序：產出不好的時候，要先看得到最上游的那一步。
-// 精髓與圖像 prompt 從來不回傳給使用者（見 api/oracle.js），這裡是唯一看得到的地方。
+// 把整條產出鏈由上游到下游攤開。順序刻意是「挑中哪一張＋為什麼 → 卡面 → 譯文 →
+// 牌義 → 圖像 prompt」而不是照畫面上的顯示順序：產出不好的時候，要先看得到最上游
+// 的那一步——而現在最上游是「挑卡準不準」。挑中的牌與 why 從來不回傳給使用者
+// （見 api/oracle.js），這裡是唯一看得到的地方。
+//
+// 舊紀錄（改成固定牌組之前產的）欄位不一樣：那時候整段牌義是模型自己寫的，
+// 存的是 title／keywords／message／longMessage。這裡兩種都認——舊紀錄還在
+// pi:oracles 裡，不該因為改版就變成一片空白。
 //
 // 存檔圖不隨清單一起拉（一張約 30 KB，五十張就 1.5 MB），點「看圖」才另外要一張。
 const oaLoaded = new Set();   // 已經載過圖的 id，避免重複請求
@@ -1438,34 +1443,49 @@ async function refreshOracles() {
         ${o.imaged ? '' : '<span class="oa-noimg">沒生圖</span>'}
       </div>
 
-      <div class="oa-row oa-essence">
-        <div class="oa-k">靈魂精髓</div>
+      ${o.cardId ? `<div class="oa-row oa-essence">
+        <div class="oa-k">挑中的牌</div>
+        <div class="oa-v">
+          <div class="oa-title">#${esc(o.cardId)}　${esc(o.cardTitle)}</div>
+          <div class="oa-kw">${esc(o.cardCategory)}</div>
+          <div class="oa-msg">${esc(o.why) || '<span class="dim-dash">—</span>'}</div>
+        </div>
+      </div>` : `<div class="oa-row oa-essence">
+        <div class="oa-k">靈魂精髓<br><span class="oa-len">舊版</span></div>
         <div class="oa-v">${esc(o.essence) || '<span class="dim-dash">—</span>'}</div>
-      </div>
+      </div>`}
 
       <div class="oa-row">
         <div class="oa-k">卡面（英文）</div>
         <div class="oa-v">
-          <div class="oa-title">${esc(o.title)}</div>
-          <div class="oa-kw">${(o.keywords || []).map(esc).join(' · ')}</div>
-          <div class="oa-msg">${esc(o.message)}</div>
+          <div class="oa-title">${esc(o.keyword || o.title)}</div>
+          ${(o.keywords || []).length ? `<div class="oa-kw">${o.keywords.map(esc).join(' · ')}</div>` : ''}
+          <div class="oa-msg">${esc(o.sentence || o.message)}</div>
         </div>
       </div>
 
       <div class="oa-row">
-        <div class="oa-k">譯文</div>
+        <div class="oa-k">卡面譯文</div>
         <div class="oa-v">
-          <div class="oa-title">${esc(o.titleLocal) || '<span class="dim-dash">—</span>'}</div>
-          <div class="oa-kw">${(o.keywordsLocal || []).map(esc).join(' · ')}</div>
-          <div class="oa-msg">${esc(o.messageLocal)}</div>
+          <div class="oa-title">${esc(o.keywordLocal || o.titleLocal) || '<span class="dim-dash">—</span>'}</div>
+          ${(o.keywordsLocal || []).length ? `<div class="oa-kw">${o.keywordsLocal.map(esc).join(' · ')}</div>` : ''}
+          <div class="oa-msg">${esc(o.sentenceLocal || o.messageLocal)}</div>
         </div>
       </div>
 
-      <div class="oa-row">
+      ${o.cardId ? `<div class="oa-row">
+        <div class="oa-k">牌義${o.translated ? '<br><span class="oa-len">翻譯</span>'
+    : (o.lang && o.lang !== 'zh-Hant' ? '<br><span class="oa-len">翻譯失敗，顯示原文</span>' : '')}</div>
+        <div class="oa-v oa-long">
+          <p class="oa-msg">${esc(o.essence)}</p>
+          ${String(o.insights || '').split(/\n+/).filter(Boolean)
+    .map((x) => `<p>${esc(x)}</p>`).join('')}
+        </div>
+      </div>` : `<div class="oa-row">
         <div class="oa-k">解讀 <span class="oa-len">${esc(oaLen(o.longMessage, o.lang))}</span></div>
         <div class="oa-v oa-long">${(String(o.longMessage || '').split(/\n+/).filter(Boolean)
     .map((x) => `<p>${esc(x)}</p>`).join('')) || '<span class="dim-dash">—</span>'}</div>
-      </div>
+      </div>`}
 
       <details class="oa-more">
         <summary>來源解讀開頭（共 ${Number(o.readingChars) || 0} 字）</summary>
