@@ -322,7 +322,7 @@ export default {
   // so there are no strings for title/keywords/message here — only the interface.
   oracle: {
     title: 'Your Oracle Card',
-    lede: 'Paste a reading you liked, and let it become a card that sees this moment from higher up.',
+    lede: 'Paste a reading you liked, and turn it into an inspiration card that is yours alone.',
     readingLabel: 'Paste the reading',
     readingPh: 'Paste the whole reading — Lenormand, Plum Blossom I Ching or natal chart, any of them.',
     submit: 'Create your oracle card',
