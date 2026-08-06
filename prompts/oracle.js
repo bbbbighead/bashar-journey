@@ -100,9 +100,20 @@ const CARD_TEXT = `## 第二步：卡面文字（一律英文）
 - **一句**英文，8–18 words，句尾有句點。
 - 就是那張牌的核心訊息，翻成英文並收緊到一句。不要加解釋、不要放進第二個想法、不要提到使用者的處境。
 - **一定要對「你」說話**：句子裡必須有 you 或 your。這是牌卡在對讀者說話，不是在陳述一條道理。
-  - ✓ \`Your value is not earned; it is already yours.\`
+  - ✓ \`Your value is already yours.\`
   - ✗ \`When inspiration returns again and again, only grounded action lets it take form.\`（沒有「你」，讀起來像格言，與讀者無關）
-- 不要用命令句開頭（Trust、Build、Let、Remember、Allow 這些都不行）。`;
+- 不要用命令句開頭（Trust、Build、Let、Remember、Allow 這些都不行）。
+
+**卡面那一句只說「是什麼」，不說「不是什麼」。**
+不可以出現 not／instead of／rather than／but not 這類否定或對比句型。卡面是給人帶走的
+一句話，要像一句肯定語（affirmation）；「是 A 不是 B」讀起來像在下定義、像在辯論，
+而且那正是最容易被認出是 AI 寫的句構。
+
+- ✓ \`Healthy love helps you learn to love yourself more deeply.\`
+- ✗ \`Healthy love helps you learn to love yourself more deeply, not replace it.\`（後半句拿掉就對了）
+
+⚠ 牌義原文很常用「不是A，而是B」的寫法（那是牌義的筆法，沒有問題）。
+**遇到這種原文，卡面只取「是B」那一半**，不要把整個對比搬上卡面。`;
 
 // ── 翻譯 ──
 const TRANSLATE = `## 第三步：卡面文字的使用者語言版本
@@ -113,7 +124,9 @@ keywordLocal／sentenceLocal＝上面那兩樣的使用者語言版本。
 - 自然的說法優先於字面對應。
 - 中日韓的 keywordLocal 用 2–4 個字，不要把一個英文單字翻成一整句。
 - **第二人稱要留著**：譯文裡一樣要有「你」。中文很容易把 you 省略掉變成一句格言
-  （「唯有踏實的行動能讓靈感成形」），那就失去對讀者說話的位置了。`;
+  （「唯有踏實的行動能讓靈感成形」），那就失去對讀者說話的位置了。
+- **也不要在譯文裡加回否定或對比**：英文那一句沒有 not，中文就不要出現「不是……而是」
+  或「而不是」。譯的時候很容易順手補一個對比進去，那會把卡面又變成在下定義。`;
 
 // ── 世界 ──
 // 站主原規格裡最關鍵的一句是 "Do not translate the essence into symbols.
