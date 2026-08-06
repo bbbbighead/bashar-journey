@@ -43,13 +43,19 @@ const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['essence', 'imagePrompt', 'title', 'keywords', 'message', 'longMessage'],
+  required: ['essence', 'imagePrompt', 'title', 'keywords', 'message',
+    'titleLocal', 'keywordsLocal', 'messageLocal', 'longMessage'],
   properties: {
     essence: { type: 'string' },
     imagePrompt: { type: 'string' },
+    // 卡面文字，一律英文
     title: { type: 'string' },
     keywords: { type: 'array', items: { type: 'string' } },
     message: { type: 'string' },
+    // 同三樣東西的使用者語言版本（輸出語言是英文時＝原文）
+    titleLocal: { type: 'string' },
+    keywordsLocal: { type: 'array', items: { type: 'string' } },
+    messageLocal: { type: 'string' },
     longMessage: { type: 'string' },
   },
 };
@@ -158,8 +164,13 @@ ${reading}
 
   // keywords 規定恰好三個。schema 的 strict 模式不支援 minItems／maxItems，
   // 所以在這裡收斂——少於三個就照原樣給前端排版，不要為了湊數自己編字。
-  const keywords = (Array.isArray(card.keywords) ? card.keywords : [])
+  const kw = (arr) => (Array.isArray(arr) ? arr : [])
     .map((x) => clean(x, 40)).filter(Boolean).slice(0, 3);
+  const keywords = kw(card.keywords);
+  // 翻譯版的關鍵詞要與英文版一一對應（那是轉化的三個階段，順序有意義）。
+  // 數量對不上時寧可整個不顯示翻譯，也不要讓兩排字錯位對照。
+  const keywordsLocal = kw(card.keywordsLocal);
+  const localOk = keywordsLocal.length === keywords.length;
 
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const record = {
@@ -174,6 +185,9 @@ ${reading}
     title: clean(card.title, 60),
     keywords,
     message: clean(card.message, 400),
+    titleLocal: clean(card.titleLocal, 80),
+    keywordsLocal: localOk ? keywordsLocal : [],
+    messageLocal: clean(card.messageLocal, 400),
     longMessage: clean(card.longMessage, 1200),
     // 貼過來的解讀只留開頭一段：站主要能認出這張卡是從哪一則解讀來的，
     // 但沒有必要把整則再存一次（原本那一則已經在 pi:journey 裡了）。
@@ -199,6 +213,9 @@ ${reading}
     title: record.title,
     keywords: record.keywords,
     message: record.message,
+    titleLocal: record.titleLocal,
+    keywordsLocal: record.keywordsLocal,
+    messageLocal: record.messageLocal,
     longMessage: record.longMessage,
   });
 }
