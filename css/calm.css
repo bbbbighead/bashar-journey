@@ -1919,17 +1919,9 @@ button.badge.repeat:hover {
 
 /* 生成中：一個緩慢呼吸的光點。圖像生成要等 20–40 秒，畫面必須有東西在動，
    不然使用者會以為卡住了（跟「分析中」那頁同一個判斷）。 */
-.oc-wait { text-align: center; padding: 56px 0 40px; }
-.oc-wait-orb {
-  width: 9px; height: 9px; border-radius: 50%; margin: 0 auto 26px;
-  background: var(--accent); box-shadow: 0 0 18px rgba(214, 183, 122, .6);
-  animation: ocBreathe 2.6s ease-in-out infinite;
-}
-@keyframes ocBreathe {
-  0%, 100% { opacity: .35; transform: scale(.8); }
-  50% { opacity: 1; transform: scale(1.25); }
-}
-.oc-wait-text { font-family: var(--serif); font-size: 15.5px; color: var(--ink-dim); }
+/* 牌卡的生成中畫面直接套 .weaving（探索工具那一套星軌與階段列），這裡只調上緣：
+   #oracleHost 上面已經有頁標與金線，不需要 .weaving 原本那 8vh 的留白。 */
+.oc-weaving { padding-top: 2vh; }
 
 /* 牌卡本身是象牙白的實體卡，不套站上的深色面板——讓它看起來像一張卡躺在星圖上 */
 .oc-card-wrap { display: flex; justify-content: center; padding: 4px 0 30px; }
