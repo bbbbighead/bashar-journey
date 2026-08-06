@@ -14,7 +14,7 @@ import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
-import { buildShareCardSvg, svgToPng, shareCardPng } from './shareCard.js';
+import { buildShareCardSvg, svgToPng, shareCardPng, downloadPng } from './shareCard.js';
 import { oracleCardPng, oracleCardPreview } from './oracleCard.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { parseAstroSections, parseMeihuaSections } from './astroFormat.js';
@@ -300,6 +300,23 @@ let oracleBusy = false;
 // 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的 300 字是用當時的
 // 輸出語言寫的，跟主報告一樣不隨介面語言改寫）。
 let oracleRepaint = null;
+// 這一次的輸入（解讀全文與性別）。「再生成」用同一則解讀重跑，不必再貼一次。
+let oracleLast = null;
+// 今天已用張數與上限。由伺服器給（action:'info' 只讀、不累加），不寫死在前端。
+let oracleQuota = null;
+
+// 把用量畫到表單上，額度用完時連「生成牌卡」都按不下去。
+// 前端的 disabled 只是為了不讓人白等——真正的擋在伺服器端（api/oracle.js）。
+function paintOracleQuota() {
+  const note = $('oracleNote');
+  if (!note || !oracleQuota) return;
+  const { used, limit } = oracleQuota;
+  const out = used >= limit;
+  note.textContent = out ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit);
+  note.classList.toggle('oc-note-out', out);
+  const go = $('btnOracleGo');
+  if (go) go.disabled = out;
+}
 
 async function oracleApi(payload) {
   const res = await fetch('/api/oracle', {
@@ -345,7 +362,7 @@ function renderOracle() {
         <div class="oc-hint" id="oracleSexHint">${esc(t('oracle.sexHint'))}</div>
       </div>
     </div>
-    <div class="oc-note" id="oracleNote">${esc(t('oracle.once'))}</div>
+    <div class="oc-note" id="oracleNote"></div>
     <div class="oc-err" id="oracleErr" hidden></div>
     <div class="oc-actions">
       <button type="button" class="btn primary" id="btnOracleGo">${esc(t('oracle.submit'))}</button>
@@ -368,8 +385,8 @@ function renderOracle() {
     set('oracleReadLabel', t('oracle.readingLabel'));
     set('oracleSexLabel', t('oracle.sexLabel'));
     set('oracleSexHint', t('oracle.sexHint'));
-    set('oracleNote', t('oracle.once'));
     set('btnOracleGo', t('oracle.submit'));
+    paintOracleQuota();
     const lede = host.querySelector('.oc-lede');
     if (lede) lede.textContent = t('oracle.lede');
     $('oracleReading').placeholder = t('oracle.readingPh');
@@ -377,6 +394,14 @@ function renderOracle() {
       b.textContent = t(b.dataset.sex === 'male' ? 'oracle.male' : 'oracle.female');
     });
   };
+
+  // 今天已用幾張／上限。上限不寫死在前端——改了 ORACLE_DAILY_LIMIT 之後畫面上的
+  // 數字才不會是舊的。拿不到就不顯示任何數字，寧可留白也不要顯示錯的。
+  oracleApi({ action: 'info' }).then((info) => {
+    if (!info || !info.ok || !$('oracleNote')) return;
+    oracleQuota = { used: Number(info.used) || 0, limit: Number(info.limit) || 0 };
+    paintOracleQuota();
+  }).catch(() => {});
 
   $('btnOracleGo').addEventListener('click', () => {
     const reading = $('oracleReading').value.trim();
@@ -391,6 +416,10 @@ function renderOracle() {
 async function runOracle(reading, sex) {
   if (oracleBusy) return;
   oracleBusy = true;
+  // 記住這次的輸入，「再生成」要用同一則解讀重跑一次。
+  // 重跑會走完整流程（新的 id、新的圖），所以會再吃掉一次每日額度——這是刻意的：
+  // 圖像生成有實際成本，每日上限是唯一的成本控制。
+  oracleLast = { reading, sex };
   oracleStage(t('oracle.step1'));
   try {
     const text = await oracleApi({ action: 'text', reading, sex, lang: getLocale() });
@@ -400,6 +429,7 @@ async function runOracle(reading, sex) {
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
       return;
     }
+    oracleQuota = { used: Number(text.used) || 0, limit: Number(text.limit) || 0 };
     $('oracleWaitText').textContent = t('oracle.step2');
 
     let image = null;
@@ -427,6 +457,8 @@ function oracleFailed(msg) {
 }
 
 async function oracleResult(card, imageDataUrl) {
+  const limit = Number(card.limit) || 2;
+  const used = Number(card.used) || 1;
   let blob = null;
   let previewSrc = '';
   if (imageDataUrl) {
@@ -466,25 +498,57 @@ async function oracleResult(card, imageDataUrl) {
     <div class="oc-long">${(card.longMessage || '').split(/\n+/).filter(Boolean)
     .map((p) => `<p>${esc(p)}</p>`).join('')}</div>
     <div class="oc-actions">
-      ${blob ? `<button type="button" class="btn primary" id="btnOracleSave">${esc(t('oracle.share'))}</button>` : ''}
-      <button type="button" class="btn" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
+      ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
+      ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
+      <button type="button" class="btn" id="btnOracleRegen"${used >= limit ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>
     </div>
-    <div class="oc-hint" id="oracleSaved" hidden></div>`;
+    <div class="oc-usage">${esc(used >= limit ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>
+    <div class="oc-hint" id="oracleSaved" hidden></div>
+    <div class="oc-actions oc-actions-sub">
+      <button type="button" class="btn small" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
+    </div>`;
 
   $('btnOracleAgain').addEventListener('click', renderOracle);
-  if (blob) {
-    $('btnOracleSave').addEventListener('click', async () => {
-      try {
-        const how = await shareCardPng(blob, {
-          fileName: `intuitive-notes-oracle-${Date.now()}.png`,
-          title: card.title,
-          text: card.message,
-        });
-        const note = $('oracleSaved');
-        note.textContent = t(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
-        note.hidden = false;
-      } catch { /* 使用者取消分享不是錯誤 */ }
+  // 再生成＝用同一則解讀重跑一次（新的圖與新的文字），會再吃掉一次每日額度。
+  // 額度用完時按鈕是 disabled 的，但伺服器端仍會擋——前端的 disabled 擋不住重送。
+  const regen = $('btnOracleRegen');
+  if (regen) {
+    regen.addEventListener('click', () => {
+      if (!oracleLast) { renderOracle(); return; }
+      runOracle(oracleLast.reading, oracleLast.sex);
     });
+  }
+  if (blob) {
+    const fileName = `intuitive-notes-oracle-${Date.now()}.png`;
+    // 分享時把解讀文字一併帶出去。注意：多數社群平台收到圖片就會丟掉文字，
+    // 這不是我們能控制的——但帶上去至少讓支援的地方（訊息類 App）拿得到。
+    const shareText = [
+      card.titleLocal || card.title,
+      (card.keywordsLocal && card.keywordsLocal.length ? card.keywordsLocal : card.keywords || []).join(' · '),
+      card.messageLocal || card.message,
+      '',
+      card.longMessage || '',
+    ].filter((x) => x !== null && x !== undefined).join('\n');
+    const note = (key) => {
+      const el = $('oracleSaved');
+      el.textContent = t(key);
+      el.hidden = false;
+    };
+    $('btnOracleDl').addEventListener('click', () => {
+      downloadPng(blob, fileName);
+      note('oracle.saved');
+    });
+    const shareBtn = $('btnOracleShare');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        try {
+          const how = await shareCardPng(blob, {
+            fileName, title: card.titleLocal || card.title, text: shareText,
+          });
+          note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
+        } catch { /* 使用者取消分享不是錯誤 */ }
+      });
+    }
 
     // 存檔給站主審核品質。壓成小張 JPEG 再送——原圖 PNG 約 1.5–3 MB，
     // 而審核用不到原始解析度。失敗一律靜默：這是站方的資料，不該影響使用者。
