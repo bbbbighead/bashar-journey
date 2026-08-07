@@ -254,7 +254,8 @@ textarea::placeholder { color: var(--ink-faint); opacity: .45; }
 .fb-text {
   display: block; width: 100%; box-sizing: border-box; resize: vertical;
   margin-bottom: 12px; padding: 11px 12px;
-  font-family: var(--sans); font-size: 14px; line-height: 1.7;
+  /* 16px 是下限（iOS 自動放大，見檔尾說明）——原本 14px */
+  font-family: var(--sans); font-size: 16px; line-height: 1.7;
   color: var(--ink); background: rgba(6, 10, 17, .7);
   border: 1px solid rgba(214, 183, 122, .26); border-radius: 3px;
 }
@@ -750,8 +751,12 @@ body.cz-open { overflow: hidden; }
   font-family: var(--sans); letter-spacing: .26em;
 }
 .af-row > label:not(.flt-chk)::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+/* ⚠ 16px 是下限，不要調小。iOS Safari 一點進 font-size < 16px 的輸入框就會把整頁
+   放大 16÷字級 倍，而且失焦之後不會縮回去——整個網站從此往右偏，直到使用者自己
+   捏回來。原本是 15px，站主回報的「整頁往右偏」量出來剛好是 1.0665 倍（16/15）。
+   詳見本檔最下方「iOS 自動放大」那一段。 */
 .af-row input[type="date"], .af-row input[type="time"], .af-row input[type="text"] {
-  width: 100%; font: inherit; font-size: 15px;
+  width: 100%; font: inherit; font-size: 16px;
   background: linear-gradient(180deg, rgba(17, 24, 38, .9), rgba(12, 18, 28, .9));
   color: var(--ink);
   border: 1px solid var(--line-strong); border-radius: 0; padding: 11px 14px;
@@ -1931,7 +1936,8 @@ button.badge.repeat:hover {
 }
 /* 底色、邊框、內陰影都由全域的 textarea 規則負責（與首頁同一套）；
    這裡只調字級——貼過來的是一整則解讀，比首頁的一句主題長得多。 */
-#oracleReading { font-size: 15px; line-height: 1.8; }
+/* 16px 是下限（iOS 自動放大，見檔尾說明）——原本 15px */
+#oracleReading { font-size: 16px; line-height: 1.8; }
 .oc-hint, .oc-note {
   font-family: var(--sans); font-size: 12px; line-height: 1.8; color: var(--ink-faint);
 }
@@ -2134,3 +2140,35 @@ body.pv-open { overflow: hidden; }
 .preview-bar ul { margin: 8px 0 0; padding-left: 18px; }
 .preview-bar li + li { margin-top: 4px; }
 .preview-err { color: #d9a2a2; font-family: var(--sans); font-size: 13px; }
+
+/* ===== iOS 自動放大（整頁往右偏的真正原因）=====================================
+   症狀：站主在 iPhone 上看到整頁往右偏，標題與面板沒有置中，右邊的留白不見了。
+   headless 怎麼量都是正的（左右留白 26／26），所以一直對不上。
+
+   原因不在版面，在**縮放**。iOS Safari 只要你點進一個 font-size 小於 16px 的
+   輸入框，就會自動把整頁放大 16÷字級 倍好讓你看得清楚在打什麼；而且**失焦之後
+   不會縮回去**，也會跨頁面留著。放大是以左緣為錨點，所以右邊的留白被推出畫面外，
+   看起來就是「整頁往右偏」。
+
+   量出來的證據（站主的截圖 vs headless 同尺寸同 DPR 的參考圖）：
+       面板寬度   362.3 CSS px  ÷  340.0 CSS px  =  1.0665
+       16 ÷ 15                              =  1.0667
+   對得上，而當時 .af-row 的輸入框正好是 15px。
+
+   所以規則是：**任何會叫出鍵盤的輸入框（input 的文字類 type、textarea）字級一律
+   >= 16px**。checkbox／radio 不會叫出鍵盤，不在此限。
+   已知曾經違規的：.af-row input（15px）、#oracleReading（15px）、.fb-text（14px）。
+
+   ⚠ 不要改用 <meta name="viewport" maximum-scale=1> 來擋。那會連使用者自己想
+   放大都做不到（無障礙倒退），而且 iOS 10 之後本來就不理這個設定。
+
+   迴歸測試：scratchpad/ios_zoom.mjs
+   ============================================================================ */
+
+/* 後台的下拉選單與時間欄位比較小（版面密），桌機維持原字級；
+   只有觸控裝置才提到 16px——後台幾乎都在桌機用，不必為了手機改掉整個版面。 */
+@media (pointer: coarse) {
+  /* 選擇器要壓得過 .flt-select（0,1,0）——只寫 select（0,0,1）比不過它，
+     跟原始碼順序無關，是權重輸了。 */
+  select, select.flt-select, input[type="datetime-local"] { font-size: 16px; }
+}
