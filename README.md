@@ -50,7 +50,7 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 1. 於 [vercel.com](https://vercel.com) 匯入此 repo（Framework 選 Other，Build 設定全部留空）。
 2. 設定金鑰環境變數（擇一即可，兩者皆設時優先 OpenAI）：
-   - `OPENAI_API_KEY` — 走 OpenAI（預設 gpt-5.1，可用 `OPENAI_MODEL_STRONG` 覆寫）
+   - `OPENAI_API_KEY` — 走 OpenAI（預設 gpt-5.6-terra，可用 `OPENAI_MODEL_STRONG` 覆寫）
    - `ANTHROPIC_API_KEY` — 走 Claude（[Anthropic Console](https://platform.claude.com) 取得）
 3. Deploy。開啟 `https://<專案名>.vercel.app/` 即可開始。
 
@@ -126,7 +126,7 @@ vercel dev                     # 含 AI 代理（需 OPENAI_API_KEY 或 ANTHROPI
 
 每場體驗 **1 次呼叫**：
 
-- **analyze**（交叉整合＋靈感訊息）：Opus 4.8（或 OpenAI gpt-5.1，可用 `OPENAI_MODEL_STRONG` 覆寫）
+- **analyze**（交叉整合＋靈感訊息）：Opus 4.8（或 OpenAI gpt-5.6-terra，可用 `OPENAI_MODEL_STRONG` 覆寫）
 
 ## 檔案結構
 

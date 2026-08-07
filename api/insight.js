@@ -52,7 +52,7 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const MODEL = { analyze: 'claude-opus-4-8' };
 
 function openaiModels() {
-  const strong = process.env.OPENAI_MODEL_STRONG || 'gpt-5.1';
+  const strong = process.env.OPENAI_MODEL_STRONG || 'gpt-5.6-terra';
   return { analyze: strong };
 }
 

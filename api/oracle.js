@@ -25,16 +25,25 @@ const OPENAI_IMAGE = 'https://api.openai.com/v1/images/generations';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
-const TEXT_MODEL_OPENAI = process.env.OPENAI_MODEL_STRONG || 'gpt-5.1';
+const TEXT_MODEL_OPENAI = process.env.OPENAI_MODEL_STRONG || 'gpt-5.6-terra';
 const TEXT_MODEL_ANTHROPIC = 'claude-opus-4-8';
-const IMAGE_MODEL = process.env.ORACLE_IMAGE_MODEL || 'gpt-image-1';
+// 2026-08 由站主指定改成 gpt-image-2。
+// ⚠ 換圖像模型時要一起確認三件事，它們全都是環境變數，不必改程式：
+//   ・ORACLE_IMAGE_SIZE    新模型未必支援 1024x1536
+//   ・ORACLE_IMAGE_QUALITY 品質參數的可用值可能不同（medium／high／…）
+//   ・ORACLE_PRICE_IMG_IN／OUT  單價一定不一樣，不改的話後台的成本估算是錯的
+// 模型名稱錯或參數不合時，圖像那一段會回 HTTP 4xx；程式不會整張卡失敗
+//（文字仍然給），但每張卡都會變成「這次的畫面沒能畫出來」。失敗原因會寫進
+// 該筆紀錄的 imageError，後台的牌卡詳情看得到，不必去翻 Vercel 日誌。
+const IMAGE_MODEL = process.env.ORACLE_IMAGE_MODEL || 'gpt-image-2';
 
-// 直式牌卡比例（2:3）。神諭卡的傳統比例，也是 gpt-image-1 支援的尺寸之一。
+// 直式牌卡比例（2:3）。神諭卡的傳統比例。
 const IMAGE_SIZE = process.env.ORACLE_IMAGE_SIZE || '1024x1536';
 
 // 預設 medium 而不是 high：high 在這個尺寸上常要 40–90 秒，會頂到函式的
 // 60 秒上限（vercel.json）。要改 high 的話得先確認方案允許更長的 maxDuration，
 // 否則使用者會看到逾時而不是更好的圖。
+// （這個門檻是量 gpt-image-1 得到的，換模型後要重新量一次。）
 const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 
 // 每位訪客每日張數。**0 或負數＝不限制。**
@@ -116,7 +125,9 @@ const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
 //   ・免費額度、批次折扣、稅金都不在這裡
 //   ・供應商回報的 token 數與計費 token 數偶爾會有差
 // 所以全部可以用環境變數覆寫，後台顯示的金額一律標「估算」。
-// 預設值是 gpt-5.1 與 gpt-image-1 的檯面價；用 Anthropic 走文字時改 ORACLE_PRICE_A_*。
+// ⚠ 預設值是 gpt-5.1 與 gpt-image-1 的檯面價。2026-08 文字換成 gpt-5.6-terra、
+// 圖像換成 gpt-image-2 之後都還沒對過新價目表，所以後台的成本估算目前一定不準——
+// 查到正確單價後在 Vercel 設 ORACLE_PRICE_* 覆寫即可，不必改程式。
 const price = (name, fallback) => {
   const v = Number(process.env[name]);
   return Number.isFinite(v) && v >= 0 ? v : fallback;
@@ -132,7 +143,10 @@ const PRICE = {
     cachedIn: price('ORACLE_PRICE_A_CACHED_IN', 1.5),
     out: price('ORACLE_PRICE_A_OUT', 75),
   },
-  // gpt-image-1：輸入是文字 token，輸出是「圖像 token」，兩者單價不同。
+  // 圖像：輸入是文字 token，輸出是「圖像 token」，兩者單價不同。
+  // ⚠ 這兩個預設值是 gpt-image-1 的檯面價。2026-08 模型換成 gpt-image-2 之後
+  //   還沒對過新的價目表，所以後台的圖像成本**目前一定不準**——
+  //   查到正確單價後在 Vercel 設 ORACLE_PRICE_IMG_IN／ORACLE_PRICE_IMG_OUT 即可。
   image: {
     in: price('ORACLE_PRICE_IMG_IN', 5),
     out: price('ORACLE_PRICE_IMG_OUT', 40),
@@ -510,6 +524,15 @@ async function doImage(body, res) {
   });
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
+    // 把失敗原因寫進紀錄，後台的牌卡詳情就看得到——換模型或改參數時最需要的
+    // 就是這一句（「model not found」「invalid size」之類），不然只能去翻
+    // Vercel 的函式日誌，而站主未必有那個權限或習慣。
+    // 這裡的錯誤內容只進 Redis 給後台看，不回給瀏覽器（見 handler 的 catch）。
+    await redisPipeline([['SET', `pi:oracle:${id}`, JSON.stringify({
+      ...record, imaged: true, imageModel: IMAGE_MODEL,
+      imageSize: IMAGE_SIZE, imageQuality: IMAGE_QUALITY,
+      imageError: `HTTP ${r.status} ${detail.slice(0, 300)}`,
+    })]]).catch(() => {});
     throw new Error(`openai image HTTP ${r.status} ${detail.slice(0, 300)}`);
   }
   const json = await r.json();
