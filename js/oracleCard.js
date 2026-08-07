@@ -12,8 +12,11 @@
 //   ・artwork 必須是 data: URI（伺服器回傳的就是 base64，剛好）
 // 字型不必內嵌：用的是系統襯線堆疊，隔離環境照樣拿得到。
 //
-// 卡片本身是象牙白底、細金框、深墨字——與全站的深色介面刻意不同。神諭卡要看起來
+// 卡片本身是白底、細金框、深墨字——與全站的深色介面刻意不同。神諭卡要看起來
 // 像一張實體卡片躺在星圖上，這是規格要的樣子（STEP 10），不是漏了套主題。
+//
+// 版面（2026-08 依站主提供的參考塔羅卡調整）由上而下：
+//   白色外緣 → 細金雙框 → **站名 INTUITIVE NOTES** → artwork → 標題 → 花飾 → 句子
 
 import { svgToPng } from './shareCard.js';
 
@@ -22,22 +25,21 @@ const H = 600;          // 2:3 直式
 const OUT_W = 1024;     // 實際輸出（與 gpt-image-1 的 1024×1536 同比例）
 const OUT_H = 1536;
 
-const PAD = 18;                  // 象牙白外緣
+const PAD = 18;                  // 白色外緣
 const FRAME = 8;                 // 金框與外緣之間的距離
-const ART_TOP = PAD + FRAME;
 const ART_W = W - (PAD + FRAME) * 2;
 
 // 版面的所有可調旋鈕。抽成一份設定是為了「同一支渲染程式可以畫出不同版型」——
 // 站主要比較幾種花邊與字級時，比出來的就是實際上線的東西，不是另外做的假預覽。
 // 呼叫端不傳 style 就用這一份（＝目前上線的版型）。
 //
-// artwork 底下的空間 = H - PAD - (ART_TOP + ART_H)。要放標題、花飾、句子、站名，
-// 每一段的間距都是量過的：站名固定貼著下框放，句子的最後一行再往上推，
-// 兩者相撞時以句子為準（站名往下讓），這樣三行的句子也不會把站名頂出卡外。
+// artwork 上面留 headH 給站名，底下的空間放標題、花飾、句子。每一段的間距都是
+// 量過的：站名貼著上框（常數），句子區則是畫作下緣到下框之間垂直置中，
+// 排不下就一路縮字級到 msgMin——三行的長句也不會把字頂出金框。
 const BASE_STYLE = {
   artRatio: 0.70,     // artwork 佔全卡高度
   frame: 'double',    // 外框：'single' 單線｜'double' 雙線
-  frameW: 1.6,        // 外框線寬
+  frameW: 1.2,        // 外框線寬（比照參考卡：線細，靠顏色而不是粗細撐存在感）
   radius: 0,          // 外框圓角
   corner: 'diamond',  // 四角：'none'｜'diamond' 實心菱形｜'bracket' 細角線
   artFrame: true,     // artwork 要不要自己的細金框
@@ -47,22 +49,27 @@ const BASE_STYLE = {
   msgSize: 11.5,      // 句子字級（會依行數再退）
   msgMin: 8.5,        // 句子字級的下限
   footSize: 9.5,      // 站名字級
-  footGap: 9,         // 站名基線距下框（固定，不跟著句子跑）
-  footTopGap: 16,     // 站名上方至少要留的空隙
-  tKeyMin: 26,        // 畫作下緣 → 標題基線的最小距離（垂直置中後的保險）
+  headH: 22,          // 上緣留給站名的帶狀高度（站名搬到上面之後才有這一段）
+  footGap: 12,        // 站名基線距上框（固定，不跟著句子跑）
+  msgBotGap: 12,      // 句子最後一行到下框至少要留的距離
+  tKeyMin: 24,        // 畫作下緣 → 標題基線的最小距離（垂直置中後的保險）
   tRule: 21,          // 標題 → 花飾線
   tMsg: 19,           // 花飾線 → 句子第一行
 };
 
-const IVORY = '#f3ece0';
-const IVORY_EDGE = '#e6dcc9';
-// 站主回報「金邊太不明顯，看不出是神諭卡」。金色分三級用：
-//   GOLD       主框線與裝飾——要看得見，所以比舊版深一階也不再壓 opacity
+// 卡面底色。站主回報舊的象牙白 #f3ece0「帶黃色調」，要求「盡量乾淨的白」——
+// 改成中性的近白，只留一點點灰度避免在深色介面上刺眼，色相上不偏暖。
+const IVORY = '#fcfcfc';
+const IVORY_EDGE = '#e8e8e6';
+// 金色的色調與粗細比照站主給的參考塔羅卡（LA ESTRELLA）。取樣那張照片的框線，
+// 最常出現的是 #806838 / #887040 這一族——比舊版的 #9c7a33 更暗、更偏橄欖，
+// 是「印刷的金」而不是「螢光的金」，而且線本身很細。三級用法不變：
+//   GOLD       主框線與裝飾
 //   GOLD_MID   次要線條（第二道細框、分隔線）
 //   GOLD_SOFT  最淡的一級，只給不該搶戲的地方
-const GOLD = '#9c7a33';
-const GOLD_MID = 'rgba(156,122,51,.62)';
-const GOLD_SOFT = 'rgba(156,122,51,.4)';
+const GOLD = '#846c3c';
+const GOLD_MID = 'rgba(132,108,60,.68)';
+const GOLD_SOFT = 'rgba(132,108,60,.44)';
 const INK = '#2b2620';
 const INK_SOFT = '#6b6154';
 
@@ -201,8 +208,11 @@ function titleSize(title) {
 //           scratchpad/card_styles.mjs 靠它畫出幾種版型讓站主挑。
 export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, style }) {
   const S = { ...BASE_STYLE, ...(style || {}) };
+  // 站名搬到卡片上方（站主要求：位置比照參考塔羅卡上緣的「XVII」），
+  // 所以畫作要往下讓出一條帶子。
+  const artTop = PAD + FRAME + S.headH;
   const artH = Math.round(H * S.artRatio);
-  const artBottom = ART_TOP + artH;
+  const artBottom = artTop + artH;
   const tSize = titleSize(keyword) * S.titleScale;
   // 斜體只給拉丁文字。中日韓沒有真正的斜體字，瀏覽器會把字機械地斜過去，
   // 看起來是歪的而不是斜的（牌卡下方的譯文區為了同樣的理由也不用斜體，
@@ -211,15 +221,14 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, 
 
   // ---- 文字區的排法 ----
   //
-  // 站名**固定貼著下框**，不跟著句子跑。舊版是 max(貼底, 句子最後一行 + 16)，
-  // 句子一長站名就被推上去，底下空一大塊——站主回報的「下面不整齊」就是這個。
-  // 現在反過來：站名的位置是常數，句子必須排進剩下的空間（排不下就縮字級）。
+  // 站名**固定貼著上框**（2026-08 從下緣搬上來）。它的位置是常數，不受句子長短影響，
+  // 所以一疊卡放在一起上緣是齊的——這也解決了舊版「站名跟著句子跑、下面不整齊」。
   //
-  // 然後把「標題＋花飾＋句子」當成一整塊，**垂直置中**在畫作與站名之間。
-  // 不置中的話，短句子會在下方留一個尷尬的洞（站名已經貼底了）。
-  const yFoot = H - PAD - S.footGap;
+  // 句子區則是畫作下緣到下框之間，把「標題＋花飾＋句子」當成一整塊**垂直置中**。
+  // 不置中的話，短句子會在下方留一個尷尬的洞。
+  const yFoot = PAD + FRAME + S.footGap;
   const bandTop = artBottom;
-  const bandBottom = yFoot - S.footTopGap;
+  const bandBottom = H - PAD - S.msgBotGap;
 
   // 句子字級：先用設定值，排不進可用高度就一路退到下限。
   // 2026-08 起句子逐字取自使用者貼上的解讀，長度不再由規格保證，所以要退得夠深。
@@ -246,21 +255,21 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, 
     + (S.frame === 'double'
       ? `\n<rect x="${PAD + inset}" y="${PAD + inset}" width="${W - (PAD + inset) * 2}"
   height="${H - (PAD + inset) * 2}" rx="${Math.max(0, S.radius - 1)}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>` : '');
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.5"/>` : '');
 
   // ---- 四角 ----
   const cIn = S.frame === 'double' ? PAD + inset : PAD;
   const corners = [[cIn, cIn, 1, 1], [W - cIn, cIn, -1, 1],
     [cIn, H - cIn, 1, -1], [W - cIn, H - cIn, -1, -1]];
   const cornerArt = S.corner === 'diamond'
-    ? corners.map(([x, y]) => diamond(x, y, 3.2, GOLD)).join('\n')
+    ? corners.map(([x, y]) => diamond(x, y, 2.8, GOLD)).join('\n')
     : S.corner === 'bracket'
       ? corners.map(([x, y, dx, dy]) => bracket(x, y, dx, dy, 11, GOLD_MID)).join('\n')
       : '';
 
   // ---- 兩處花飾 ----
   const orn = (kind, cy, half, color) => (kind === 'rule'
-    ? ornRule(W / 2, cy, half, 8, 2.8, color)
+    ? ornRule(W / 2, cy, half, 8, 2.6, color)
     : kind === 'dot' ? diamond(W / 2, cy, 2.4, color) : '');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
@@ -274,7 +283,7 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, 
 </style>
 <defs>
   <clipPath id="ocArt">
-    <rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${artH}" rx="1"/>
+    <rect x="${PAD + FRAME}" y="${artTop}" width="${ART_W}" height="${artH}" rx="1"/>
   </clipPath>
 </defs>
 
@@ -283,21 +292,23 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, 
   stroke="${IVORY_EDGE}" stroke-width="1"/>
 
 <!-- artwork。preserveAspectRatio 用 slice：寧可裁掉邊緣也不要在框內留白條。 -->
-<image href="${artworkDataUrl}" x="${PAD + FRAME}" y="${ART_TOP}"
+<image href="${artworkDataUrl}" x="${PAD + FRAME}" y="${artTop}"
   width="${ART_W}" height="${artH}"
   preserveAspectRatio="xMidYMid slice" clip-path="url(#ocArt)"/>
 
 ${frame}
 ${cornerArt}
-${S.artFrame ? `<rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${artH}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.7"/>` : ''}
+${S.artFrame ? `<rect x="${PAD + FRAME}" y="${artTop}" width="${ART_W}" height="${artH}"
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>` : ''}
+
+<!-- 站名：卡片上緣，位置對應參考塔羅卡的羅馬數字。 -->
+<text x="${W / 2}" y="${yFoot}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
 
 ${orn(S.ornTop, artBottom + 13, ART_W / 2 - 14, GOLD_MID)}
 
 <text x="${W / 2}" y="${yKey}" class="oc-title">${esc(keyword)}</text>
 ${orn(S.ornTitle, yRule, 34, GOLD)}
 ${msgLines.map((line, i) => `<text x="${W / 2}" y="${yMsg + i * msgLH}" class="oc-msg">${esc(line)}</text>`).join('\n')}
-<text x="${W / 2}" y="${yFoot}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
 </svg>`;
 }
 
