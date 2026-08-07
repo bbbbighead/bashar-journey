@@ -1521,12 +1521,14 @@ async function refreshOracles() {
         <div class="oa-k">靈魂精髓<br><span class="oa-len">最早版</span></div>
         <div class="oa-v">${esc(o.essence) || '<span class="dim-dash">—</span>'}</div>
       </div>` : `<div class="oa-row oa-essence">
-        <div class="oa-k">為什麼挑這句</div>
+        <div class="oa-k">挑句與挑動物<br><span class="oa-len">的理由</span></div>
         <div class="oa-v">
           <div class="oa-msg">${esc(o.why) || '<span class="dim-dash">—</span>'}</div>
-          ${o.retried
-    ? '<div class="oa-kw">第一次改了字，重試後才照抄成功</div>'
-    : '<div class="oa-kw">第一次就照抄成功</div>'}
+          <div class="oa-kw">${o.retried
+    ? '⚠ 第一次改了字，重試後才照抄成功'
+    : '照抄一次就過'}${o.animal ? `　｜　守護動物 <b>${esc(o.animal)}</b>${
+      o.animalInList === false ? ' ⚠ 不在 30 種清單裡'
+        : (o.animalInPrompt === false ? ' ⚠ 沒寫進圖像 prompt，畫出來會是別的動物' : '')}` : ''}</div>
         </div>
       </div>`)}
 

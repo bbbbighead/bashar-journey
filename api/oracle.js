@@ -70,18 +70,42 @@ const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['sentence', 'keyword', 'why', 'imagePrompt'],
+  required: ['sentence', 'keyword', 'animal', 'why', 'imagePrompt'],
   properties: {
     // 卡面那一句：逐字取自使用者貼上的解讀，所以是使用者的語言。
     // 「逐字」由 quotesReading() 在下面驗，不是靠模型自律。
     sentence: { type: 'string' },
     // 那句話的標題，一個英文單字
     keyword: { type: 'string' },
-    // 為什麼挑這一句。只給站主看，不回傳給前端。
+    // 守護動物：從第三步那 30 種裡挑的，英文名。
+    // 這一欄是「模型說它挑了什麼」，imagePrompt 才是真正到得了圖像模型的東西——
+    // 兩者可能不一致，所以下面 animalCheck() 會對一次，結果存進紀錄給站主看。
+    animal: { type: 'string' },
+    // 為什麼挑這一句、以及為什麼挑這隻動物。只給站主看，不回傳給前端。
     why: { type: 'string' },
     imagePrompt: { type: 'string' },
   },
 };
+
+// 守護動物的 30 種（與 prompts/oracle.js 第三步的表格一致）。
+// 放在這裡是為了「檢查」，不是為了「產生」——提示那一份才是給模型看的。
+// 兩邊要一起改，animal_list.mjs 會驗這件事。
+const ANIMALS = ['wolf', 'deer', 'fox', 'bear', 'elephant', 'horse', 'rabbit', 'otter',
+  'frog', 'butterfly', 'dragonfly', 'owl', 'swan', 'peacock', 'sheep', 'egret', 'crane',
+  'eagle', 'dog', 'cat', 'camel', 'reindeer', 'cow', 'goose', 'parrot', 'pig', 'raccoon',
+  'ferret', 'tortoise', 'chameleon'];
+
+// 守護動物挑得對不對，回一個給站主看的標記。**刻意不讓它失敗整次請求**：
+// 逐字引用是這個功能的承諾，挑錯動物只是畫面差一點——為了一隻動物把使用者
+// 那一次額度燒掉不划算。但要看得見，不然沒人會發現模型在這一步偷懶。
+//   inList   模型回的 animal 在那 30 種裡
+//   inPrompt 那個字真的出現在送去生圖的英文 prompt 裡（沒有的話畫面會是別的動物）
+function animalCheck(animal, imagePrompt) {
+  const a = String(animal || '').trim().toLowerCase();
+  const inList = ANIMALS.includes(a);
+  const inPrompt = a.length > 0 && new RegExp(`\\b${a}s?\\b`, 'i').test(String(imagePrompt || ''));
+  return { animal: a, inList, inPrompt, ok: inList && inPrompt };
+}
 
 const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
 
@@ -363,6 +387,12 @@ ${clean(out.sentence, 400)}
     return;
   }
 
+  const animalOk = animalCheck(out.animal, out.imagePrompt);
+  if (!animalOk.ok) {
+    // 只記錄不擋。站主在後台看得到不合格的比例；比例高就代表第三步的規則要再收緊。
+    console.warn('[oracle] guardian animal', JSON.stringify(animalOk));
+  }
+
   const textMs = Date.now() - t0;
   const provider = openaiKey ? 'openai' : 'anthropic';
   const usage = { text: textUsage, image: null };
@@ -387,6 +417,11 @@ ${clean(out.sentence, 400)}
     // 第一次有沒有改字（改了才會有第二次呼叫）。後台顯示這一欄，站主就看得出
     // 模型在「照抄」這件事上的實際表現，不必靠猜。
     retried,
+    // 守護動物：模型說它挑了哪一隻，以及那一隻有沒有真的寫進圖像 prompt。
+    // 不合格不會讓這次失敗（見 animalCheck 的說明），但後台看得到。
+    animal: animalOk.animal,
+    animalInList: animalOk.inList,
+    animalInPrompt: animalOk.inPrompt,
     // 貼過來的解讀只留開頭一段給清單顯示；完整的那一份在 pi:oracleuser:<id>
     //（就是實際送出去的 user prompt），站主要 debug 時整段都調得出來。
     readingHead: reading.slice(0, 300),
