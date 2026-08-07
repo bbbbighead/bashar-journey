@@ -26,16 +26,33 @@ const PAD = 18;                  // 象牙白外緣
 const FRAME = 8;                 // 金框與外緣之間的距離
 const ART_TOP = PAD + FRAME;
 const ART_W = W - (PAD + FRAME) * 2;
-const ART_H = Math.round(H * 0.70);   // artwork 佔全卡 70%（規格：70–75%）
-// artwork 底下只剩約 136px 要放關鍵字、細線、句子、站名——每一段的間距都是量過的，
-// 不是隨手給的。第一版把站名放在固定的 H-PAD-10，結果與句子的第二行疊在一起
-// （實際截圖看到站名消失了），所以站名改成跟著最後一行走。
-// 這一版卡面只有三行（關鍵字／細金線／句子），比舊版少一行，所以整塊往下移一點——
-// 不移的話句子與站名之間會空出一塊，看起來像漏了東西。三行的句子仍然放得下：
-// 句子第一行在 526，三行後 559，站名 577。
-const T_KEY = 40;     // artwork 下緣 → 關鍵字基線
-const T_RULE = 21;    // 關鍵字 → 細金線
-const T_MSG = 19;     // 細金線 → 句子第一行
+
+// 版面的所有可調旋鈕。抽成一份設定是為了「同一支渲染程式可以畫出不同版型」——
+// 站主要比較幾種花邊與字級時，比出來的就是實際上線的東西，不是另外做的假預覽。
+// 呼叫端不傳 style 就用這一份（＝目前上線的版型）。
+//
+// artwork 底下的空間 = H - PAD - (ART_TOP + ART_H)。要放標題、花飾、句子、站名，
+// 每一段的間距都是量過的：站名固定貼著下框放，句子的最後一行再往上推，
+// 兩者相撞時以句子為準（站名往下讓），這樣三行的句子也不會把站名頂出卡外。
+const BASE_STYLE = {
+  artRatio: 0.70,     // artwork 佔全卡高度
+  frame: 'double',    // 外框：'single' 單線｜'double' 雙線
+  frameW: 1.6,        // 外框線寬
+  radius: 0,          // 外框圓角
+  corner: 'diamond',  // 四角：'none'｜'diamond' 實心菱形｜'bracket' 細角線
+  artFrame: true,     // artwork 要不要自己的細金框
+  ornTop: 'rule',     // 畫與標題之間：'none'｜'dot' 一顆小菱形｜'rule' 線—菱形—線
+  ornTitle: 'rule',   // 標題與句子之間：同上
+  titleScale: 1,      // 標題字級倍率
+  msgSize: 11.5,      // 句子字級（會依行數再退）
+  msgMin: 8.5,        // 句子字級的下限
+  footSize: 9.5,      // 站名字級
+  footGap: 9,         // 站名基線距下框（固定，不跟著句子跑）
+  footTopGap: 16,     // 站名上方至少要留的空隙
+  tKeyMin: 26,        // 畫作下緣 → 標題基線的最小距離（垂直置中後的保險）
+  tRule: 21,          // 標題 → 花飾線
+  tMsg: 19,           // 花飾線 → 句子第一行
+};
 
 const IVORY = '#f3ece0';
 const IVORY_EDGE = '#e6dcc9';
@@ -53,6 +70,12 @@ const INK_SOFT = '#6b6154';
 // 放在框角、分隔線中央、標題下方，一眼就看得出是「一張牌」而不是一張貼了字的圖。
 const diamond = (cx, cy, r, fill) =>
   `<path d="M${cx} ${cy - r}L${cx + r} ${cy}L${cx} ${cy + r}L${cx - r} ${cy}Z" fill="${fill}"/>`;
+
+// 細角線（L 形）。比實心菱形柔和——站主回報菱形「太線條、比較僵硬」，
+// 這是另一個方向的角飾。
+const bracket = (x, y, dx, dy, len, color) => `
+<path d="M${x + dx * len} ${y}L${x} ${y}L${x} ${y + dy * len}"
+  fill="none" stroke="${color}" stroke-width="0.9" stroke-linecap="round"/>`;
 
 // 一條「線—菱形—線」的裝飾橫線。half 是整條的半寬，gap 是中間留給菱形的半寬。
 const ornRule = (cx, cy, half, gap, r, color) => `
@@ -174,47 +197,84 @@ function titleSize(title) {
 // keyword   卡面標題。一個英文單字（模型自己從句子下的標題）
 // sentence  卡面句子。**逐字取自使用者貼上的解讀**，所以是使用者的語言
 // footer    卡片下緣的站名
-export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }) {
-  const tSize = titleSize(keyword);
+// style     版面覆寫（見 BASE_STYLE）。正式站不傳，用預設；
+//           scratchpad/card_styles.mjs 靠它畫出幾種版型讓站主挑。
+export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, style }) {
+  const S = { ...BASE_STYLE, ...(style || {}) };
+  const artH = Math.round(H * S.artRatio);
+  const artBottom = ART_TOP + artH;
+  const tSize = titleSize(keyword) * S.titleScale;
   // 斜體只給拉丁文字。中日韓沒有真正的斜體字，瀏覽器會把字機械地斜過去，
   // 看起來是歪的而不是斜的（牌卡下方的譯文區為了同樣的理由也不用斜體，
   // 見 css/calm.css 的 .oc-t-msg）。
   const msgItalic = hasCJK(sentence) ? 'normal' : 'italic';
 
-  // 文字區從 artwork 下方開始，往下依序排：關鍵字 → 細金線 → 句子 → 站名。
-  const textTop = ART_TOP + ART_H;
-  const yKey = textTop + T_KEY;
-  const yRule = yKey + T_RULE;
-  const yMsg = yRule + T_MSG;
+  // ---- 文字區的排法 ----
+  //
+  // 站名**固定貼著下框**，不跟著句子跑。舊版是 max(貼底, 句子最後一行 + 16)，
+  // 句子一長站名就被推上去，底下空一大塊——站主回報的「下面不整齊」就是這個。
+  // 現在反過來：站名的位置是常數，句子必須排進剩下的空間（排不下就縮字級）。
+  //
+  // 然後把「標題＋花飾＋句子」當成一整塊，**垂直置中**在畫作與站名之間。
+  // 不置中的話，短句子會在下方留一個尷尬的洞（站名已經貼底了）。
+  const yFoot = H - PAD - S.footGap;
+  const bandTop = artBottom;
+  const bandBottom = yFoot - S.footTopGap;
 
-  // 句子最多三行；排到第四行就會把站名頂出卡外，所以字級隨行數退——退到 8.5
-  // 就不再退（再小讀不動了）。
-  // 2026-08 起句子逐字取自使用者貼上的解讀，長度不再由規格保證，所以退的級距
-  // 放細（0.5px）也放深：一句 40 字的中文在 11.5px 下排不進三行，但 10px 就進得去，
-  // 用 1px 的級距會直接跳過那個剛好排得下的字級。
-  let msgSize = 11.5;
+  // 句子字級：先用設定值，排不進可用高度就一路退到下限。
+  // 2026-08 起句子逐字取自使用者貼上的解讀，長度不再由規格保證，所以要退得夠深。
+  const blockH = (n, size) => tSize * 0.72 + S.tRule + S.tMsg
+    + (n - 1) * size * 1.55 + size * 0.3;
+  let msgSize = S.msgSize;
   let msgLines = wrapText(sentence, msgSize, ART_W - 24);
-  while (msgLines.length > 3 && msgSize > 8.5) {
+  while (msgSize > S.msgMin
+    && (msgLines.length > 4 || blockH(msgLines.length, msgSize) > bandBottom - bandTop)) {
     msgSize -= 0.5;
     msgLines = wrapText(sentence, msgSize, ART_W - 24);
   }
-  const msgLH = msgSize * 1.45;
-  // 站名放大到 9.5px 之後要離下框遠一點，不然會壓在金框上（下框在 H - PAD = 582）
-  const yFoot = Math.max(H - PAD - 9, yMsg + (msgLines.length - 1) * msgLH + 16);
+  const msgLH = msgSize * 1.55;
+
+  const yKey = bandTop + Math.max(S.tKeyMin,
+    (bandBottom - bandTop - blockH(msgLines.length, msgSize)) / 2 + tSize * 0.72);
+  const yRule = yKey + S.tRule;
+  const yMsg = yRule + S.tMsg;
+
+  // ---- 外框 ----
+  const inset = 3.5;
+  const frame = `<rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}" rx="${S.radius}"
+  fill="none" stroke="${GOLD}" stroke-width="${S.frameW}"/>`
+    + (S.frame === 'double'
+      ? `\n<rect x="${PAD + inset}" y="${PAD + inset}" width="${W - (PAD + inset) * 2}"
+  height="${H - (PAD + inset) * 2}" rx="${Math.max(0, S.radius - 1)}"
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>` : '');
+
+  // ---- 四角 ----
+  const cIn = S.frame === 'double' ? PAD + inset : PAD;
+  const corners = [[cIn, cIn, 1, 1], [W - cIn, cIn, -1, 1],
+    [cIn, H - cIn, 1, -1], [W - cIn, H - cIn, -1, -1]];
+  const cornerArt = S.corner === 'diamond'
+    ? corners.map(([x, y]) => diamond(x, y, 3.2, GOLD)).join('\n')
+    : S.corner === 'bracket'
+      ? corners.map(([x, y, dx, dy]) => bracket(x, y, dx, dy, 11, GOLD_MID)).join('\n')
+      : '';
+
+  // ---- 兩處花飾 ----
+  const orn = (kind, cy, half, color) => (kind === 'rule'
+    ? ornRule(W / 2, cy, half, 8, 2.8, color)
+    : kind === 'dot' ? diamond(W / 2, cy, 2.4, color) : '');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
 <style>
   .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.18em;text-anchor:middle}
   .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:${msgItalic}}
-  /* 站名：站主回報「顏色太淡、字也可以再大一點」。
-     7.5px + 42% 的金色在手機上幾乎看不到，改成 9.5px 的實色金。 */
-  .oc-foot{fill:${GOLD};font-size:9.5px;letter-spacing:.3em;text-anchor:middle;
+  /* 站名：站主回報「顏色太淡、字也可以再大一點」，7.5px + 42% 的金在手機上看不到。 */
+  .oc-foot{fill:${GOLD};font-size:${S.footSize}px;letter-spacing:.3em;text-anchor:middle;
     font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
 </style>
 <defs>
   <clipPath id="ocArt">
-    <rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${ART_H}" rx="1"/>
+    <rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${artH}" rx="1"/>
   </clipPath>
 </defs>
 
@@ -222,37 +282,20 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }
 <rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none"
   stroke="${IVORY_EDGE}" stroke-width="1"/>
 
-<!-- artwork。preserveAspectRatio 用 slice：寧可裁掉邊緣也不要在框內留白條，
-     模型回的是 2:3，所以實際上幾乎不會裁到。 -->
+<!-- artwork。preserveAspectRatio 用 slice：寧可裁掉邊緣也不要在框內留白條。 -->
 <image href="${artworkDataUrl}" x="${PAD + FRAME}" y="${ART_TOP}"
-  width="${ART_W}" height="${ART_H}"
+  width="${ART_W}" height="${artH}"
   preserveAspectRatio="xMidYMid slice" clip-path="url(#ocArt)"/>
 
-<!-- 金框：兩道線（外粗內細）＋ 四角菱形。
-     單獨一條 0.8px 半透明的線在手機上幾乎看不見，站主因此覺得「不像牌卡」。
-     雙線是這個品類最好認的記號，成本也最低——不佔版面、不影響任何文字位置。 -->
-<rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}"
-  fill="none" stroke="${GOLD}" stroke-width="1.6"/>
-<rect x="${PAD + 3.5}" y="${PAD + 3.5}" width="${W - (PAD + 3.5) * 2}" height="${H - (PAD + 3.5) * 2}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>
-${[[PAD + 3.5, PAD + 3.5], [W - PAD - 3.5, PAD + 3.5],
-    [PAD + 3.5, H - PAD - 3.5], [W - PAD - 3.5, H - PAD - 3.5]]
-    .map(([x, y]) => diamond(x, y, 3.2, GOLD)).join('\n')}
-<!-- artwork 與文字之間的分界：線—菱形—線，不是一條光禿禿的線 -->
-<!-- artwork 自己的細金框：把畫與象牙白分開。
-     第一版把裝飾線直接畫在 artwork 的下緣，結果那顆菱形疊在畫面上，看起來像髒點。
-     改成畫有自己的框，裝飾線退到底下的象牙白區裡。 -->
-<rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${ART_H}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.7"/>
+${frame}
+${cornerArt}
+${S.artFrame ? `<rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${artH}"
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.7"/>` : ''}
 
-<!-- 畫與文字之間的裝飾：線—菱形—線 -->
-${ornRule(W / 2, ART_TOP + ART_H + 12, ART_W / 2 - 14, 8, 2.8, GOLD_MID)}
+${orn(S.ornTop, artBottom + 13, ART_W / 2 - 14, GOLD_MID)}
 
 <text x="${W / 2}" y="${yKey}" class="oc-title">${esc(keyword)}</text>
-<!-- 標題下方的花飾：中間一顆菱形，兩側各一條線再加一顆更小的菱形收尾 -->
-${ornRule(W / 2, yRule, 34, 7, 2.6, GOLD)}
-${diamond(W / 2 - 40, yRule, 1.6, GOLD_SOFT)}
-${diamond(W / 2 + 40, yRule, 1.6, GOLD_SOFT)}
+${orn(S.ornTitle, yRule, 34, GOLD)}
 ${msgLines.map((line, i) => `<text x="${W / 2}" y="${yMsg + i * msgLH}" class="oc-msg">${esc(line)}</text>`).join('\n')}
 <text x="${W / 2}" y="${yFoot}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
 </svg>`;
