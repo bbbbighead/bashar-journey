@@ -1,7 +1,7 @@
 // oracle.js — 「專屬靈感牌卡」的 serverless 端點。
 //
 // 三個 action，刻意拆開而不是一次做完：
-//   text     解讀全文 → 文字模型 → 挑一張牌（data/oracleDeck.js）、卡面文字、圖像 prompt
+//   text     解讀全文 → 文字模型 → 從原文逐字挑一句、下一個英文標題、圖像 prompt
 //   image    依 id 取出圖像 prompt → 圖像模型 → 回傳 PNG（base64）
 //   archive  前端把「合成好的卡」與「原始 artwork」各壓成小張 JPEG 傳回來存檔
 //   info     只讀今天已用張數與上限（不累加），並回報功能有沒有開著
@@ -13,24 +13,12 @@
 //   pi:oracleimg:<id>    合成後的整張卡（壓縮預覽）
 // 有這四樣，任何一張卡都能回頭問「這段字為什麼變成這張圖」。
 //
-// 牌卡下方那兩段牌義（核心訊息／洞見）**不是模型寫的**，是從 data/oracleDeck.js
-// 照抄的。模型只負責挑哪一張、萃取卡面的一個英文關鍵字與一句短句、以及寫圖像
-// prompt。為什麼這樣改：見 prompts/oracle.js 的檔頭。
-//
-// 為什麼 text 與 image 要分成兩次請求：兩次模型呼叫加起來很可能超過函式的執行
-// 上限（文字 15–25s ＋ 圖像 20–40s）。拆開之後每次都在上限內，而且畫面可以先把
-// 文字顯示出來、再等圖，等待感差很多。
-//
-// 為什麼 image 只收 id、不收 prompt：如果讓前端把 prompt 傳回來，任何人都能拿
-// 這支端點當免費的圖像生成器（用我們的金鑰畫任何東西）。prompt 存在伺服器端，
-// 前端只拿得到一個 id。
-//
-// 「一次只能生成一張」是在伺服器端擋的（紀錄上的 imaged 旗標），不是靠前端不顯示
-// 按鈕——前端的按鈕藏起來，重送請求還是會再花一次圖像生成的錢。
+// 卡面那一句**不是模型寫的**，是從使用者貼過來的解讀裡逐字挑出來的。
+// 「逐字」由 quotesReading() 在送去生圖之前驗過——提示可以被繞過，比對不行。
+// 比不到時會帶著「你剛剛改了這句」重試一次，再不行才算這次失敗。
 
 import { redisPipeline, redisConfigured } from '../lib/redis.js';
-import { buildOraclePrompt, buildTranslatePrompt, IMAGE_SUFFIX } from '../prompts/oracle.js';
-import { deckCard, DECK_SIZE } from '../data/oracleDeck.js';
+import { buildOraclePrompt, IMAGE_SUFFIX } from '../prompts/oracle.js';
 
 const OPENAI_CHAT = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_IMAGE = 'https://api.openai.com/v1/images/generations';
@@ -82,30 +70,16 @@ const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['cardId', 'why', 'keyword', 'sentence', 'keywordLocal', 'sentenceLocal', 'imagePrompt'],
+  required: ['sentence', 'keyword', 'why', 'imagePrompt'],
   properties: {
-    // 挑中的牌（data/oracleDeck.js 的 id，1–100）
-    cardId: { type: 'integer' },
-    // 為什麼挑這張。只給站主看，不回傳給前端。
-    why: { type: 'string' },
-    // 卡面文字，一律英文
-    keyword: { type: 'string' },
+    // 卡面那一句：逐字取自使用者貼上的解讀，所以是使用者的語言。
+    // 「逐字」由 quotesReading() 在下面驗，不是靠模型自律。
     sentence: { type: 'string' },
-    // 同兩樣東西的使用者語言版本（輸出語言是英文時＝原文）
-    keywordLocal: { type: 'string' },
-    sentenceLocal: { type: 'string' },
+    // 那句話的標題，一個英文單字
+    keyword: { type: 'string' },
+    // 為什麼挑這一句。只給站主看，不回傳給前端。
+    why: { type: 'string' },
     imagePrompt: { type: 'string' },
-  },
-};
-
-// 牌義翻譯（只在使用者語言不是繁中時用）。忠實翻譯，不改結構。
-const TRANS_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['essence', 'insights'],
-  properties: {
-    essence: { type: 'string' },
-    insights: { type: 'string' },
   },
 };
 
@@ -150,7 +124,9 @@ function costOf(usage, rate) {
     + (usage.out || 0) * rate.out) / 1e6;
 }
 
-// 一張牌卡的總估算成本。text／translate 走文字供應商的價目，image 走圖像的。
+// 一張牌卡的總估算成本。text 走文字供應商的價目，image 走圖像的。
+// translate 這一段留著是為了舊紀錄：2026-08 之前的牌卡有牌義翻譯那一次呼叫，
+// 後台仍然要算得出那些紀錄的成本。新紀錄的 usage.translate 一律是 undefined。
 // 圖是最貴的一段（1024×1536 medium 大約是文字那一段的十倍以上），所以分開列。
 function totalCost(usage, provider) {
   const textRate = provider === 'anthropic' ? PRICE.anthropic : PRICE.openai;
@@ -261,31 +237,36 @@ async function callAnthropicText(apiKey, systemPrompt, userPrompt, schema = SCHE
   return { data: JSON.parse(block.text), usage: anthropicUsage(json.usage) };
 }
 
-// 牌義的翻譯。只有在使用者語言不是繁體中文時才會走到這裡。
+// 卡面那一句必須是使用者貼過來的原文，一字不動。這一關是整個做法的地基：
+// 提示裡講了三次「一字不動」，但提示是可以被繞過的，比對不行。
 //
-// 為什麼是另外一次呼叫：主提示裡刻意沒有牌組的 insights（模型看不到就改不到，
-// 那一段的原文因此有結構上的保證）。這一支只餵它挑中的那一張，輸入很短。
-// 失敗時回 null，呼叫端改用繁中原文——顯示原文總比什麼都沒有好，而且紀錄上會
-// 留下 translated:false，站主看得到。
-async function translateCard(keys, lang, card) {
-  const systemPrompt = buildTranslatePrompt(lang);
-  const userPrompt = `核心訊息：
-${card.essence}
+// 比對前先做正規化，因為有兩種差異是「格式」而不是「改字」，擋掉只會白白提高失敗率：
+//   ・空白與換行：模型會把跨行的句子接成一行
+//   ・markdown 記號：解讀常有 **粗體**、「-」條列，模型引用時通常會把它們去掉
+// 除此之外一律要求逐字相同——字換了、順序變了、補了主詞，都會比不到。
+//
+// 刻意**不**做的正規化：全形半形互換、標點統一、大小寫。那些都已經算改字了，
+// 放行等於這個功能的承諾破掉。
+function normalizeForQuote(t) {
+  return String(t || '')
+    .replace(/[*_`~#>]/g, '')      // markdown 記號
+    .replace(/\s+/g, '')           // 所有空白（含換行）
+    .trim();
+}
 
-洞見：
-${card.insights}`;
-  try {
-    const { data, usage } = keys.openai
-      ? await callOpenAIText(keys.openai, systemPrompt, userPrompt, TRANS_SCHEMA, 'oracle_translation')
-      : await callAnthropicText(keys.anthropic, systemPrompt, userPrompt, TRANS_SCHEMA);
-    const essence = clean(data.essence, 600);
-    const insights = clean(data.insights, 2000);
-    if (!essence || !insights) return null;
-    return { essence, insights, usage };
-  } catch (e) {
-    console.error('[oracle] translate', lang, e && e.message);
-    return null;
-  }
+// 回傳 true 代表 sentence 確實出現在 reading 裡。
+function quotesReading(sentence, reading) {
+  const a = normalizeForQuote(sentence);
+  const b = normalizeForQuote(reading);
+  if (a.length < 8) return false;          // 太短的「引用」沒有意義，多半是模型在敷衍
+  if (b.includes(a)) return true;
+  // 唯一放寬的一項：模型把原文句尾的標點**省略**了。
+  // 只在它回的句子本身沒有句尾標點時才放寬——如果它回的是「……開始！」而原文是
+  // 「……開始。」，那是**換掉**了一個字元，不是省略，要擋。（第一版寫成「把句尾標點
+  // 一律去掉再比」，結果驚嘆號換句號也會過關，等於默許改標點。）
+  if (/[。．.！!？?、，,；;：:]$/.test(a)) return false;
+  return b.includes(a + '。') || b.includes(a + '.') || b.includes(a + '！')
+    || b.includes(a + '!') || b.includes(a + '？') || b.includes(a + '?');
 }
 
 // ---- action: text ----
@@ -319,18 +300,45 @@ ${reading}
 """`;
   const sysHash = djb2(systemPrompt);
 
-  const t0 = Date.now();
-  const { data: out, usage: textUsage } = openaiKey
-    ? await callOpenAIText(openaiKey, systemPrompt, userPrompt)
-    : await callAnthropicText(anthropicKey, systemPrompt, userPrompt);
+  const callText = (up) => (openaiKey
+    ? callOpenAIText(openaiKey, systemPrompt, up)
+    : callAnthropicText(anthropicKey, systemPrompt, up));
 
-  // 挑中的牌。id 不在牌組裡就算這次失敗——不要退而求其次隨機給一張：
-  // 這個功能的承諾是「這張牌對得上你貼的那則解讀」，隨機來的卡違背那個承諾。
-  const deck = deckCard(out.cardId);
-  if (!deck) {
-    console.error('[oracle] bad cardId', out && out.cardId, 'of', DECK_SIZE);
-    res.status(200).json({ ok: false, reason: 'failed' });
-    return;
+  const t0 = Date.now();
+  let { data: out, usage: textUsage } = await callText(userPrompt);
+  let retried = false;
+
+  // 一字不動的保證。模型在「引用」任務上最常見的失誤不是亂編，而是順手潤稿——
+  // 補一個主詞、把逗號改成句號、把兩個短句接起來。所以比不到時先重試一次，
+  // 並在提示裡指出它剛剛改掉的那一句。
+  //
+  // 重試划算：文字是便宜的一半，圖還沒生（圖是最貴的），而且沒通過的話這次本來
+  // 就會失敗。多花一次文字的錢換掉一次整體失敗，值得。只重試一次——兩次都做不到，
+  // 多半是這則解讀裡真的沒有適合單獨拿出來的句子。
+  if (!quotesReading(clean(out.sentence, 400), reading)) {
+    retried = true;
+    const nudge = `${userPrompt}
+
+⚠ 上一次你回的 sentence 是：
+"""
+${clean(out.sentence, 400)}
+"""
+這一句在上面的解讀原文裡找不到——你改了字。請**重新挑一句**，
+用**複製貼上**的方式一字不動地照抄：不補主詞、不改標點、不把兩句併起來。`;
+    const again = await callText(nudge);
+    // 兩次的 token 都要算進成本，不然後台看到的數字會偏低。
+    // 欄位名是 in／cachedIn／out（見 openaiUsage／anthropicUsage），不是
+    // 供應商原始的那一套——寫錯的話重試過的牌卡會靜靜地算成 0 元。
+    // 兩次都拿不到用量就維持 null：null 是「沒有回報」，0 會被誤讀成免費。
+    const a = textUsage, c = again.usage;
+    textUsage = (a || c)
+      ? {
+        in: (a ? a.in : 0) + (c ? c.in : 0),
+        cachedIn: (a ? a.cachedIn : 0) + (c ? c.cachedIn : 0),
+        out: (a ? a.out : 0) + (c ? c.out : 0),
+      }
+      : null;
+    out = again.data;
   }
 
   // 卡面兩樣文字缺一樣就算這次失敗，而且是**在生圖之前**擋掉。
@@ -339,28 +347,25 @@ ${reading}
   // 只像做得很爛。實際production上出現過一次（站主回報「產出的版本沒有文字」）。
   // 擋在這裡而不是在前端：前端擋的話錢已經花掉了（圖是最貴的一段）。
   const keyword = clean(out.keyword, 40);
-  const sentence = clean(out.sentence, 300);
+  const sentence = clean(out.sentence, 400);
   if (!keyword || !sentence) {
-    console.error('[oracle] empty card face', JSON.stringify({ keyword, sentence, cardId: out.cardId }));
+    console.error('[oracle] empty card face', JSON.stringify({ keyword, sentence }));
     res.status(200).json({ ok: false, reason: 'failed' });
     return;
   }
 
-  // 牌義：繁中照抄原文，其他語言翻譯（失敗就用原文）。
-  // 這兩段永遠不是模型自己寫的——見 prompts/oracle.js 的檔頭。
-  let essence = deck.essence;
-  let insights = deck.insights;
-  let translated = false;
-  let transUsage = null;
-  if (lang !== 'zh-Hant') {
-    const tr = await translateCard({ openai: openaiKey, anthropic: anthropicKey }, lang, deck);
-    if (tr) {
-      essence = tr.essence; insights = tr.insights; translated = true; transUsage = tr.usage;
-    }
+  // 重試過還是比不到就這次失敗——不要退而求其次直接用模型給的句子：
+  // 這個功能的承諾是「卡面上的話是你自己剛剛讀到的那一句」，一句模型潤過的話
+  // 違背那個承諾，而且從外觀完全看不出來（讀者不會拿去跟原文比對）。
+  if (!quotesReading(sentence, reading)) {
+    console.error('[oracle] sentence not verbatim after retry', JSON.stringify({ sentence }));
+    res.status(200).json({ ok: false, reason: 'not_verbatim' });
+    return;
   }
+
   const textMs = Date.now() - t0;
   const provider = openaiKey ? 'openai' : 'anthropic';
-  const usage = { text: textUsage, translate: transUsage, image: null };
+  const usage = { text: textUsage, image: null };
 
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const record = {
@@ -369,32 +374,25 @@ ${reading}
     sid,
     vid,
     lang,
-    // 挑中的牌。cardTitle（卡名）目前不顯示給使用者——卡面上已經有一個英文關鍵字
-    // 當標題，再放一個中文卡名只是兩個標題互相搶。留在紀錄裡是給站主看的：
-    // 要判斷挑卡準不準，得知道挑到了哪一張。
-    cardId: deck.id,
-    cardTitle: deck.title,
-    cardCategory: deck.category,
+    // 為什麼挑這一句。只給站主看，不回傳給前端。
     why: clean(out.why, 200),
     imagePrompt: clean(out.imagePrompt, 4000),
-    // 卡面文字（英文）。keyword 規定是單字，但不在這裡截成第一個字——
-    // 真的回了詞組時截斷會變成沒有意義的字，版面本來也吃得下（見 titleSize）。
+    // 卡面文字。keyword 規定是單字，但不在這裡截成第一個字——真的回了詞組時
+    // 截斷會變成沒有意義的字，版面本來也吃得下（見 js/oracleCard.js 的 titleSize）。
     // 違規看得到就好：站主在後台審核時會看到原樣。
     keyword,
+    // sentence 已經通過 quotesReading() 的原文比對，所以這一欄一定是使用者
+    // 自己貼過來的話。後台會把它與 readingHead 一起顯示，方便站主抽查。
     sentence,
-    keywordLocal: clean(out.keywordLocal, 60),
-    sentenceLocal: clean(out.sentenceLocal, 300),
-    // 牌義（使用者看到的版本）
-    essence,
-    insights,
-    translated,
+    // 第一次有沒有改字（改了才會有第二次呼叫）。後台顯示這一欄，站主就看得出
+    // 模型在「照抄」這件事上的實際表現，不必靠猜。
+    retried,
     // 貼過來的解讀只留開頭一段給清單顯示；完整的那一份在 pi:oracleuser:<id>
     //（就是實際送出去的 user prompt），站主要 debug 時整段都調得出來。
     readingHead: reading.slice(0, 300),
     readingChars: reading.length,
     // 除錯用：實際送給文字模型的 system prompt 存在 pi:oraclesys:<sysHash>。
-    // 每次呼叫的 system prompt 都一樣（整副牌都在裡面，約 2.8 萬字），所以按內容
-    // 雜湊只存一份，紀錄裡只留 hash。
+    // 每次呼叫的 system prompt 都一樣，所以按內容雜湊只存一份，紀錄裡只留 hash。
     sysHash,
     provider,
     model: openaiKey ? TEXT_MODEL_OPENAI : TEXT_MODEL_ANTHROPIC,
@@ -428,10 +426,6 @@ ${reading}
     limit: DAILY_LIMIT,
     keyword: record.keyword,
     sentence: record.sentence,
-    keywordLocal: record.keywordLocal,
-    sentenceLocal: record.sentenceLocal,
-    essence: record.essence,
-    insights: record.insights,
   });
 }
 

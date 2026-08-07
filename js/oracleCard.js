@@ -48,64 +48,122 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-// 貪心斷行：每一行塞到滿為止。這是「行數最少」的排法，但最後一行常常只剩兩三個字。
-function greedyLines(words, max) {
+// SVG 沒有自動換行，只能自己斷。而中日韓與拉丁的斷行規則完全不同：
+//   ・拉丁在空白處斷，單字不能切開
+//   ・中日韓沒有空白，幾乎任兩個字之間都能斷，但行首不能是句號、逗號、右引號……
+//     （這叫禁則處理；不做的話會出現一行開頭孤零零一個「。」）
+// 卡面句子從 2026-08 起改成逐字取自使用者貼上的解讀（見 prompts/oracle.js），
+// 所以它會是使用者的語言——中文的機會最大。只按空白斷的話，一整句中文會被當成
+// 一個「單字」，排成一行直接撐出金框。
+
+// 一個字有多寬（以 em 為單位）：中日韓與全形標點約一個字身，拉丁字母約 0.52。
+// 用這把尺把兩種文字換算成同一個「等效字元數」，斷行與平衡就能共用一套邏輯。
+const RE_CJK = /[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef]/;
+const RE_HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
+const LATIN_EM = 0.52;
+const charEm = (ch) => (RE_CJK.test(ch) || RE_HANGUL.test(ch) ? 1 : LATIN_EM);
+const unitsOf = (s) => {
+  let n = 0;
+  for (const ch of String(s || '')) n += charEm(ch);
+  return n;
+};
+const hasCJK = (s) => RE_CJK.test(String(s || '')) || RE_HANGUL.test(String(s || ''));
+
+// 行首禁則：這些字不可以出現在一行的開頭。
+const NO_LINE_START = '、。，．：；！？」』）〕】》〉”’%℃…—～·,.:;!?)]}>';
+
+// 把一句話切成「斷點單元」。三種文字的斷行規則不一樣，這裡是關鍵：
+//   ・中日文（漢字、假名）：幾乎任兩個字之間都能斷 → 一個字一個單元
+//   ・韓文：詞與詞之間有空白，正常在空白處斷 → 跟拉丁一樣，整個詞一個單元
+//   ・拉丁：在空白處斷，單字不能切開 → 整個單字一個單元
+// sp 記的是「原文在這個單元之前有沒有空白」，重組時要照原樣補回去——
+// 第一版沒記，韓文的詞間空白全部被吃掉，變成一整串連在一起的字。
+function segments(text) {
+  const out = [];
+  let buf = '';
+  let sp = false;
+  const flush = () => { if (buf) { out.push({ t: buf, sp }); buf = ''; sp = false; } };
+  for (const ch of String(text || '').trim()) {
+    if (/\s/.test(ch)) { flush(); sp = true; continue; }
+    if (RE_CJK.test(ch)) { flush(); out.push({ t: ch, sp }); sp = false; continue; }
+    buf += ch;   // 拉丁與韓文都累積成詞
+  }
+  flush();
+  return out;
+}
+
+// 貪心斷行：每一行塞到滿為止。max 是「等效字元數」，不是實際字元數。
+function greedyLines(segs, max) {
   const lines = [];
   let cur = '';
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (next.length <= max) { cur = next; continue; }
+  for (const s of segs) {
+    const next = cur + (cur && s.sp ? ' ' : '') + s.t;
+    if (unitsOf(next) <= max) { cur = next; continue; }
+    // 行首禁則：新的一行不可以用句號、逗號、右括號這類字開頭。
+    // 標準做法是「追い出し」——把上一行的最後一個字一起推到下一行，
+    // 而不是硬留在上一行（硬留會撐出金框，實測過會超出 7px）。
+    if (cur && NO_LINE_START.includes(s.t) && [...cur].length > 1) {
+      const arr = [...cur];
+      const moved = arr.pop();
+      lines.push(arr.join(''));
+      cur = moved + s.t;
+      continue;
+    }
     if (cur) lines.push(cur);
-    cur = w;
+    cur = s.t;
   }
   if (cur) lines.push(cur);
   return lines;
 }
 
-// SVG 沒有自動換行，只能自己斷。卡面文字一律英文（見 prompts/oracle.js 的決定），
-// 所以用拉丁字寬估算就夠：一個字元約 0.5em，大寫與寬字母略多，取 0.52 保守一點。
-// 估錯的方向刻意偏保守——寧可比實際窄、多換一行，也不要撐出金框。
-//
 // 斷完之後再「平衡」：貪心排法會把第一行塞到滿，第二行只剩幾個字（站主回報過
 // 「Your only real mission is to become yourself as fully ／ as you can.」，
 // 52 字對 11 字），版面看起來是歪的。做法是在**不增加行數**的前提下，把每行允許的
 // 寬度一路收窄到不能再收——行數不變，字就會自己往下一行移，兩行長度自然接近。
 // 這正是瀏覽器 text-wrap: balance 的作法，只是 SVG 裡沒有這個屬性，得自己算。
-function wrapLatin(text, fontSize, maxWidth) {
-  const per = fontSize * 0.52;
-  const hardMax = Math.max(1, Math.floor(maxWidth / per));
-  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
+function wrapText(text, fontSize, maxWidth) {
+  const hardMax = Math.max(1, maxWidth / fontSize);   // 可容納的等效字元數
+  const segs = segments(text);
+  if (!segs.length) return [];
 
-  const lines = greedyLines(words, hardMax);
+  const lines = greedyLines(segs, hardMax);
   if (lines.length < 2) return lines;
 
-  // 下界是最長的那個單字——再窄下去單字本身就會撐出金框（貪心不會把單字切開）。
-  let lo = words.reduce((m, w) => Math.max(m, w.length), 1);
+  // 下界是最長的那個單元——再窄下去單元本身就會撐出金框（貪心不切開單字）。
+  // 中日韓每個單元都是一個字，所以下界是 1，平衡的空間很大。
+  let lo = segs.reduce((m, s) => Math.max(m, unitsOf(s.t)), 1);
   let hi = hardMax;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (greedyLines(words, mid).length <= lines.length) hi = mid; else lo = mid + 1;
+  // 用 0.25 個字元的精度做二分：整數精度對中日韓來說太粗，會平衡不到位
+  while (hi - lo > 0.25) {
+    const mid = (lo + hi) / 2;
+    if (greedyLines(segs, mid).length <= lines.length) hi = mid; else lo = mid;
   }
-  return greedyLines(words, lo);
+  return greedyLines(segs, hi);
 }
 
 // 關鍵字規定是一個英文單字（見 prompts/oracle.js），所以正常情況下都落在最大的
 // 字級。字級仍然隨長度退：模型偶爾會回一個詞組，那時候縮小總比撐出金框好。
+// 中日韓的關鍵字也吃得下（把它換成中文標題只需要改提示，版面這一側不必動）。
+// 用等效字元數而不是字元數，中日韓的關鍵字才不會撐破（一個中文字約等於兩個字母寬）。
 // 一律不換行——關鍵字換行在這個版面上會把句子頂下去。
 function titleSize(title) {
-  const n = String(title || '').length;
-  if (n <= 12) return 27;
-  if (n <= 18) return 23;
-  if (n <= 26) return 19;
+  const n = unitsOf(title);
+  if (n <= 6.5) return 27;   // 約 12 個字母／6 個中文字
+  if (n <= 9.5) return 23;
+  if (n <= 13.5) return 19;
   return 16;
 }
 
 // artworkDataUrl：data:image/png;base64,…（伺服器回傳的原樣）
-// keyword / sentence：卡面文字，英文（一個單字 ＋ 一句話）
-// footer：卡片下緣的站名
+// keyword   卡面標題。一個英文單字（模型自己從句子下的標題）
+// sentence  卡面句子。**逐字取自使用者貼上的解讀**，所以是使用者的語言
+// footer    卡片下緣的站名
 export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }) {
   const tSize = titleSize(keyword);
+  // 斜體只給拉丁文字。中日韓沒有真正的斜體字，瀏覽器會把字機械地斜過去，
+  // 看起來是歪的而不是斜的（牌卡下方的譯文區為了同樣的理由也不用斜體，
+  // 見 css/calm.css 的 .oc-t-msg）。
+  const msgItalic = hasCJK(sentence) ? 'normal' : 'italic';
 
   // 文字區從 artwork 下方開始，往下依序排：關鍵字 → 細金線 → 句子 → 站名。
   const textTop = ART_TOP + ART_H;
@@ -113,13 +171,16 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }
   const yRule = yKey + T_RULE;
   const yMsg = yRule + T_MSG;
 
-  // 句子最多三行。規格允許 8–18 words，最長的那種在 11.5px 下會排到四行、
-  // 把站名頂出卡外，所以字級隨行數退——退到 9.5 就不再退（再小讀不動了）。
+  // 句子最多三行；排到第四行就會把站名頂出卡外，所以字級隨行數退——退到 8.5
+  // 就不再退（再小讀不動了）。
+  // 2026-08 起句子逐字取自使用者貼上的解讀，長度不再由規格保證，所以退的級距
+  // 放細（0.5px）也放深：一句 40 字的中文在 11.5px 下排不進三行，但 10px 就進得去，
+  // 用 1px 的級距會直接跳過那個剛好排得下的字級。
   let msgSize = 11.5;
-  let msgLines = wrapLatin(sentence, msgSize, ART_W - 24);
-  while (msgLines.length > 3 && msgSize > 9.5) {
-    msgSize -= 1;
-    msgLines = wrapLatin(sentence, msgSize, ART_W - 24);
+  let msgLines = wrapText(sentence, msgSize, ART_W - 24);
+  while (msgLines.length > 3 && msgSize > 8.5) {
+    msgSize -= 0.5;
+    msgLines = wrapText(sentence, msgSize, ART_W - 24);
   }
   const msgLH = msgSize * 1.45;
   const yFoot = Math.max(H - PAD - 5, yMsg + (msgLines.length - 1) * msgLH + 15);
@@ -128,7 +189,7 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
 <style>
   .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.18em;text-anchor:middle}
-  .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:italic}
+  .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:${msgItalic}}
   .oc-foot{fill:${GOLD_SOFT};font-size:7.5px;letter-spacing:.34em;text-anchor:middle;
     font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
 </style>

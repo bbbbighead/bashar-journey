@@ -1506,20 +1506,32 @@ async function refreshOracles() {
         ${Number(o.costUsd) > 0 ? `<span class="oa-cost">${esc(oaCost(o.costUsd))}</span>` : ''}
       </div>
 
+      ${/* 這個功能改過兩次架構，後台要同時看得懂三代的紀錄，所以先判斷是哪一代：
+             quote  現行：卡面句子逐字取自使用者貼的解讀，沒有牌組
+             deck   2026-08 之前：從 100 張固定牌組挑一張（有 cardId／牌義）
+             early  最早：模型自己寫整段牌義（有 essence，沒有 cardId） */''}
       ${o.cardId ? `<div class="oa-row oa-essence">
-        <div class="oa-k">挑中的牌</div>
+        <div class="oa-k">挑中的牌<br><span class="oa-len">牌組版</span></div>
         <div class="oa-v">
           <div class="oa-title">#${esc(o.cardId)}　${esc(o.cardTitle)}</div>
           <div class="oa-kw">${esc(o.cardCategory)}</div>
           <div class="oa-msg">${esc(o.why) || '<span class="dim-dash">—</span>'}</div>
         </div>
-      </div>` : `<div class="oa-row oa-essence">
-        <div class="oa-k">靈魂精髓<br><span class="oa-len">舊版</span></div>
+      </div>` : (o.essence ? `<div class="oa-row oa-essence">
+        <div class="oa-k">靈魂精髓<br><span class="oa-len">最早版</span></div>
         <div class="oa-v">${esc(o.essence) || '<span class="dim-dash">—</span>'}</div>
-      </div>`}
+      </div>` : `<div class="oa-row oa-essence">
+        <div class="oa-k">為什麼挑這句</div>
+        <div class="oa-v">
+          <div class="oa-msg">${esc(o.why) || '<span class="dim-dash">—</span>'}</div>
+          ${o.retried
+    ? '<div class="oa-kw">第一次改了字，重試後才照抄成功</div>'
+    : '<div class="oa-kw">第一次就照抄成功</div>'}
+        </div>
+      </div>`)}
 
       <div class="oa-row">
-        <div class="oa-k">卡面（英文）</div>
+        <div class="oa-k">卡面</div>
         <div class="oa-v">
           <div class="oa-title">${esc(o.keyword || o.title)}</div>
           ${(o.keywords || []).length ? `<div class="oa-kw">${o.keywords.map(esc).join(' · ')}</div>` : ''}
@@ -1527,14 +1539,14 @@ async function refreshOracles() {
         </div>
       </div>
 
-      <div class="oa-row">
-        <div class="oa-k">卡面譯文</div>
+      ${(o.keywordLocal || o.titleLocal || o.sentenceLocal || o.messageLocal) ? `<div class="oa-row">
+        <div class="oa-k">卡面譯文<br><span class="oa-len">舊版才有</span></div>
         <div class="oa-v">
           <div class="oa-title">${esc(o.keywordLocal || o.titleLocal) || '<span class="dim-dash">—</span>'}</div>
           ${(o.keywordsLocal || []).length ? `<div class="oa-kw">${o.keywordsLocal.map(esc).join(' · ')}</div>` : ''}
           <div class="oa-msg">${esc(o.sentenceLocal || o.messageLocal)}</div>
         </div>
-      </div>
+      </div>` : ''}
 
       ${o.cardId ? `<div class="oa-row">
         <div class="oa-k">牌義${o.translated ? '<br><span class="oa-len">翻譯</span>'
@@ -1544,11 +1556,11 @@ async function refreshOracles() {
           ${String(o.insights || '').split(/\n+/).filter(Boolean)
     .map((x) => `<p>${esc(x)}</p>`).join('')}
         </div>
-      </div>` : `<div class="oa-row">
+      </div>` : (o.longMessage ? `<div class="oa-row">
         <div class="oa-k">解讀 <span class="oa-len">${esc(oaLen(o.longMessage, o.lang))}</span></div>
-        <div class="oa-v oa-long">${(String(o.longMessage || '').split(/\n+/).filter(Boolean)
-    .map((x) => `<p>${esc(x)}</p>`).join('')) || '<span class="dim-dash">—</span>'}</div>
-      </div>`}
+        <div class="oa-v oa-long">${String(o.longMessage || '').split(/\n+/).filter(Boolean)
+    .map((x) => `<p>${esc(x)}</p>`).join('')}</div>
+      </div>` : '')}
 
       <details class="oa-more">
         <summary>來源解讀開頭（共 ${Number(o.readingChars) || 0} 字）</summary>
@@ -1558,7 +1570,7 @@ async function refreshOracles() {
         <div class="oa-k">用量與成本<br><span class="oa-len">估算</span></div>
         <div class="oa-v oa-usage">
           <div><span class="oa-ulab">文字（${esc(o.model || o.provider || '?')}）</span>${oaTokens(o.usage.text)}</div>
-          ${o.usage.translate ? `<div><span class="oa-ulab">牌義翻譯</span>${oaTokens(o.usage.translate)}</div>` : ''}
+          ${o.usage.translate ? `<div><span class="oa-ulab">牌義翻譯<span class="oa-usub">舊版</span></span>${oaTokens(o.usage.translate)}</div>` : ''}
           <div><span class="oa-ulab">圖像（${esc(o.imageModel || 'gpt-image-1')}）</span>${o.imaged ? oaTokens(o.usage.image) : '<span class="dim-dash">沒生圖</span>'}${o.imageQuality ? `<span class="oa-usub">${esc(o.imageQuality)}　${esc(o.imageSize || '')}</span>` : ''}</div>
           <div class="oa-utotal">合計 ${esc(oaCost(o.costUsd))}</div>
         </div>

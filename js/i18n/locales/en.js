@@ -331,7 +331,7 @@ export default {
     soon: 'This is still being prepared — coming soon.',
     tooShort: 'That reading is too short — paste the whole thing.',
     busy: 'Creating',
-    step1: 'Reading it through, finding your card…',
+    step1: 'Reading it through, finding the line that matters most…',
     step2: 'Painting that world…',
     sub2: 'This is the longest part — usually another 20–40 seconds.',
     download: 'Download',
