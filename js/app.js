@@ -1607,10 +1607,14 @@ function renderResult(a) {
     </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
-      <button class="btn" id="btnMakeCard">${esc(t('result.makeCard'))}</button>
+      <!-- 說明句包在按鈕裡面那一格，才會對齊在「製作專屬靈感卡」正下方，
+           而不是落在三顆按鈕底下（站主回報位置不對）。 -->
+      <div class="r-act-cell">
+        <button class="btn" id="btnMakeCard">${esc(t('result.makeCard'))}</button>
+        <div class="r-makecard-hint">${esc(t('result.makeCardHint'))}</div>
+      </div>
       <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
-    <div class="r-makecard-hint">${esc(t('result.makeCardHint'))}</div>
     <div class="r-continue">
       <div class="r-continue-title">${esc(t('result.continueTitle'))}</div>
       <p class="r-continue-hint">${esc(t('result.continueHint'))}</p>
@@ -1626,11 +1630,13 @@ function renderResult(a) {
       <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
     </div>
-    <div class="r-sharesite">
-      <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
-      <div class="r-sharesite-hint">${esc(t('result.shareHint'))}</div>
-    </div>
+    <!-- 「分享給朋友」與「追蹤最新消息」同屬一個區塊：直覺對話下面一條金線，
+         線後面就是這兩顆。兩者都是把人帶出去／帶回來的動作，放在一起才成組。 -->
     <div class="r-follow">
+      <div class="r-sharesite">
+        <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
+        <div class="r-sharesite-hint">${esc(t('result.shareHint'))}</div>
+      </div>
       <div class="r-follow-title">${esc(t('result.followTitle'))}</div>
       <p class="r-follow-hint">${esc(t('result.followHint'))}</p>
       <a class="btn" href="${esc(THREADS_URL)}" target="_blank" rel="noopener noreferrer">${esc(t('result.followBtn'))}</a>
