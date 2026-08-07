@@ -14,7 +14,7 @@ import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
 import { hexagramLines, meihuaForAI, castFromNumbers } from './engine/meihua.js';
-import { buildShareCardSvg, svgToPng, shareCardPng, downloadPng } from './shareCard.js';
+import { svgToPng, shareCardPng, saveImage } from './shareCard.js';
 import { oracleCardPng, imagePreview } from './oracleCard.js';
 import { chartWheelSvg } from './chartWheel.js';
 import { parseAstroSections, parseMeihuaSections } from './astroFormat.js';
@@ -351,10 +351,10 @@ function oracleError(msg) {
 function oracleSoon() {
   stopOracleStage();
   oracleRepaint = () => {
-    const el = $('oracleHost').querySelector('.oc-soon');
+    const el = oracleHost().querySelector('.oc-soon');
     if (el) el.textContent = t('oracle.soon');
   };
-  $('oracleHost').innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
+  oracleHost().innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
 }
 
 // 生成中的過場。用的是與探索工具**完全同一組**動畫（.orbit-stage 的三層星軌與
@@ -368,6 +368,15 @@ function oracleSoon() {
 // 星軌的 markup 與 index.html 的 #screenWeaving 一字不差（同一組 class 就是同一組
 // 動畫）。刻意複製而不是搬去共用元件：那邊是靜態 HTML、這邊是動態插入的，
 // 為兩個地方共用一段字串要多一層抽象，不值得。改動畫時記得兩邊一起改。
+// 靈感卡有兩個入口，走的是同一套產生流程，差別只在「畫到哪裡」：
+//   ・專屬靈感牌卡那一頁：使用者自己貼一則解讀 → 畫進 #oracleHost
+//   ・結果頁的「製作專屬靈感卡」：直接拿這一則去生 → 畫進彈出視窗
+// 所以每個會動到畫面的地方都走 oracleHost()，不要寫死 oracleHost()。
+let oracleHostId = 'oracleHost';
+const oracleHost = () => document.getElementById(oracleHostId);
+// 'page'＝牌卡頁（有再生成／換一則）｜'modal'＝結果頁彈出視窗（只有下載與分享）
+let oracleMode = 'page';
+
 const ORACLE_SLOW_MS = 55000;   // 與主流程的「比平常久」同一個門檻（≈P90）
 let oracleStep = 0;
 let oracleSlowTimer = null;
@@ -400,7 +409,7 @@ function oracleStage(step) {
   oracleRepaint = () => paintOracleStage();
   if (first) {
     stopOracleStage();
-    $('oracleHost').innerHTML = `
+    oracleHost().innerHTML = `
       <div class="weaving oc-weaving">
         ${orbitStageHtml(t('oracle.busy'))}
         <div class="weave-stage">
@@ -434,9 +443,57 @@ function paintOracleStage() {
     .map((n) => `<span class="weave-dot${n <= oracleStep ? ' on' : ''}"></span>`).join('');
 }
 
+// 從結果頁直接做一張靈感卡：不用複製、不用跳去牌卡頁貼上。
+// 畫在一個彈出視窗裡（站主指定「比較像是跳出來的一個視窗」），金色星軌的等待動畫
+// 也在視窗裡跑，所以按下去就看得到它已經開始了。
+function closeOracleModal() {
+  const el = $('ocModal');
+  if (!el) return;
+  el.remove();
+  document.body.classList.remove('ocm-open');
+  // 視窗關掉之後，牌卡頁那個 host 才是預設的畫布
+  oracleHostId = 'oracleHost';
+  oracleMode = 'page';
+  oracleRepaint = null;
+}
+
+function makeCardFromResult(a) {
+  if (oracleBusy) return;
+  const reading = fullText(a);
+  if (!reading || reading.length < 80) return;
+
+  const el = document.createElement('div');
+  el.id = 'ocModal';
+  el.className = 'ocm';
+  el.innerHTML = `
+    <div class="ocm-back" data-ocm-close="1"></div>
+    <div class="ocm-box" role="dialog" aria-modal="true" aria-label="${esc(t('oracle.title'))}">
+      <button type="button" class="ocm-x" data-ocm-close="1"
+        aria-label="${esc(t('menu.close'))}"></button>
+      <div id="ocModalHost"></div>
+    </div>`;
+  document.body.appendChild(el);
+  document.body.classList.add('ocm-open');
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-ocm-close]')) closeOracleModal();
+  });
+
+  oracleHostId = 'ocModalHost';
+  oracleMode = 'modal';
+  runOracle(reading);
+}
+
+// Esc 關閉。掛在 document 上一次就好，不必每次開視窗都掛一組。
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('ocModal')) closeOracleModal();
+});
+
 function renderOracle() {
   stopOracleStage();
-  const host = $('oracleHost');
+  // 從彈出視窗回到牌卡頁時，host 可能還指著視窗裡那顆——切回來
+  oracleHostId = 'oracleHost';
+  oracleMode = 'page';
+  const host = oracleHost();
   host.innerHTML = `
     <p class="oc-lede">${esc(t('oracle.lede'))}</p>
     <div class="oc-panel">
@@ -531,7 +588,7 @@ async function runOracle(reading) {
 function oracleFailed(msg) {
   stopOracleStage();
   oracleRepaint = null;
-  $('oracleHost').innerHTML = `
+  oracleHost().innerHTML = `
     <div class="oc-err oc-err-block">${esc(msg)}</div>
     <div class="oc-actions">
       <button type="button" class="btn" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
@@ -541,6 +598,7 @@ function oracleFailed(msg) {
 
 async function oracleResult(card, imageDataUrl) {
   stopOracleStage();
+  const modal = oracleMode === 'modal';
   // limit <= 0＝沒有限制（見 api/oracle.js 的 DAILY_LIMIT）：不顯示用量、不鎖再生成
   const limit = Number(card.limit) || 0;
   const used = Number(card.used) || 0;
@@ -570,7 +628,7 @@ async function oracleResult(card, imageDataUrl) {
       <div class="oc-t-msg">${esc(card.sentence)}</div>
     </div>`;
 
-  const host = $('oracleHost');
+  const host = oracleHost();
   host.innerHTML = `
     ${previewSrc
     ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.keyword)}"></div>`
@@ -579,45 +637,54 @@ async function oracleResult(card, imageDataUrl) {
     <div class="oc-actions">
       ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
       ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
-      <button type="button" class="btn" id="btnOracleRegen"${quotaOut ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>
+      ${modal ? '' : `<button type="button" class="btn" id="btnOracleRegen"${quotaOut ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>`}
     </div>
     ${limit > 0 ? `<div class="oc-usage">${esc(quotaOut
     ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>` : ''}
     <div class="oc-hint" id="oracleSaved" hidden></div>
-    <div class="oc-actions oc-actions-sub">
+    ${modal ? '' : `<div class="oc-actions oc-actions-sub">
       <button type="button" class="btn small" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
-    </div>`;
+    </div>`}`;
 
-  $('btnOracleAgain').addEventListener('click', renderOracle);
-  // 再生成＝用同一則解讀重跑一次（新的圖與新的文字），會再吃掉一次每日額度。
-  // 額度用完時按鈕是 disabled 的，但伺服器端仍會擋——前端的 disabled 擋不住重送。
-  const regen = $('btnOracleRegen');
-  if (regen) {
-    regen.addEventListener('click', () => {
-      if (!oracleLast) { renderOracle(); return; }
-      runOracle(oracleLast.reading);
-    });
+  // 彈出視窗只有下載與分享兩顆（站主指定）——「再生成」「換一則解讀」屬於牌卡頁，
+  // 在這裡出現會讓人搞不清楚自己在哪一頁。
+  if (!modal) {
+    $('btnOracleAgain').addEventListener('click', renderOracle);
+    // 再生成＝用同一則解讀重跑一次（新的圖與新的文字），會再吃掉一次每日額度。
+    // 額度用完時按鈕是 disabled 的，但伺服器端仍會擋——前端的 disabled 擋不住重送。
+    const regen = $('btnOracleRegen');
+    if (regen) {
+      regen.addEventListener('click', () => {
+        if (!oracleLast) { renderOracle(); return; }
+        runOracle(oracleLast.reading);
+      });
+    }
   }
   if (blob) {
     const fileName = `intuitive-notes-oracle-${Date.now()}.png`;
-    // 分享時把解讀文字一併帶出去。注意：多數社群平台收到圖片就會丟掉文字，
-    // 這不是我們能控制的——但帶上去至少讓支援的地方（訊息類 App）拿得到。
-    const shareText = [card.keyword, card.sentence].filter(Boolean).join('\n');
     const note = (key) => {
       const el = $('oracleSaved');
       el.textContent = t(key);
       el.hidden = false;
     };
-    $('btnOracleDl').addEventListener('click', () => {
-      downloadPng(blob, fileName);
-      note('oracle.saved');
+    // 「下載圖片」＝站主要的是「存進相簿」，不是存成檔案。
+    // iOS 的 <a download> 只會存進「檔案」App，相簿拿不到——唯一的路是系統分享面板，
+    // 那裡「儲存影像」就在第一排。所以能分享檔案時就只丟檔案（不帶文字與網址，
+    // 面板才不會被社群 App 佔滿），不能分享檔案的桌機才退回真正的下載。
+    $('btnOracleDl').addEventListener('click', async () => {
+      try {
+        const how = await saveImage(blob, fileName);
+        note(how === 'shared' ? 'oracle.saveHint' : 'oracle.saved');
+      } catch { /* 使用者在面板按取消不是錯誤 */ }
     });
     const shareBtn = $('btnOracleShare');
     if (shareBtn) {
       shareBtn.addEventListener('click', async () => {
         try {
+          // 分享出去的文字用 result.shareText——那本來就是站主指定的那一句
+          // （推廣這個網站）。不用卡面的句子：圖上已經有了，收到的人看得到。
           const how = await shareCardPng(blob, {
-            fileName, title: card.keyword, text: shareText,
+            fileName, title: t('result.shareTitle'), text: t('result.shareText'),
           });
           note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
         } catch { /* 使用者取消分享不是錯誤 */ }
@@ -1540,12 +1607,10 @@ function renderResult(a) {
     </div>
     <div class="r-actions">
       <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
-      <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
-      ${shareCardTool() ? `<button class="btn" id="btnShareImg">${esc(t('result.shareImage'))}</button>` : ''}
-      ${back ? `<button class="btn" id="btnBackList">${esc(t('result.backToListBtn'))}</button>` : ''}
+      <button class="btn" id="btnMakeCard">${esc(t('result.makeCard'))}</button>
       <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
-    <div class="copy-toast" id="imgToast"></div>
+    <div class="r-makecard-hint">${esc(t('result.makeCardHint'))}</div>
     <div class="r-continue">
       <div class="r-continue-title">${esc(t('result.continueTitle'))}</div>
       <p class="r-continue-hint">${esc(t('result.continueHint'))}</p>
@@ -1561,6 +1626,10 @@ function renderResult(a) {
       <div class="r-advanced-hint">${esc(t('result.advancedHint'))}</div>
       <div class="copy-toast" id="advToast"></div>
     </div>
+    <div class="r-sharesite">
+      <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
+      <div class="r-sharesite-hint">${esc(t('result.shareHint'))}</div>
+    </div>
     <div class="r-follow">
       <div class="r-follow-title">${esc(t('result.followTitle'))}</div>
       <p class="r-follow-hint">${esc(t('result.followHint'))}</p>
@@ -1569,13 +1638,12 @@ function renderResult(a) {
   applyLocaleOnly($('resultHost'));   // 結果頁是動態組的，語系限定區塊要在這裡才生效
   bindFeedback();
   $('btnRestart').addEventListener('click', restart);
-  // 回列表：重畫一次清單（剛剛可能在別的地方刪掉了某一筆），再切回去
-  [$('btnBackTop'), $('btnBackList')].forEach((b) => {
-    if (b) b.addEventListener('click', () => renderHistory());
-  });
+  // 回列表：只剩結果頁最上方那一個入口（底下那顆已經按站主要求拿掉）。
+  // 重畫一次清單再切回去——剛剛可能在別的地方刪掉了某一筆。
+  if ($('btnBackTop')) $('btnBackTop').addEventListener('click', () => renderHistory());
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
+  $('btnMakeCard').addEventListener('click', () => makeCardFromResult(a));
   $('btnShare').addEventListener('click', shareSite);
-  if ($('btnShareImg')) $('btnShareImg').addEventListener('click', shareImage);
   $('btnAdvanced').addEventListener('click', () => {
     const el = $('advToast');
     el.textContent = t('result.advancedSoon');
@@ -1752,63 +1820,6 @@ function siteUrl() {
 
 // ---- 分享圖（把這次抽到的東西畫成一張方形 PNG） ----
 // 哪一個工具的視覺可以入圖：三個都可以，多選時取第一個有資料的。
-function shareCardTool() {
-  const tools = (state && Array.isArray(state.tools)) ? state.tools : [];
-  if (tools.includes('lenormand') && (state.lenormand || []).length) return 'lenormand';
-  if (tools.includes('meihua') && state.meihua && state.meihua.ben) return 'meihua';
-  if (tools.includes('astro') && state.astro) return 'astro';
-  return null;
-}
-
-async function shareImage() {
-  const btn = $('btnShareImg');
-  const toast = $('imgToast');
-  const tool = shareCardTool();
-  if (!btn || !tool) return;
-  const flash = (key) => {
-    if (!toast) return;
-    toast.textContent = t(key);
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2600);
-  };
-  btn.disabled = true;
-  const label = btn.textContent;
-  btn.textContent = t('result.shareImageBusy');
-  try {
-    const d = dict();
-    const svg = buildShareCardSvg({
-      tool,
-      state,
-      labels: {
-        toolName: toolLabel(tool),
-        footer: 'www.intuitive-notes.com',
-        // 字型堆疊要從頁面上取當下語系的那一套，隔離環境裡沒有 CSS 變數可用
-        fontStack: getComputedStyle(document.documentElement).getPropertyValue('--sans').trim()
-          || 'sans-serif',
-        cardName: (card) => cardName(card.id, card.name),
-        meihuaGrid: d.meihuaGrid || {},
-        chartWheel: d.chartWheel || {},
-      },
-    });
-    if (!svg) { flash('result.shareImageFail'); return; }
-    const blob = await svgToPng(svg);
-    const how = await shareCardPng(blob, {
-      fileName: `intuitive-notes-${tool}.png`,
-      title: t('result.shareTitle'),
-      text: t('result.shareText'),
-      url: siteUrl(),
-    });
-    if (how === 'downloaded') flash('result.shareImageSaved');
-  } catch (e) {
-    // 使用者在系統分享面板按取消不算失敗
-    if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return;
-    flash('result.shareImageFail');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = label;
-  }
-}
-
 function shareSite() {
   const btn = $('btnShare');
   const flash = (key, revert = true) => {

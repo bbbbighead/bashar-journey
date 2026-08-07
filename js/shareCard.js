@@ -159,6 +159,11 @@ function astroBody(chart, wheelLabels) {
 }
 
 // ── 組出整張卡 ────────────────────────────────────────────────────────────
+// ⚠ 2026-08 起這支**沒有被任何程式呼叫**。
+// 結果頁原本有一顆「分享圖片」會用它畫一張雷諾曼／梅花／星盤的分享卡，
+// 站主把那顆按鈕拿掉了（改成「製作專屬靈感卡」）。函式留著沒刪：它是自成一格的
+// 繪圖器，之後若要恢復那個功能不必重寫；真的確定不要了再整段刪掉。
+// 這個檔案其他的匯出（svgToPng／shareCardPng／downloadPng／saveImage）都還在用。
 export function buildShareCardSvg({ tool, state, labels }) {
   const p = palette();
   let part = null;
@@ -236,6 +241,23 @@ export function downloadPng(blob, fileName) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(href), 4000);
+}
+
+// 「存到相簿」。回傳 'shared'（開了系統面板）| 'downloaded'（真的存成檔案）。
+//
+// 為什麼不直接用 downloadPng：站主要的是「存進相簿」，不是存成檔案。
+// iOS Safari 的 <a download> 只會存進「檔案」App，相簿拿不到——唯一的路是系統
+// 分享面板，那裡「儲存影像」就在第一排。所以這裡刻意**只丟檔案**，不帶 title、
+// 不帶 text、不帶 url：面板一旦帶了文字，社群 App 就會排到前面去，反而不好按。
+// 桌機沒有 Web Share 檔案支援，退回真正的下載（桌機本來就沒有相簿的概念）。
+export async function saveImage(blob, fileName) {
+  const file = new File([blob], fileName, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file] });
+    return 'shared';
+  }
+  downloadPng(blob, fileName);
+  return 'downloaded';
 }
 
 // 分享（或退回下載）。回傳 'shared' | 'downloaded'，讓呼叫端決定提示什麼。
