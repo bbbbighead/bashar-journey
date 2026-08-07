@@ -10,8 +10,8 @@
 // 三件事：
 //   1. 從 100 張裡挑出與這則解讀接得上的那一張（cardId）
 //   2. 從那張牌的核心訊息萃取卡面文字：一個英文關鍵字 ＋ 一句英文短句（＋使用者語言版）
-//   3. 寫出給圖像模型的 prompt：以牌義為主要依據、他此刻的處境為輔，兩者合成一個
-//      世界（所以同一張牌給不同的人，畫面會明顯不一樣）
+//   3. 寫出給圖像模型的 prompt：把「使用者正在體驗的故事」與「這張牌的核心訊息」
+//      合成一個象徵意象的世界（所以同一張牌給不同的人，畫面會明顯不一樣）
 //
 // 牌卡下方那兩段（核心訊息／洞見）由程式照抄牌組原文（api/oracle.js 直接從
 // deckCard() 取，schema 裡根本沒有這兩個輸出欄位），所以模型改不到它們——保證在
@@ -128,136 +128,111 @@ keywordLocal／sentenceLocal＝上面那兩樣的使用者語言版本。
 - **也不要在譯文裡加回否定或對比**：英文那一句沒有 not，中文就不要出現「不是……而是」
   或「而不是」。譯的時候很容易順手補一個對比進去，那會把卡面又變成在下定義。`;
 
-// ── 世界 ──
-// 站主原規格裡最關鍵的一句是 "Do not translate the essence into symbols.
-// Translate it into a world."——象徵是一個物件懸在虛空裡（一把鑰匙、一顆心），
-// 世界是一個真的能走進去的地方。後者才會有「牌卡底下還有一個世界」的感覺。
-const WORLD = `## 第四步：把牌與這個人的處境合成一個世界
+// ── 畫面 ──
+// ⚠ 這一段與第五步（藝術指導）在 2026-08 由站主整段重寫。
+// 舊版是四輪回饋疊出來的，規則之間互相打架（要留白 vs 要焦點、要暗部 vs 要明亮、
+// 要剪影 vs 要被光照著），模型每次只抓得住一邊，畫風因此一直在兩個極端間擺盪。
+// 站主決定「舊的完全不考慮」，改用他自己寫的一份規格。不要把舊規則加回來。
+//
+// 站主原規格的 STEP 10（Oracle Card Layout：象牙白邊框、細金框、襯線字、
+// artwork 佔 70–75%）刻意**不寫進提示**——那是牌卡的合成規格，js/oracleCard.js
+// 已經照著做了。寫給圖像模型只會讓它自己畫一個框跟一堆糊掉的字。
+const WORLD = `## 第四步：畫面要畫什麼
 
-畫面有兩個來源，權重不同：
+### 構圖來自兩筆資訊的結合
 
-1. **主要依據：你挑的那張牌的核心訊息與洞見。** 那是這張卡的內涵，畫面要畫的就是它在說的事。
-2. **次要依據：解讀裡讀到的、這個人此刻的心理處境。** 這決定那個地方看起來是什麼樣子：他在等待還是在動、在靠近還是在退開、擁擠還是空曠、冷還是暖、天要亮還是要暗、有沒有別人在。
+1. **使用者貼過來的解讀**——擷取其核心靈魂意義。解讀裡若提到抽出的牌名、卦象或
+   主要星象，也可以拿來當靈魂意義的象徵意象。
+   這是**使用者正在體驗的故事畫面**。
+2. **你挑出的那張牌的核心訊息**。
+   這是**呈現在畫面中的指引元素**。
 
-一句話：**牌決定畫什麼，他的處境決定那個地方長什麼樣。**
+### 你在創作的是神諭卡
 
-同一張牌給兩個不同的人，畫面應該明顯不一樣；但兩張都還是在講那張牌。
+把使用者正在體驗的生命故事，轉化為象徵意象的世界。
 
-**例**：他的主題是「想遇到能長久的另一半」，解讀讀起來一直繞在「不敢主動、怕被看見就會被扣分」；挑中的牌在講「你的價值不必掙來，你本來就值得」。
+象徵意象的世界可以是：nature／city／village／home／coast／mountain／desert／
+dreamscape／imaginary landscape。
 
-- ✗ 只有牌：一個人站在空曠的原野上。（對，但換誰都一樣，他不會覺得這是他的卡。）
-- ✗ 只有他的事：兩隻手快要碰到又沒碰到／一枚放在桌上的戒指。（那是把事件畫出來，不是牌。）
-- ✓ 兩者合起來：黃昏的長廊，一個人坐在自己那一側的光裡，門是開的、沒有人在門邊審視；遠處已經有兩三盞燈亮著，等著也算數。等待與「本來就可以」在同一個畫面裡。
+**決定這個世界的氣氛**，自然地選：season／time of day／weather／light／
+architecture／culture／environment。
 
-**他的處境要畫成感覺，不要畫成道具。** 不要出現辦公室、履歷、手機訊息、婚戒、診斷書、合約——那些是他生活裡的物件，一畫出來整張卡就變成那件事的插圖。要畫的是那個處境的**距離、方向、光、溫度、開或關、有人或無人**。
+**畫面中需要出現的元素**：Wind. Mist. Water. Clouds. Plants. Light.
 
-不要把這些翻譯成象徵，要翻譯成一個**世界**。
+### 鏡頭
 
-問：如果這兩件事合起來變成一個真實存在的地方，那會是什麼樣的地方？
+Decide what the true protagonist is.
 
-可以是自然、城市、村落、家屋、海岸、山、沙漠、夢境，或任何想像出來的地景。沒有固定的場景清單——選那個天生就屬於這個訊息的環境。
+- 世界是主角 → wide composition
+- 關係是主角 → close composition
+- 兩者同等重要 → medium composition
 
-**象徵 ✗**：一把鑰匙懸在光裡。
-**世界 ✓**：清晨的碼頭，霧還沒散，有人已經把纜繩解開了。
+Never repeat the same composition for every card. Let the story decide the camera.
 
-決定這個世界的氣候：季節、時辰、天氣、光、建築、文化、環境。這些是敘事工具，一項都不能隨便選——每一個決定都要讓核心訊息更清楚。
+### 最小的故事
 
-不要做「背景」，要做一個**活著的世界**：風、霧、水、雲、植物、動物、人、光。沒有任何東西只是裝飾，所有東西屬於同一個生態。不是每張圖都需要用到全部元素——只用那些真的讓故事更強的。
+Ask: what is the single image the viewer should remember after seeing this card?
 
-**鏡頭**：先決定真正的主角是誰。世界是主角就用遠景；關係是主角就用近景；兩者同等重要就用中景。**不要每張卡都用同一種構圖**——讓故事決定鏡頭。
+Build the card around that one image. Choose the smallest visual story capable of
+expressing the deepest truth. Never attempt to illustrate every idea. Remove
+everything that is unnecessary.
 
-**最小的故事**：問「看完這張卡，觀者會記住的那一個畫面是什麼？」，然後圍繞那一個畫面來建。用最小的視覺故事去表達最深的真實。不要試圖把每個想法都畫出來，不必要的全部拿掉。一張卡、一種情緒、一個視覺中心。
+One card. One emotion. One visual center.
 
-**人與動物**：人物是選配的，不是每張卡都要有人。若有人：不要把他畫成英雄、不要以美貌為優先，優先處理姿態、動作與存在感，讓觀者能把自己投射進去。**不指定性別**——身形保持普遍，讀者才放得進自己。動物只在牠真的讓情感故事更強時才出現，而且是這個生態裡活著的參與者，不是符號。
+### 人物與動物
 
-### 人物的臉與大小（這兩條是硬規定）
+Human figures are optional. If included:
 
-⚠ 實測踩到的坑：一旦畫面裡出現一張畫得出五官的臉，圖像模型會整張倒向童書插畫或
-動畫的畫風——乾淨的描邊、粉彩、沒有紙紋。那不是「多畫了一張臉」，那是換了一個畫種。
+- Do not make them heroes.
+- Do not prioritize beauty.
+- Prioritize posture, gesture and presence.
+- Allow viewers to project themselves.
+- Keep the character visually universal.
 
-- **看不到五官。** 人物一律背對、側逆光成剪影、低頭被頭髮或帽緣遮住，或距離遠到臉
-  只是一小塊顏色。**永遠不要畫眼睛、鼻子、嘴。** 這同時服務原本的目的：一張畫出
-  五官的臉會立刻變成「某個別人」，讀者就放不進自己了。
-- **人物不超過畫面高度的四分之一，永遠不是肖像。** 人是這個世界裡的一個存在，
-  不是被拍的對象。要讓讀者先看到那個地方，再看到裡面有一個人。
-- **人物要被光照著，不要是一團暗。** 看不到五官不等於畫成黑影：光要落在他的肩上、
-  頭髮的邊緣、手上——暖暖的、被照著的。一個陰暗的人形會讓整張變沉重，那與這張卡
-  要給的祝福感相反。
-- prompt 裡要明寫這三件事（seen from behind／face turned away, no facial features；
-  the figure small within the scene；warm light catching their shoulders and hair）。`;
+Animals may appear when they naturally strengthen the emotional story.`;
 
 // ── 藝術指導 ──
-// 這一段的對照表是實測結果，不是品味主張：把「不要過多細節」寫成禁令，圖像模型
-// 幾乎不理；寫成「哪裡留白、怎麼畫」它就照做。
+// 同樣是站主 2026-08 重寫的版本（見上面第四步的說明）。
+// 最後那份 Negative Guidance 不寫在這裡要求模型自己抄——它由程式固定接在每段
+// prompt 後面（IMAGE_SUFFIX），這樣一定完整出現，也不佔模型那 250 字的額度。
 const ART = `## 第五步：藝術指導
 
-先畫氣氛，再畫細節。畫形體之間的關係，而不是孤立的物件。
+Paint atmosphere before details.
 
-成品必須看起來**確實是人手畫的**：水彩、廣告顏料（gouache）、淡墨、礦物顏料、有紋理的棉紙、看得見的筆觸、柔軟的暈染、不均勻的顏料、有機的邊緣。
+The artwork must feel unmistakably hand-painted by a human artist.
 
-**「不要畫完」必須寫成具體可執行的指令，不能只寫成禁令。**
-實測過：把「不要過多細節、不要每片葉子都畫滿」這類禁令寫進 prompt，圖像模型幾乎
-不理——它會照樣把門、窗框、窗簾、窗台上的盆栽、每一棵樹的每一片葉子都畫完，
-畫面填到四邊、沒有一處留白，結果像童書插畫而不是一個記得的夢。
-圖像模型對「不要」的服從度很低，對「怎麼畫」的服從度高。所以每一項都要翻成正面的
-畫法要求，而且要指定**在畫面的哪裡**：
+**Use**：watercolor／gouache／soft ink／mineral pigments／textured cotton paper／
+visible brush marks／soft washes／uneven pigment／organic edges
 
-| 想要的效果 | 不要這樣寫（禁令，無效） | 要這樣寫（正面、指定位置） |
-|---|---|---|
-| 留白 | no empty-space issues、不要畫滿 | large areas of untouched paper along one edge; the lower third fading to bare wash |
-| 樹不要畫滿 | 不要每片葉子都畫滿 | tree canopies suggested with three or four wet strokes, no individual leaves |
-| 邊緣鬆 | 不要邊緣鋒利 | edges bleeding into damp paper; outlines breaking and disappearing in places |
-| 溶解 | 要有溶解的形體 | the far side of the scene dissolving into pale mist, its shapes unreadable |
-| 不完整 | 允許未完成 | one whole passage left as a single flat wash, unpainted |
+**Allow**：unfinished brushwork／blurred transitions／dissolving forms／
+negative space／ambiguity
 
-至少要點名**三個具體的位置**是鬆的、空的、或沒畫完的。
+Objects do not always need complete outlines.
+Mist may become trees. Light may become clouds. Water may become sky.
+Allow elements to gently merge together.
 
-### 但是要有**一個**清楚的焦點
+**The image should feel like**：a remembered dream／a quiet memory／
+a page from an old storybook／a poetic painting
 
-上面那些「鬆、空、沒畫完」全部只適用於**焦點以外**的地方。
+Never feel like a rendered AI illustration.
+Emotion is always more important than perfection.
 
-⚠ 這一段是後來補的，補的原因是實測踩到坑：把「不要畫完」寫得夠強之後，圖像模型
-會把**整張**都畫得糊糊的——人物的臉與手變成一團、主體讀不出來、通篇柔邊。
-那不是留白，那是失焦。留白與失焦的差別就是有沒有這個焦點。
+### 點綴：流動感與希望感
 
-畫面必須有**恰好一個**被畫清楚的地方，通常就是主角：人物的姿態與輪廓、或那個主要
-物件的形體。那一處要有結構、邊緣讀得出來、明度立得起來。離開主角之後才開始鬆。
+- 畫面中要有能創造**流動感、動感**的元素，至少使用一種：風的線條、漸層的光線、
+  亮金金的光輝、雲的湧動感。
+- 畫面要有**希望感、期許感、被祝福的感覺或生命力感**，所以**色調不能混濁黯淡灰暗**。
+  白天可用光暈、穿過樹葉縫隙的光；晚上可以用暖暖的光灑落在牆面或水面、月光。
+- 整體色彩**繽紛但柔和**。
+- 結合水彩的半透明暈染效果增加層次，或是明顯的粉彩、油畫筆觸。**要有紙質感。**
 
-| | 不要這樣 | 要這樣 |
-|---|---|---|
-| 焦點 | 整張都是柔邊、主體也糊 | the seated figure's shoulders and hands drawn with confident, readable edges |
-| 遠景 | 遠景也畫滿細節 | the far shore dissolving into mist, its shapes unreadable |
+### 整體風格
 
-### 光、色與明度：整張要是**亮的、有希望的**
+**氣質、歐式古典、夢境感的結合。** 講究光、空間和光線關係，
+不過度裝飾花紋、不過度飽和的色彩。
 
-⚠ 這一段整個重寫過。前一版只寫「要有一處真的暗」，結果每一張都往沉重走。
-神諭卡是一張祝福，不是一張心情低落的畫——**基調必須是明亮、通透、樂觀的**。
-現在的規則是：亮是主調，暗只是用來撐出空間的那一小塊。
-
-- **基調亮**：整張畫面的主調偏亮、有空氣、光是流動的。看完的感覺要是被祝福、
-  被打開，不是被壓住。
-- **暗只留一小塊**：畫面裡可以有一處夠深的暗（門洞裡、樹叢深處、水面的陰影），
-  用來撐出空間感與明度落差——但**不超過畫面的十分之一**，而且**絕對不是**整體的調性。
-  絕對不要把人物畫成一團暗。
-- **一定要處理光源**。這是「質感好起來」最有效的一件事：
-  白天用逆光的光暈與穿過葉隙的光；傍晚用低角度的暖光落在牆與水面上；
-  夜晚一定要有燈——窗裡的燈火、提燈、街燈、月光在水上的一道。
-  **不要有沒有光源的夜景**（那就是沉悶的來源）。
-- **柔和而繽紛**：至少三個色相，而且都是柔的、不是豔的。天空最好帶顏色
-  （粉橘、淡青、薰衣草紫可以同時出現在一片天裡），水面與牆面接得到它們的反光。
-- **不要整張都是土黃／暖褐／赭色的單色調**。這是實測中最常出錯的一項：模型每次都
-  往那裡滑。prompt 裡要明講這一張的三個色相各是什麼、各在哪裡。
-- **加一點亮晶晶的細節**：光裡浮動的塵、露珠、水面碎光、遠處的點點燈火、
-  空氣中細小的光斑。小小的、散落的，不是特效——那一點閃爍就是希望感的來源。
-
-### 氣質：歐式古典 ＋ 一點夢境
-
-克制、優雅、有空氣。近似**十九世紀末到二十世紀初歐洲的戶外寫生水彩與淡墨風景**：
-講究光、空間與明度關係，不靠裝飾花紋、不靠飽和的顏色、不靠圖騰或紋樣堆出情緒。
-場景與建築也往那個傳統靠——歐式的窗、石階、拱門、庭院、長廊、海岸、田野。
-
-**再加一點夢境感**（這是神諭卡與寫生習作的差別）：光比現實再柔一點、遠處比現實
-再溶一點、邊界比現實再模糊一點。像是記得的那個地方，不是拍下來的那個地方。
+光比現實再柔一點、遠處比現實再溶一點、邊界比現實再模糊一點——
+像是記得的那個地方，不是拍下來的那個地方。
 
 **大量用暈染**：濕中濕（wet-in-wet）讓顏色在紙上自己相遇、天空與遠景用一次過的
 柔和漸層、顏色與顏色的交界不用線分開而是讓它們互相滲進去。
@@ -265,19 +240,17 @@ const ART = `## 第五步：藝術指導
 **紙與顏料要看得出來。** 這是「手畫的水彩」與「數位柔和插畫」最好認的分界，
 所以 prompt 裡一定要點名至少兩項：顏料在紙上的顆粒沉澱（granulation）、
 水痕乾掉留下的硬邊（hard-edged bloom）、乾筆掃過紙面留下的斷續邊緣（dry-brush）。
-沒有這些，出來的東西會是乾淨、平滑、沒有紙的——那就不是這個畫種。
 
-**要在 prompt 的最前面用一句話排除它最容易滑進去的那幾種畫風**：
-\`not children's-book illustration, not anime, not cel-shaded, not airbrushed digital pastel\`。
+### 場景（可選，不必每張都用到）
 
-（這一條與「不要在 prompt 裡堆負面詞」不衝突：那條講的是品味形容詞
-（no glossy、no excessive detail）——那些沒有指涉，模型無從遵守。這裡列的是**具體
-的畫種名稱**，而且只有四個、放在權重最高的開頭。實測會滑進去的就是這幾種。）
-
-畫面應該像一本速寫本裡的一頁——現場二十分鐘畫完的水彩習作，紙微微起皺——而不是
-一張完稿的插畫。情緒永遠比完美重要；但**焦點要清楚**，那不叫完美，那叫畫得準。`;
+歐式的建築物室內、庭院、長廊、海岸、田野、天空、大山大水、公園、城堡、山丘小徑、
+森林秘境、湖泊、小溪河流、雲海之上、彩虹天際、星空、大草原、小村莊、市集、花田、
+樹下、樹上、夢境中。其他景物還可以包括船、馬車、旅人、動物。`;
 
 // ── 給圖像模型的 prompt ──
+// 這一段是唯一決定「什麼東西會被寫進那 250 個英文字」的地方。第四、五步寫得再細，
+// 這裡沒有要求把它寫進去，圖像模型就看不到——它只收得到這段英文＋IMAGE_SUFFIX。
+//
 // 明確禁止文字與邊框是必要的，不是保險：prompt 裡只要出現 oracle card，圖像模型
 // 就會自己加上標題與外框，而它畫出來的字是糊的、拼錯的、每次都不一樣，而且沒辦法
 // 修。卡面的邊框與文字由網站自己合成（js/oracleCard.js）。
@@ -287,23 +260,35 @@ const IMAGE_PROMPT_RULE = `## 第六步：寫出給圖像模型的 prompt（imag
 
 - 用英文寫（圖像模型對英文的服從度明顯較好）。150–250 words。
 - 一段連續的散文式描述，不要用條列、不要用權重語法（不要 \`::\`、不要 \`--ar\`）。
-- 依序帶到：**媒材與畫法**（放最前面——圖像模型對開頭的權重最高）→ 場景與地點 → 氣候與光 → 生態裡活著的元素 → 人物（若有，含姿態與存在感）→ 鏡頭與構圖。
-- 媒材那一段不要只寫 watercolour：要具體寫出**哪裡鬆、哪裡空、哪裡沒畫完**（見第五步的對照表），至少三個位置。這是整段 prompt 裡最重要的部分，寫不夠具體就會得到一張完稿的插畫。
-- 但**一定要另外寫一句：焦點在哪裡、而且那裡是畫清楚的**（例如 the figure's posture and hands drawn with confident readable edges, everything beyond them loosening）。少了這一句，整張會糊成一片——實測過。
-- **基調要亮**：明寫這是一張明亮、通透、有希望的畫（luminous, airy, hopeful）。夠深的暗只留一小塊（門洞裡、樹叢深處、水面陰影），寫出它在哪裡，並且不要讓它成為整體調性。
-- **光源**：明寫光從哪裡來、怎麼落下（backlit haze／low warm sun raking across a wall／lamplight in a window／moonlight laid across water）。**夜景一定要有燈**——沒有光源的夜景就是沉悶的來源。
-- **顏色**：明寫**三個**柔和的色相各在哪裡（例如 a sky of soft apricot, pale teal and lavender；牆與水面接到它們的反光）。柔，不要豔。不要讓整張變成同一個暖褐土黃調——這是圖像模型最常自己滑進去的地方。
-- **亮晶晶的細節**：寫出一兩處小小的閃爍（dust motes drifting in the light／dew on leaves／broken highlights on ripples／distant lamps as small points of light）。散落的小點，不是特效。
-- **暈染**：明寫濕中濕（wet-in-wet washes bleeding into one another, colours meeting on damp paper）與天空那一片柔和漸層。
-- **開頭第一句**就要定位畫種並排除那幾種畫風，例如：\`Late-19th-century European plein-air watercolour and ink wash on rough cotton paper — not children's-book illustration, not anime, not cel-shaded, not airbrushed digital pastel.\` 這一句放最前面，權重最高。
-- **紙與顏料**：至少寫出兩項物理痕跡（pigment granulating in the paper's tooth／hard-edged blooms where a wash dried／dry-brush edges breaking over the grain）。少了這些會得到一張乾淨平滑的數位插畫。
-- **人物**（若有）：明寫看不到臉、人在畫面裡很小、而且**被光照著**（seen from behind, face turned away, no facial features; the figure small within the scene, not a portrait; warm light catching their shoulders and hair）。這三句是硬規定，見第四步。
-- 開頭那句畫種定位順便帶到氣質：European plein-air watercolour、a little dreamlike、luminous 這一路。
-- 不要在 prompt 裡堆負面詞（no glossy、no excessive detail 這類）。實測那些幾乎沒有作用，而且會擠掉真正有效的正面描述。唯一保留的負面要求是文字與邊框，那一段由程式固定接在後面，你不必自己寫。
-- 只描述**畫**本身，不要要求任何文字、標題、簽名、邊框、外框。
-- 直式構圖（2:3）。
-- 若畫面裡有人物：**保持視覺上的普遍性，不要指定性別**（不要寫 a woman／a man／her／his）。用 a figure、someone、a person 這類寫法，把重點放在姿態與存在感。
-- 他的處境要進到畫面裡（第四步的兩個來源），但走的是**距離、方向、光、溫度、開或關、有人或無人**這一路。prompt 裡不要出現指向具體事件的物件：辦公室、履歷、手機訊息、婚戒、診斷書、合約。`;
+- 依序帶到：**媒材與畫法**（放最前面——圖像模型對開頭的權重最高）→ 場景與地點 →
+  季節／時辰／天氣／光 → 畫面裡活著的元素 → 人物（若有）→ 鏡頭與構圖。
+
+下面每一項都要真的寫進那段英文裡，少一項就等於沒有：
+
+- **媒材**：watercolour and gouache on textured cotton paper、visible brush marks、
+  soft washes、uneven pigment、organic edges。
+- **紙與顏料的痕跡**：至少兩項——pigment granulating in the paper's tooth／
+  hard-edged blooms where a wash dried／dry-brush edges breaking over the grain。
+- **活著的元素**：wind、mist、water、clouds、plants、light（挑真的讓故事更強的寫）。
+- **流動感**：至少一種——wind lines、graded light、golden shimmer、surging clouds。
+- **光**：白天寫 light haze／sunlight through leaves；夜晚寫 warm lamplight on a wall
+  or on water／moonlight。整體要 luminous 且 hopeful，**不要 murky、dull、grey**。
+- **顏色**：colourful but soft，不要飽和。
+- **鬆與未完成**：寫出哪裡是 unfinished brushwork／blurred transitions／
+  dissolving forms／negative space，以及形體互相融進去的地方
+  （mist becoming trees／light becoming clouds／water becoming sky）。
+- **風格定位**（放在媒材那一句附近）：refined, European classical, dreamlike;
+  light and space rather than ornament。
+- **人物**（若有）：universal，不是英雄、不強調美貌，重姿態與存在感；
+  **不要指定性別**——用 a figure／someone／a person，不要 a woman／a man／her／his。
+- **鏡頭**：wide／close／medium 三選一，照第四步的判斷寫出來。
+
+最後兩件事：
+
+- 不要自己寫 negative（no glossy、no HDR 這類）。整份 Negative Guidance 由程式固定
+  接在你這段後面，你不必也不要重複——重複只會佔掉你的字數。
+- 只描述**畫**本身，不要要求任何文字、標題、簽名、邊框、外框：牌卡的象牙白邊框、
+  細金框與卡面文字是網站自己合成的，圖像模型只要畫那幅畫。`;
 
 const LANG_NAME = {
   'zh-Hant': '繁體中文（臺灣用語）',
@@ -354,7 +339,7 @@ ${RULES}
 - why：為什麼是這張，一句話（繁體中文，30 字內）。這一欄不會顯示給使用者，是給站主檢查挑卡準不準用的。
 - keyword / sentence：卡面文字，**英文**。sentence 一定要有 you／your。
 - keywordLocal / sentenceLocal：同兩樣東西的**${langName}**版本（使用者語言是英文時照抄原文）。
-- imagePrompt：給圖像模型的英文 prompt。**牌義為主、他此刻的處境為輔**（見第四步）——同一張牌給不同的人，畫面要明顯不一樣。
+- imagePrompt：給圖像模型的英文 prompt。構圖來自**使用者的故事**與**這張牌的核心訊息**兩者的結合（見第四步）——同一張牌給不同的人，畫面要明顯不一樣。
 
 牌卡下方顯示的牌義由程式照抄牌組原文。**不要**在任何欄位裡重寫、摘要或翻譯牌義。`;
 }
@@ -376,14 +361,21 @@ export function buildTranslatePrompt(lang) {
 只輸出 JSON 物件本身。essence 對應核心訊息，insights 對應洞見。`;
 }
 
-// 圖像模型收到的最終 prompt：模型寫的那段 ＋ 一段固定的收尾約束。
+// 圖像模型收到的最終 prompt：模型寫的那段 ＋ 這一段固定的收尾。
 // 分開放是因為前者每張都不同、後者永遠一樣——固定的部分不該讓模型每次重寫一遍
 // （它會漏，實測過同類規則被漏掉），而是由程式接上去。
-// 刻意只留「文字與邊框」這一類禁令：那些是具體的名詞，圖像模型擋得住（不然它一看到
-// oracle card 就會自己加標題與外框，而畫出來的字是糊的、拼錯的、每次都不一樣）。
-// 品味類的禁令（no glossy rendering、no excessive detail、don't paint everything）
-// 已經拿掉——實測完全沒有作用，而且它們很長，會把前面真正有效的正面描述稀釋掉。
-// 那些要求現在改成正面的畫法指令，寫在模型自己產出的 prompt 前段（見第五、六步）。
+//
+// 兩塊：
+//   1. 站主原規格的 Negative Guidance（2026-08 加進來）。放在這裡而不是要求模型
+//      自己寫：這樣每一張都完整出現、一字不差，而且不佔掉模型那 250 字的額度——
+//      它的字數該花在正面描述上。
+//   2. 文字與邊框的禁令。這一類是具體的名詞，圖像模型擋得住（不然它一看到
+//      oracle card 就會自己加標題與外框，而畫出來的字是糊的、拼錯的、每次都不一樣）。
+//      牌卡的象牙白邊框、細金框與卡面文字由網站自己合成（js/oracleCard.js）。
 export const IMAGE_SUFFIX = 'Vertical composition. '
+  + 'Avoid: AI fantasy, romance novel covers, movie posters, game concept art, '
+  + 'glossy rendering, hyper realism, HDR lighting, excessive detail, decorative clutter, '
+  + 'perfect symmetry, overly beautiful faces, fully rendered hair, every leaf fully painted, '
+  + 'every object sharply defined. Do not paint everything — let the viewer complete the image. '
   + 'Absolutely no text, no letters, no words, no numbers, no signature, no title, '
   + 'no border, no frame, no card layout, no margin — the painting only, filling the whole image.';
