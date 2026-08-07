@@ -39,10 +39,26 @@ const T_MSG = 19;     // 細金線 → 句子第一行
 
 const IVORY = '#f3ece0';
 const IVORY_EDGE = '#e6dcc9';
-const GOLD = '#a98b48';
-const GOLD_SOFT = 'rgba(169,139,72,.42)';
+// 站主回報「金邊太不明顯，看不出是神諭卡」。金色分三級用：
+//   GOLD       主框線與裝飾——要看得見，所以比舊版深一階也不再壓 opacity
+//   GOLD_MID   次要線條（第二道細框、分隔線）
+//   GOLD_SOFT  最淡的一級，只給不該搶戲的地方
+const GOLD = '#9c7a33';
+const GOLD_MID = 'rgba(156,122,51,.62)';
+const GOLD_SOFT = 'rgba(156,122,51,.4)';
 const INK = '#2b2620';
 const INK_SOFT = '#6b6154';
+
+// 小菱形（稜形花飾）。神諭卡的線條裝飾幾乎都由它與細線組成——
+// 放在框角、分隔線中央、標題下方，一眼就看得出是「一張牌」而不是一張貼了字的圖。
+const diamond = (cx, cy, r, fill) =>
+  `<path d="M${cx} ${cy - r}L${cx + r} ${cy}L${cx} ${cy + r}L${cx - r} ${cy}Z" fill="${fill}"/>`;
+
+// 一條「線—菱形—線」的裝飾橫線。half 是整條的半寬，gap 是中間留給菱形的半寬。
+const ornRule = (cx, cy, half, gap, r, color) => `
+<line x1="${cx - half}" y1="${cy}" x2="${cx - gap}" y2="${cy}" stroke="${color}" stroke-width="0.6"/>
+<line x1="${cx + gap}" y1="${cy}" x2="${cx + half}" y2="${cy}" stroke="${color}" stroke-width="0.6"/>
+${diamond(cx, cy, r, color)}`;
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -183,14 +199,17 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }
     msgLines = wrapText(sentence, msgSize, ART_W - 24);
   }
   const msgLH = msgSize * 1.45;
-  const yFoot = Math.max(H - PAD - 5, yMsg + (msgLines.length - 1) * msgLH + 15);
+  // 站名放大到 9.5px 之後要離下框遠一點，不然會壓在金框上（下框在 H - PAD = 582）
+  const yFoot = Math.max(H - PAD - 9, yMsg + (msgLines.length - 1) * msgLH + 16);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
 <style>
   .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.18em;text-anchor:middle}
   .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:${msgItalic}}
-  .oc-foot{fill:${GOLD_SOFT};font-size:7.5px;letter-spacing:.34em;text-anchor:middle;
+  /* 站名：站主回報「顏色太淡、字也可以再大一點」。
+     7.5px + 42% 的金色在手機上幾乎看不到，改成 9.5px 的實色金。 */
+  .oc-foot{fill:${GOLD};font-size:9.5px;letter-spacing:.3em;text-anchor:middle;
     font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
 </style>
 <defs>
@@ -209,16 +228,31 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer }
   width="${ART_W}" height="${ART_H}"
   preserveAspectRatio="xMidYMid slice" clip-path="url(#ocArt)"/>
 
-<!-- 細金框：整張卡的內框，圈住 artwork 與文字 -->
+<!-- 金框：兩道線（外粗內細）＋ 四角菱形。
+     單獨一條 0.8px 半透明的線在手機上幾乎看不見，站主因此覺得「不像牌卡」。
+     雙線是這個品類最好認的記號，成本也最低——不佔版面、不影響任何文字位置。 -->
 <rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}"
-  fill="none" stroke="${GOLD}" stroke-width="0.8" opacity=".75"/>
-<!-- artwork 與文字之間的分界，只畫一條淡線，不畫整框 -->
-<line x1="${PAD + FRAME}" y1="${ART_TOP + ART_H}" x2="${W - PAD - FRAME}" y2="${ART_TOP + ART_H}"
-  stroke="${GOLD_SOFT}" stroke-width="0.7"/>
+  fill="none" stroke="${GOLD}" stroke-width="1.6"/>
+<rect x="${PAD + 3.5}" y="${PAD + 3.5}" width="${W - (PAD + 3.5) * 2}" height="${H - (PAD + 3.5) * 2}"
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>
+${[[PAD + 3.5, PAD + 3.5], [W - PAD - 3.5, PAD + 3.5],
+    [PAD + 3.5, H - PAD - 3.5], [W - PAD - 3.5, H - PAD - 3.5]]
+    .map(([x, y]) => diamond(x, y, 3.2, GOLD)).join('\n')}
+<!-- artwork 與文字之間的分界：線—菱形—線，不是一條光禿禿的線 -->
+<!-- artwork 自己的細金框：把畫與象牙白分開。
+     第一版把裝飾線直接畫在 artwork 的下緣，結果那顆菱形疊在畫面上，看起來像髒點。
+     改成畫有自己的框，裝飾線退到底下的象牙白區裡。 -->
+<rect x="${PAD + FRAME}" y="${ART_TOP}" width="${ART_W}" height="${ART_H}"
+  fill="none" stroke="${GOLD_MID}" stroke-width="0.7"/>
+
+<!-- 畫與文字之間的裝飾：線—菱形—線 -->
+${ornRule(W / 2, ART_TOP + ART_H + 12, ART_W / 2 - 14, 8, 2.8, GOLD_MID)}
 
 <text x="${W / 2}" y="${yKey}" class="oc-title">${esc(keyword)}</text>
-<line x1="${W / 2 - 26}" y1="${yRule}" x2="${W / 2 + 26}" y2="${yRule}"
-  stroke="${GOLD_SOFT}" stroke-width="0.7"/>
+<!-- 標題下方的花飾：中間一顆菱形，兩側各一條線再加一顆更小的菱形收尾 -->
+${ornRule(W / 2, yRule, 34, 7, 2.6, GOLD)}
+${diamond(W / 2 - 40, yRule, 1.6, GOLD_SOFT)}
+${diamond(W / 2 + 40, yRule, 1.6, GOLD_SOFT)}
 ${msgLines.map((line, i) => `<text x="${W / 2}" y="${yMsg + i * msgLH}" class="oc-msg">${esc(line)}</text>`).join('\n')}
 <text x="${W / 2}" y="${yFoot}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
 </svg>`;
