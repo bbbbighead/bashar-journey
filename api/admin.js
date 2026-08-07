@@ -237,14 +237,7 @@ export default async function handler(req, res) {
 
       // 專屬靈感牌卡的總開關。即時生效：api/oracle.js 每次請求都讀這個值，
       // 所以按下去之後下一個使用者就是新的狀態，不必改程式也不必重新部署。
-      // 環境變數 ORACLE_ENABLED 有設的話它贏，這裡就拒絕——否則畫面上按了沒反應，
-      // 站主會以為壞掉。
       if (action === 'oracleswitch') {
-        const envRaw = process.env.ORACLE_ENABLED;
-        if (envRaw != null && String(envRaw).trim() !== '') {
-          res.status(409).json({ ok: false, error: 'env_override' });
-          return;
-        }
         if (!redisConfigured()) { res.status(503).json({ ok: false, error: 'no_redis' }); return; }
         const on = body.on === true || body.on === 1 || body.on === '1';
         await redisPipeline([['SET', 'pi:oracleon', on ? '1' : '0']]);
@@ -894,15 +887,14 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 專屬靈感牌卡的總開關現況。與 api/oracle.js 的 isEnabled() 是同一套判斷，
-    // 只是這裡多回報「現在是誰在決定」，畫面才能說明為什麼開關按不動。
+    // 專屬靈感牌卡的總開關現況。與 api/oracle.js 的 isEnabled() 是同一套判斷。
     if (view === 'oracleswitch') {
-      const envRaw = process.env.ORACLE_ENABLED;
-      const envSet = envRaw != null && String(envRaw).trim() !== '';
-      const on = envSet
-        ? !/^(0|false|off|no)$/i.test(String(envRaw).trim())
-        : await oracleSwitchStored();
-      res.status(200).json({ ok: true, enabled: on, envSet, source: envSet ? 'env' : 'redis' });
+      res.status(200).json({
+        ok: true,
+        enabled: await oracleSwitchStored(),
+        // Redis 沒設定時開關按了也沒用（值存不進去），畫面要能說明原因
+        storable: redisConfigured(),
+      });
       return;
     }
 

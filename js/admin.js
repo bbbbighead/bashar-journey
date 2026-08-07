@@ -1432,8 +1432,7 @@ const oaCost = (v) => (Number.isFinite(Number(v)) && Number(v) > 0
 
 // ---- 對外開關 ----
 // 值存在 Redis，api/oracle.js 每次請求都讀，所以按下去下一個使用者就是新的狀態。
-// 環境變數 ORACLE_ENABLED 有設的話它贏，這時候把按鈕鎖住並說明原因——按了沒反應
-// 比按鈕消失更難懂。
+// Redis 是唯一的來源：讀不到就一律當關閉（誤關只是少一張卡，誤開會花錢）。
 async function refreshOracleSwitch() {
   const state = $('oswState');
   const btn = $('oswBtn');
@@ -1452,21 +1451,18 @@ async function refreshOracleSwitch() {
   state.textContent = on ? '開放中——使用者可以製作牌卡' : '已關閉——使用者看到「即將開放」';
   btn.textContent = on ? '關閉' : '開放';
   btn.classList.toggle('primary', !on);
-  btn.disabled = !!d.envSet;
-  note.textContent = d.envSet
-    ? '目前由環境變數 ORACLE_ENABLED 決定，後台改不動。要把控制權交回這裡，'
-      + '請到 Vercel 把那個變數整個刪掉再 Redeploy。'
+  btn.disabled = d.storable === false;
+  note.textContent = d.storable === false
+    ? '這個環境沒有設定 Redis，開關存不進去，功能維持關閉。'
     : '按下去即時生效，不必重新部署。關閉不會刪除任何已產生的紀錄與圖。'
-      + `每張牌卡約 US$0.08，其中圖像佔八成以上。`;
+      + '每張牌卡約 US$0.08，其中圖像佔八成以上。';
   btn.onclick = async () => {
     btn.disabled = true;
     btn.textContent = '處理中……';
     try {
       await api({}, { action: 'oracleswitch', on: !on });
-    } catch (e) {
-      note.textContent = e.code === 'env_override'
-        ? '環境變數 ORACLE_ENABLED 有設，後台改不動。'
-        : '切換失敗，請重試。';
+    } catch {
+      note.textContent = '切換失敗，請重試。';
     }
     refreshOracleSwitch();
   };

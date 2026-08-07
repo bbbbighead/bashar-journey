@@ -56,29 +56,22 @@ const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 // 前端就完全不顯示用量、也不會鎖任何按鈕（見 js/app.js 的 paintOracleQuota）。
 const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 0);
 
-// 功能總開關。關閉時端點拒絕所有請求、牌卡頁顯示「即將開放」，
-// 但不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
+// 功能總開關（後台「靈感牌卡」分頁最上方那一顆）。關閉時端點拒絕所有請求、
+// 牌卡頁顯示「即將開放」，但不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
 //
-// 兩層，優先序由高到低：
-//   1. 環境變數 ORACLE_ENABLED（**有設就贏**）——硬性的 kill switch。設了之後後台的
-//      開關就按不動了，畫面上會說明原因。要把控制權交回後台就把這個變數整個刪掉。
-//   2. Redis 的 pi:oracleon（後台那顆開關寫的）——站主隨時可以切，即時生效、
-//      不必改程式、不必重新部署。
-//   都沒有的話＝**關閉**。預設關而不是預設開：這是全站唯一每次呼叫都有明確單張成本
-//   的功能（圖像生成），預設關的話任何一次意外部署都不會把它打開。
-const ENV_SWITCH = process.env.ORACLE_ENABLED;
-const ENV_SET = ENV_SWITCH != null && String(ENV_SWITCH).trim() !== '';
-const truthy = (v) => !/^(0|false|off|no)$/i.test(String(v).trim());
-
-// 每次請求都讀一次 Redis：這顆開關就是要能即時生效，快取住就失去意義了
-//（多一個 GET，與這支端點本來要做的事相比可以忽略）。
-// Redis 讀不到就退回「關閉」——寧可誤關也不要誤開，因為誤開會花錢。
+// **唯一的來源是 Redis 的 pi:oracleon**（後台那顆開關寫的）。站主隨時可以切，
+// 即時生效、不必改程式、不必重新部署。曾經有一個 ORACLE_ENABLED 環境變數當
+// kill switch，站主決定拿掉——兩個地方都能決定同一件事，遲早會忘記是哪一個在生效。
+//
+// 讀不到就一律當**關閉**：沒設定過、Redis 沒設定、Redis 掛了、逾時，全部都算關。
+// 方向是刻意的——誤關只是少產一張卡，誤開會花錢（這是全站唯一每次呼叫都有明確
+// 單張成本的功能）。
 async function isEnabled() {
-  if (ENV_SET) return truthy(ENV_SWITCH);
   if (!redisConfigured()) return false;
   try {
     const [r] = await redisPipeline([['GET', 'pi:oracleon']]);
-    return r && r.result != null ? truthy(r.result) : false;
+    if (!r || r.result == null) return false;
+    return !/^(0|false|off|no)$/i.test(String(r.result).trim());
   } catch {
     return false;
   }
