@@ -158,13 +158,19 @@
           <span id="bulkCount"></span>
           <button class="btn small danger" id="btnBulkDel">刪除選取的紀錄</button>
         </div>
-        <!-- 這張表 10 欄，1180px 放得下，所以不套 .a-scroll——
-             有了橫向捲動容器，表頭的 sticky 就會失效（overflow-x:auto 會連帶
-             讓垂直方向變成捲動容器）。寬表格（處理時間）才需要那層。 -->
+        <!-- 這張表 14 欄、約 1240px，窄螢幕一定放不下，所以要有地方橫向捲。
+             以前是靠「整頁橫向捲動」看到右邊的欄位；css/calm.css 為了修前台置中
+             在 html/body 上了 overflow-x: clip 之後，整頁不再能橫捲，右邊就再也
+             碰不到了——所以這一層是必要的，不是美化。
+             舊註解說「套了捲動容器表頭的 sticky 會失效」所以不套：那個顧慮對這張表
+             不成立。全站唯一的 sticky 是 .admin-bar（頁首＋分頁），它在表格外面，
+             不受這層影響；這張表的 thead 本來就沒有 sticky。 -->
+        <div class="a-scroll">
         <table class="a-table sessions" id="sessTable">
             <thead><tr><th class="chk-col"><input type="checkbox" id="chkAll" title="全選目前顯示的紀錄"></th><th class="sortable" data-sort="ts">時間</th><th class="sortable" data-sort="vid">訪客</th><th class="sortable" data-sort="visitNo">回訪</th><th class="sortable" data-sort="src">來源</th><th class="sortable" data-sort="device">裝置</th><th class="sortable" data-sort="lang">語言</th><th class="sortable" data-sort="country">地區</th><th class="sortable" data-sort="topic">主題</th><th class="sortable" data-sort="tools">工具</th><th class="sortable" data-sort="msgChars" title="分析本文字數：只算模型實際寫的分析，不含各段標題與配置清單那一行。英文紀錄另外加註 words（英文的篇幅規定以 words 計，字元數約是它的五倍）">字數</th><th class="sortable" data-sort="feedback">回饋</th><th class="sortable" data-sort="note">標註</th><th>預覽</th></tr></thead>
           <tbody></tbody>
         </table>
+        </div>
         <div class="a-actions"><button class="btn" id="btnMore">載入更多</button></div>
       </div>
     </div>
