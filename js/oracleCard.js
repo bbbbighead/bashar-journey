@@ -48,13 +48,8 @@ const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
-// SVG 沒有自動換行，只能自己斷。卡面文字一律英文（見 prompts/oracle.js 的決定），
-// 所以用拉丁字寬估算就夠：一個字元約 0.5em，大寫與寬字母略多，取 0.52 保守一點。
-// 估錯的方向刻意偏保守——寧可比實際窄、多換一行，也不要撐出金框。
-function wrapLatin(text, fontSize, maxWidth) {
-  const per = fontSize * 0.52;
-  const max = Math.max(1, Math.floor(maxWidth / per));
-  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+// 貪心斷行：每一行塞到滿為止。這是「行數最少」的排法，但最後一行常常只剩兩三個字。
+function greedyLines(words, max) {
   const lines = [];
   let cur = '';
   for (const w of words) {
@@ -65,6 +60,34 @@ function wrapLatin(text, fontSize, maxWidth) {
   }
   if (cur) lines.push(cur);
   return lines;
+}
+
+// SVG 沒有自動換行，只能自己斷。卡面文字一律英文（見 prompts/oracle.js 的決定），
+// 所以用拉丁字寬估算就夠：一個字元約 0.5em，大寫與寬字母略多，取 0.52 保守一點。
+// 估錯的方向刻意偏保守——寧可比實際窄、多換一行，也不要撐出金框。
+//
+// 斷完之後再「平衡」：貪心排法會把第一行塞到滿，第二行只剩幾個字（站主回報過
+// 「Your only real mission is to become yourself as fully ／ as you can.」，
+// 52 字對 11 字），版面看起來是歪的。做法是在**不增加行數**的前提下，把每行允許的
+// 寬度一路收窄到不能再收——行數不變，字就會自己往下一行移，兩行長度自然接近。
+// 這正是瀏覽器 text-wrap: balance 的作法，只是 SVG 裡沒有這個屬性，得自己算。
+function wrapLatin(text, fontSize, maxWidth) {
+  const per = fontSize * 0.52;
+  const hardMax = Math.max(1, Math.floor(maxWidth / per));
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const lines = greedyLines(words, hardMax);
+  if (lines.length < 2) return lines;
+
+  // 下界是最長的那個單字——再窄下去單字本身就會撐出金框（貪心不會把單字切開）。
+  let lo = words.reduce((m, w) => Math.max(m, w.length), 1);
+  let hi = hardMax;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (greedyLines(words, mid).length <= lines.length) hi = mid; else lo = mid + 1;
+  }
+  return greedyLines(words, lo);
 }
 
 // 關鍵字規定是一個英文單字（見 prompts/oracle.js），所以正常情況下都落在最大的
