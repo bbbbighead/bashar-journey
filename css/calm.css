@@ -2239,3 +2239,51 @@ body { overflow-x: clip; max-width: 100%; }
   background: rgba(214, 183, 122, .14); color: #e6cd96;
   border: 1px solid rgba(214, 183, 122, .45); border-radius: 3px;
 }
+
+/* ===== 靈感卡的彈出視窗（結果頁的「製作專屬靈感卡」）===================== */
+/* 站主要的是「比較像是跳出來的一個視窗」。金色星軌的等待動畫也在視窗裡跑，
+   所以按下去就看得到它已經開始，不會以為沒反應。 */
+body.ocm-open { overflow: hidden; }
+.ocm { position: fixed; inset: 0; z-index: 96; display: flex;
+  align-items: center; justify-content: center; padding: 18px; }
+.ocm-back { position: absolute; inset: 0; background: rgba(4, 7, 12, .82);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.ocm-box {
+  position: relative; z-index: 1; width: 100%; max-width: 400px;
+  max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 34px 20px 24px;
+  background: linear-gradient(180deg, rgba(12, 18, 28, .98), rgba(8, 12, 20, .99));
+  border: 1px solid rgba(214, 183, 122, .34); border-radius: 4px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .7);
+  animation: ocmIn .28s ease;
+}
+@keyframes ocmIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ocm-x {
+  position: absolute; top: 9px; right: 9px; z-index: 2;
+  width: 30px; height: 30px; padding: 0; cursor: pointer;
+  background: none; border: none;
+}
+/* 用兩條線畫叉，不放字元——字元在不同系統上大小差很多 */
+.ocm-x::before, .ocm-x::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 14px; height: 1px; background: var(--accent-dim);
+}
+.ocm-x::before { transform: translate(-50%, -50%) rotate(45deg); }
+.ocm-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.ocm-x:hover::before, .ocm-x:hover::after { background: var(--accent); }
+/* 視窗裡的牌卡不必再留 max-width，容器已經夠窄了 */
+.ocm .oc-card-wrap { padding: 0 0 20px; }
+.ocm .oc-card-img { max-width: 100%; }
+/* 等待動畫在視窗裡要有高度，不然星軌會被壓扁 */
+.ocm .oc-weaving { min-height: 320px; }
+
+/* 結果頁：三顆按鈕之後的說明，以及搬到「直覺對話」下面的分享區 */
+.r-makecard-hint {
+  margin: 10px 0 0; text-align: center;
+  font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
+}
+.r-sharesite { margin-top: 30px; text-align: center; }
+.r-sharesite-hint {
+  margin-top: 9px; font-family: var(--sans); font-size: 12px;
+  line-height: 1.7; color: var(--ink-faint);
+}
