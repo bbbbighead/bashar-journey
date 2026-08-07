@@ -267,14 +267,8 @@
     </div>
   </section>
 
-  <!-- 專屬靈感牌卡：貼上一則解讀 → 神諭卡。內容全由 js/app.js 的 renderOracle 畫 -->
-  <section class="screen" id="screenOracle">
-    <div class="reading-wrap oracle-wrap">
-      <div class="r-title" data-i18n="oracle.title">專屬靈感牌卡</div>
-      <div class="rule-orn" aria-hidden="true"></div>
-      <div id="oracleHost"></div>
-    </div>
-  </section>
+  <!-- 專屬靈感牌卡沒有自己的畫面：它畫在結果頁按下按鈕後開的彈出視窗裡
+       （js/app.js 的 makeCardFromResult 動態建出 #ocModal）。 -->
 
   <section class="screen" id="screenHistory">
     <div class="reading-wrap history-wrap">

@@ -138,7 +138,8 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   $(id).classList.add('active');
   if (id !== 'screenWeaving') stopWeaveProgress();
-  if (id !== 'screenOracle') stopOracleStage();
+  // 牌卡畫在彈出視窗裡，換頁就代表視窗那邊沒在跑了（視窗開著時不會換頁）
+  stopOracleStage();
   // 放大檢視是 body 層的浮層，換頁不會自動收掉——換語言重繪結果頁時也一樣，
   // 不關的話會蓋著新畫面，而且蓋著的是舊的那張圖
   closeChartZoom();
@@ -294,41 +295,19 @@ function renderGuide() {
   showScreen('screenGuide');
 }
 
-// ---- 專屬靈感牌卡（選單頁） ----
-// 使用者貼上一則自己喜歡的解讀，系統從那則解讀裡**逐字**挑出最有力量的一句話，
-// 替它下一個英文標題，再畫一張對應的圖，合成一張可以下載、可以分享的牌卡。
+// ---- 專屬靈感牌卡 ----
+// 從使用者這一則解讀裡**逐字**挑出最有力量的一句話，替它下一個英文標題，
+// 再畫一張對應的圖，合成一張可以下載、可以分享的牌卡。
 // 卡面上的話是使用者自己剛剛讀到的話——這是這個功能的整個重點（見 prompts/oracle.js）。
-let oracleBusy = false;
-// 切換語系時的輕量重繪。與選牌畫面同一個判斷：不重建，只換文字——重建會清掉
-// 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的牌義是用當時的輸出
-// 語言取得的，跟主報告一樣不隨介面語言改寫）。
-let oracleRepaint = null;
-// 這一次貼的解讀全文。「再生成」用同一則重跑，不必再貼一次。
-let oracleLast = null;
-// 今天已用張數與上限。由伺服器給（action:'info' 只讀、不累加），不寫死在前端。
-let oracleQuota = null;
-
-// 把用量畫到表單上，額度用完時連「生成牌卡」都按不下去。
-// 前端的 disabled 只是為了不讓人白等——真正的擋在伺服器端（api/oracle.js）。
 //
-// limit <= 0＝伺服器端沒有限制：這時候什麼都不顯示、什麼都不鎖。
-// 少了這道判斷，「已使用 0 ／ 0 張」會被算成額度已滿，按鈕一開始就是灰的。
-function paintOracleQuota() {
-  const note = $('oracleNote');
-  if (!note || !oracleQuota) return;
-  const { used, limit } = oracleQuota;
-  const go = $('btnOracleGo');
-  if (!(limit > 0)) {
-    note.textContent = '';
-    note.classList.remove('oc-note-out');
-    if (go) go.disabled = false;
-    return;
-  }
-  const out = used >= limit;
-  note.textContent = out ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit);
-  note.classList.toggle('oc-note-out', out);
-  if (go) go.disabled = out;
-}
+// 入口只有一個：結果頁底下的「製作專屬靈感卡」，畫在彈出視窗裡。
+// 2026-08 以前還有一頁「貼上任意一則解讀」的獨立頁面（選單裡的第二個入口），
+// 已按站主決定整頁刪除——連同它的表單、用量提示、「再生成／換一則解讀」，
+// 以及為了同時服務兩個入口而存在的 host／mode 雙軌。
+let oracleBusy = false;
+// 切換語系時的輕量重繪。生成中的階段文字會設一個；結果狀態設為 null
+// （卡面文字是用當時的輸出語言取得的，跟主報告一樣不隨介面語言改寫）。
+let oracleRepaint = null;
 
 async function oracleApi(payload) {
   const res = await fetch('/api/oracle', {
@@ -340,20 +319,16 @@ async function oracleApi(payload) {
   return res.json();
 }
 
-function oracleError(msg) {
-  const box = $('oracleErr');
-  if (box) { box.textContent = msg; box.hidden = !msg; }
-}
-
-// 功能被站主關閉時的畫面。選單那一項仍然點得進來（與站上其他未開放項目一致），
-// 但這裡不給表單——避免使用者填完一大段才發現送不出去。
+// 功能被站主關閉時的畫面。正常情況下結果頁那顆按鈕已經先被收掉了（renderResult
+// 會問一次 info），走到這裡的是「停在結果頁的期間站主才把開關關掉」那種情況。
 function oracleSoon() {
   stopOracleStage();
   oracleRepaint = () => {
-    const el = oracleHost().querySelector('.oc-soon');
+    const el = oracleHost() && oracleHost().querySelector('.oc-soon');
     if (el) el.textContent = t('oracle.soon');
   };
-  oracleHost().innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
+  const host = oracleHost();
+  if (host) host.innerHTML = `<p class="oc-soon">${esc(t('oracle.soon'))}</p>`;
 }
 
 // 生成中的過場。用的是與探索工具**完全同一組**動畫（.orbit-stage 的三層星軌與
@@ -367,14 +342,10 @@ function oracleSoon() {
 // 星軌的 markup 與 index.html 的 #screenWeaving 一字不差（同一組 class 就是同一組
 // 動畫）。刻意複製而不是搬去共用元件：那邊是靜態 HTML、這邊是動態插入的，
 // 為兩個地方共用一段字串要多一層抽象，不值得。改動畫時記得兩邊一起改。
-// 靈感卡有兩個入口，走的是同一套產生流程，差別只在「畫到哪裡」：
-//   ・專屬靈感牌卡那一頁：使用者自己貼一則解讀 → 畫進 #oracleHost
-//   ・結果頁的「製作專屬靈感卡」：直接拿這一則去生 → 畫進彈出視窗
-// 所以每個會動到畫面的地方都走 oracleHost()，不要寫死 oracleHost()。
-let oracleHostId = 'oracleHost';
-const oracleHost = () => document.getElementById(oracleHostId);
-// 'page'＝牌卡頁（有再生成／換一則）｜'modal'＝結果頁彈出視窗（只有下載與分享）
-let oracleMode = 'page';
+//
+// 牌卡的所有畫面都畫在彈出視窗裡的 #ocModalHost。視窗關掉之後這裡會回 null，
+// 所以每個會動到畫面的地方都要先確認拿得到——生成途中被關掉是正常的使用行為。
+const oracleHost = () => document.getElementById('ocModalHost');
 
 const ORACLE_SLOW_MS = 55000;   // 與主流程的「比平常久」同一個門檻（≈P90）
 let oracleStep = 0;
@@ -408,7 +379,9 @@ function oracleStage(step) {
   oracleRepaint = () => paintOracleStage();
   if (first) {
     stopOracleStage();
-    oracleHost().innerHTML = `
+    const host = oracleHost();
+    if (!host) return;   // 視窗已經被關掉了
+    host.innerHTML = `
       <div class="weaving oc-weaving">
         ${orbitStageHtml(t('oracle.busy'))}
         <div class="weave-stage">
@@ -442,7 +415,7 @@ function paintOracleStage() {
     .map((n) => `<span class="weave-dot${n <= oracleStep ? ' on' : ''}"></span>`).join('');
 }
 
-// 從結果頁直接做一張靈感卡：不用複製、不用跳去牌卡頁貼上。
+// 從結果頁直接做一張靈感卡：這是牌卡唯一的入口。
 // 畫在一個彈出視窗裡（站主指定「比較像是跳出來的一個視窗」），金色星軌的等待動畫
 // 也在視窗裡跑，所以按下去就看得到它已經開始了。
 function closeOracleModal() {
@@ -450,9 +423,7 @@ function closeOracleModal() {
   if (!el) return;
   el.remove();
   document.body.classList.remove('ocm-open');
-  // 視窗關掉之後，牌卡頁那個 host 才是預設的畫布
-  oracleHostId = 'oracleHost';
-  oracleMode = 'page';
+  stopOracleStage();
   oracleRepaint = null;
 }
 
@@ -477,8 +448,6 @@ function makeCardFromResult(a) {
     if (e.target.closest('[data-ocm-close]')) closeOracleModal();
   });
 
-  oracleHostId = 'ocModalHost';
-  oracleMode = 'modal';
   runOracle(reading);
 }
 
@@ -487,70 +456,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('ocModal')) closeOracleModal();
 });
 
-// ⚠ 2026-08 起這一頁**沒有入口**：選單裡的「專屬靈感牌卡」已經拿掉，牌卡改成從
-// 每一則解讀底下那顆按鈕直接生（makeCardFromResult，畫在彈出視窗裡）。
-// 程式先留著沒刪，是因為它是唯一「貼上站外的解讀也能生卡」的路徑，站主還沒決定
-// 要不要保留這個能力。確定不要之後，這個函式、#screenOracle、oracleError、
-// paintOracleQuota、oracleLast（再生成用）以及 oracleMode 的雙軌都可以一起刪掉。
-function renderOracle() {
-  stopOracleStage();
-  // 從彈出視窗回到牌卡頁時，host 可能還指著視窗裡那顆——切回來
-  oracleHostId = 'oracleHost';
-  oracleMode = 'page';
-  const host = oracleHost();
-  host.innerHTML = `
-    <p class="oc-lede">${esc(t('oracle.lede'))}</p>
-    <div class="oc-panel">
-      <div class="oc-field oc-field-last">
-        <label class="oc-label" id="oracleReadLabel" for="oracleReading">${esc(t('oracle.readingLabel'))}</label>
-        <textarea id="oracleReading" rows="8" maxlength="12000"
-          placeholder="${esc(t('oracle.readingPh'))}"></textarea>
-      </div>
-    </div>
-    <div class="oc-note" id="oracleNote"></div>
-    <div class="oc-err" id="oracleErr" hidden></div>
-    <div class="oc-actions">
-      <button type="button" class="btn primary" id="btnOracleGo">${esc(t('oracle.submit'))}</button>
-    </div>`;
-
-  oracleRepaint = () => {
-    const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
-    set('oracleReadLabel', t('oracle.readingLabel'));
-    set('btnOracleGo', t('oracle.submit'));
-    paintOracleQuota();
-    const lede = host.querySelector('.oc-lede');
-    if (lede) lede.textContent = t('oracle.lede');
-    $('oracleReading').placeholder = t('oracle.readingPh');
-  };
-
-  // 一次拿兩件事：功能有沒有開著、今天已用幾張／上限。
-  // 都由伺服器決定：開關是站主在後台按的（存 Redis，端點每次請求都讀），
-  // 上限則看 ORACLE_DAILY_LIMIT。拿不到就維持原樣（留白、不鎖），
-  // 寧可不顯示也不要顯示錯的。
-  oracleApi({ action: 'info' }).then((info) => {
-    if (!info || !info.ok) return;
-    if (info.enabled === false) { oracleSoon(); return; }
-    if (!$('oracleNote')) return;
-    oracleQuota = { used: Number(info.used) || 0, limit: Number(info.limit) || 0 };
-    paintOracleQuota();
-  }).catch(() => {});
-
-  $('btnOracleGo').addEventListener('click', () => {
-    const reading = $('oracleReading').value.trim();
-    if (reading.length < 80) { oracleError(t('oracle.tooShort')); return; }
-    runOracle(reading);
-  });
-
-  showScreen('screenOracle');
-}
-
 async function runOracle(reading) {
   if (oracleBusy) return;
   oracleBusy = true;
-  // 記住這次貼的解讀，「再生成」要用同一則重跑一次。
-  // 重跑會走完整流程（新的 id、新的圖），所以會再吃掉一次每日額度——這是刻意的：
-  // 圖像生成有實際成本，每日上限是唯一的成本控制。
-  oracleLast = { reading };
   oracleStage(1);
   try {
     const text = await oracleApi({ action: 'text', reading, lang: getLocale() });
@@ -572,7 +480,6 @@ async function runOracle(reading) {
       oracleFailed(t('oracle.failed'));
       return;
     }
-    oracleQuota = { used: Number(text.used) || 0, limit: Number(text.limit) || 0 };
     oracleStage(2);
 
     let image = null;
@@ -589,21 +496,19 @@ async function runOracle(reading) {
   }
 }
 
+// 失敗畫面只說明「這次沒成功」，沒有按鈕：視窗右上角的 ✕ 就是出口，
+// 關掉之後那則解讀還在，再按一次「製作專屬靈感卡」就是重試。
 function oracleFailed(msg) {
   stopOracleStage();
   oracleRepaint = null;
-  oracleHost().innerHTML = `
-    <div class="oc-err oc-err-block">${esc(msg)}</div>
-    <div class="oc-actions">
-      <button type="button" class="btn" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
-    </div>`;
-  $('btnOracleAgain').addEventListener('click', renderOracle);
+  const host = oracleHost();
+  if (!host) return;
+  host.innerHTML = `<div class="oc-err oc-err-block">${esc(msg)}</div>`;
 }
 
 async function oracleResult(card, imageDataUrl) {
   stopOracleStage();
-  const modal = oracleMode === 'modal';
-  // limit <= 0＝沒有限制（見 api/oracle.js 的 DAILY_LIMIT）：不顯示用量、不鎖再生成
+  // limit <= 0＝沒有限制（見 api/oracle.js 的 DAILY_LIMIT）：不顯示用量
   const limit = Number(card.limit) || 0;
   const used = Number(card.used) || 0;
   const quotaOut = limit > 0 && used >= limit;
@@ -633,6 +538,8 @@ async function oracleResult(card, imageDataUrl) {
     </div>`;
 
   const host = oracleHost();
+  if (!host) return;   // 生成途中把視窗關掉了
+  // 視窗裡只有下載與分享兩顆（站主指定）。
   host.innerHTML = `
     ${previewSrc
     ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.keyword)}"></div>`
@@ -641,29 +548,11 @@ async function oracleResult(card, imageDataUrl) {
     <div class="oc-actions">
       ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
       ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
-      ${modal ? '' : `<button type="button" class="btn" id="btnOracleRegen"${quotaOut ? ' disabled' : ''}>${esc(t('oracle.regen'))}</button>`}
     </div>
     ${limit > 0 ? `<div class="oc-usage">${esc(quotaOut
     ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>` : ''}
-    <div class="oc-hint" id="oracleSaved" hidden></div>
-    ${modal ? '' : `<div class="oc-actions oc-actions-sub">
-      <button type="button" class="btn small" id="btnOracleAgain">${esc(t('oracle.again'))}</button>
-    </div>`}`;
+    <div class="oc-hint" id="oracleSaved" hidden></div>`;
 
-  // 彈出視窗只有下載與分享兩顆（站主指定）——「再生成」「換一則解讀」屬於牌卡頁，
-  // 在這裡出現會讓人搞不清楚自己在哪一頁。
-  if (!modal) {
-    $('btnOracleAgain').addEventListener('click', renderOracle);
-    // 再生成＝用同一則解讀重跑一次（新的圖與新的文字），會再吃掉一次每日額度。
-    // 額度用完時按鈕是 disabled 的，但伺服器端仍會擋——前端的 disabled 擋不住重送。
-    const regen = $('btnOracleRegen');
-    if (regen) {
-      regen.addEventListener('click', () => {
-        if (!oracleLast) { renderOracle(); return; }
-        runOracle(oracleLast.reading);
-      });
-    }
-  }
   if (blob) {
     const fileName = `intuitive-notes-oracle-${Date.now()}.png`;
     const note = (key) => {
@@ -1928,10 +1817,11 @@ function restart() {
 function repaintCurrentScreen() {
   const active = document.querySelector('.screen.active');
   const id = active ? active.id : 'screenIntake';
+  // 牌卡的彈出視窗蓋在畫面上，它自己那份重繪優先——底下那一頁重繪也看不到
+  if ($('ocModal')) { if (oracleRepaint) oracleRepaint(); return; }
   if (id === 'screenResult' && state && state.analysis) { renderResult(state.analysis); return; }
   if (id === 'screenHistory') { renderHistory(); return; }
   if (id === 'screenGuide') { renderGuide(); return; }
-  if (id === 'screenOracle') { if (oracleRepaint) oracleRepaint(); return; }
   if (id === 'screenSpread' && spreadRepaint) { spreadRepaint(); return; }
   if (id === 'screenWeaving') { repaintWeaving(); return; }
   if (id === 'screenNumbers') {

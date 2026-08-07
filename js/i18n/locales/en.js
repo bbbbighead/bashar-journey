@@ -321,10 +321,6 @@ export default {
   // so there are no strings for title/keywords/message here — only the interface.
   oracle: {
     title: 'Your Oracle Card',
-    lede: 'Paste a reading you liked, and turn it into an inspiration card that is yours alone.',
-    readingLabel: 'Paste the reading',
-    readingPh: 'Paste the whole reading — Lenormand, Plum Blossom I Ching or natal chart, any of them.',
-    submit: 'Create your oracle card',
     soon: 'This is still being prepared — coming soon.',
     tooShort: 'That reading is too short — paste the whole thing.',
     busy: 'Creating',
@@ -336,8 +332,6 @@ export default {
     saved: 'Downloaded ✓',
     saveHint: 'Choose “Save Image” in the sheet to keep it in your photos',
     shared: 'Shared ✓',
-    again: 'Use a different reading',
-    regen: 'Draw another card',
     usage: (used, limit) => `${used} of ${limit} used today`,
     usedUp: (limit) => `All ${limit} cards used today. Come back tomorrow.`,
     failed: "That didn't come through. Please try again later.",
