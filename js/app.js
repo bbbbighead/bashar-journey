@@ -1958,6 +1958,26 @@ if (!PREVIEW) {
   collectNext();
 })();
 
+// ---- 進站時一定從最上面開始 ----
+// 瀏覽器預設會在「重新整理」與「上一頁」時把捲動位置還原（scrollRestoration:'auto'）。
+// 這個站是單頁應用、換畫面不換 URL，所以還原回來的那個位置往往屬於另一個畫面——
+// 站主回報的症狀就是：一進站或一重新整理，看到的是頁面中段，站名與選單鈕都在畫面外。
+// 而且沒有存檔時上面那個 resume() 直接 return，等於**一般載入根本沒有人把捲動歸零**。
+//
+// 三件事一起做才擋得住：
+//   ① 關掉瀏覽器的自動還原
+//   ② 啟動時自己捲到最上面。用 instant 不用 smooth——smooth 會被接下來的版面變動
+//      （字型換好、背景圖載入）打斷，停在半路，那比不捲還糟
+//   ③ 下一幀與 pageshow 再各補一次：版面會再動一次；而 iOS Safari 從「上一頁」回來
+//      走的是 bfcache，整頁不重新執行，只有 pageshow 會發生
+if (!PREVIEW) {
+  try { history.scrollRestoration = 'manual'; } catch { /* 舊瀏覽器沒有這個屬性 */ }
+  const toTop = () => window.scrollTo(0, 0);
+  toTop();
+  requestAnimationFrame(toTop);
+  window.addEventListener('pageshow', toTop);
+}
+
 // ---- utils ----
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
