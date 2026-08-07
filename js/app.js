@@ -1527,8 +1527,20 @@ function renderResult(a) {
         : `<p>${esc(String(s.content || ''))}</p>`}</div>
     </div>`).join('');
 
+  // 從「我的靈感訊息」點進來時，要有明顯的路可以回去那份清單。
+  // 只有這種情況才出現：剛做完一次分析的人沒有「列表」可以回。
+  // 上下各放一個——結果頁常常好幾個螢幕高，讀完之後不該還要滑回最上面。
+  const back = state.fromHistory;
+  // 選單的三線鈕是 position:fixed 在左上角（42px 高），.reading-wrap 有 8vh 上緣，
+  // 所以這個返回連結落在它下面，不會疊到。
+  const backTop = back
+    ? `<button type="button" class="r-back" id="btnBackTop">
+        <span class="r-back-arrow" aria-hidden="true">‹</span>${esc(t('result.backToList'))}
+      </button>` : '';
+
   // 直接從使用者的主題開始（不放標題句），結尾也不放祝福語
   $('resultHost').innerHTML = `
+    ${backTop}
     <div class="r-topic">${esc(t('result.about', state.opening))}</div>
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
@@ -1541,6 +1553,7 @@ function renderResult(a) {
       <button class="btn" id="btnCopy">${esc(t('result.copy'))}</button>
       <button class="btn" id="btnShare">${esc(t('result.share'))}</button>
       ${shareCardTool() ? `<button class="btn" id="btnShareImg">${esc(t('result.shareImage'))}</button>` : ''}
+      ${back ? `<button class="btn" id="btnBackList">${esc(t('result.backToListBtn'))}</button>` : ''}
       <button class="btn" id="btnRestart">${esc(t('result.home'))}</button>
     </div>
     <div class="copy-toast" id="imgToast"></div>
@@ -1567,6 +1580,10 @@ function renderResult(a) {
   applyLocaleOnly($('resultHost'));   // 結果頁是動態組的，語系限定區塊要在這裡才生效
   bindFeedback();
   $('btnRestart').addEventListener('click', restart);
+  // 回列表：重畫一次清單（剛剛可能在別的地方刪掉了某一筆），再切回去
+  [$('btnBackTop'), $('btnBackList')].forEach((b) => {
+    if (b) b.addEventListener('click', () => renderHistory());
+  });
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnShare').addEventListener('click', shareSite);
   if ($('btnShareImg')) $('btnShareImg').addEventListener('click', shareImage);

@@ -254,6 +254,8 @@ export default {
 
   result: {
     titleFallback: '풀이 결과',
+    backToList: '나의 메시지',
+    backToListBtn: '목록으로',
     about: (topic) => `‘${topic}’에 대하여`,
     sponsorBtn: '🍰 케이크 한 조각 보내기',
     sponsorSoon: '후원 링크는 곧 열립니다. 마음 감사합니다 ☕',

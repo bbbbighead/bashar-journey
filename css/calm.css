@@ -1021,6 +1021,19 @@ select.flt-select {
   letter-spacing: .3em; text-indent: .3em; margin-bottom: 40px; font-family: var(--sans);
 }
 /* 結果頁開頭：直接呈現使用者的主題（已不放標題句），因此比 .r-sub 再明顯一些 */
+/* 回列表：只在從「我的靈感訊息」點進來時出現。
+   做成不像按鈕的文字連結——這是導覽，不是動作，不該跟結果頁下方那排按鈕搶注意力。
+   點擊區域仍然是整塊（含左右內距），手指按得到。 */
+.r-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 0 0 14px -8px; padding: 6px 8px;
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--sans); font-size: 13.5px; letter-spacing: .08em;
+  color: var(--ink-faint); transition: color .2s ease;
+}
+.r-back:hover, .r-back:focus-visible { color: var(--accent-dim); }
+.r-back-arrow { font-size: 17px; line-height: 1; margin-top: -1px; }
+
 .r-topic {
   text-align: center; font-family: var(--serif);
   font-size: 18px; color: var(--ink-dim);
