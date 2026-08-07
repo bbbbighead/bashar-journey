@@ -461,8 +461,9 @@ function renderOracle() {
   };
 
   // 一次拿兩件事：功能有沒有開著、今天已用幾張／上限。
-  // 都由伺服器決定：站主在 Vercel 切 ORACLE_ENABLED／ORACLE_DAILY_LIMIT 就生效，
-  // 不必改程式也不必發版。拿不到就維持原樣（留白、不鎖），寧可不顯示也不要顯示錯的。
+  // 都由伺服器決定：開關是站主在後台按的（存 Redis，端點每次請求都讀），
+  // 上限則看 ORACLE_DAILY_LIMIT。拿不到就維持原樣（留白、不鎖），
+  // 寧可不顯示也不要顯示錯的。
   oracleApi({ action: 'info' }).then((info) => {
     if (!info || !info.ok) return;
     if (info.enabled === false) { oracleSoon(); return; }
