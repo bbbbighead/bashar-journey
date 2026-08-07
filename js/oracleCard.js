@@ -268,9 +268,14 @@ export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, 
       : '';
 
   // ---- 兩處花飾 ----
+  // 'line' 是最素的一種：一條金色細線，沒有菱形、沒有斷口。
+  // 站主要的「最原始的花邊」就是這個。
   const orn = (kind, cy, half, color) => (kind === 'rule'
     ? ornRule(W / 2, cy, half, 8, 2.6, color)
-    : kind === 'dot' ? diamond(W / 2, cy, 2.4, color) : '');
+    : kind === 'line'
+      ? `<line x1="${W / 2 - half}" y1="${cy}" x2="${W / 2 + half}" y2="${cy}"
+  stroke="${color}" stroke-width="0.6"/>`
+      : kind === 'dot' ? diamond(W / 2, cy, 2.4, color) : '');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
