@@ -16,7 +16,6 @@ export default {
     history: 'わたしのメッセージ',
     guide: '占術について',
     dialogue: '直感の対話（1対1セッション）',
-    cards: 'あなただけのオラクルカード',
     support: '制作を応援する🍰',
     close: 'メニューを閉じる',
     open: 'メニューを開く',

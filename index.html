@@ -83,7 +83,8 @@
     <button type="button" class="menu-item" data-act="guide" role="menuitem" data-i18n="menu.guide">探索工具介紹</button>
     <!-- 一對一諮詢只以中文提供，所以只在繁體中文介面出現（見 applyLocaleOnly） -->
     <button type="button" class="menu-item is-disabled" disabled role="menuitem" data-locale-only="zh-Hant" data-i18n="menu.dialogue">直覺對話（1 對 1 諮詢）</button>
-    <button type="button" class="menu-item" data-act="cards" role="menuitem" data-i18n="menu.cards">專屬靈感牌卡</button>
+    <!-- 專屬靈感牌卡不在選單裡：它的入口就是每一則解讀底下那顆「製作專屬靈感卡」。
+         放在選單會變成第二個入口，而且那個入口要使用者自己去複製貼上解讀。 -->
     <div class="menu-lang">
       <div class="menu-lang-label" data-i18n="menu.lang">語言</div>
       <div class="menu-lang-row" id="langRow"></div>

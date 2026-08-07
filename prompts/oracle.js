@@ -285,8 +285,11 @@ Emotion is always more important than perfection.
 
 - 畫面中要有能創造**流動感、動感**的元素，至少使用一種：風的線條、漸層的光線、
   亮金金的光輝、雲的湧動感。
+- **時辰固定是傍晚或夜晚**（站主 2026-08 指定）。黃昏、暮色、藍色時刻、月夜、星空之下
+  都可以，但**不要白天、不要正午的日光**。
 - 畫面要有**希望感、期許感、被祝福的感覺或生命力感**，所以**色調不能混濁黯淡灰暗**。
-  白天可用光暈、穿過樹葉縫隙的光；晚上可以用暖暖的光灑落在牆面或水面、月光。
+  夜晚不等於暗：光源改成暖暖的燈火灑在牆面或水面、月光、地平線上最後一道餘暉、
+  提燈、螢火、星光。畫面仍然要是明亮而透氣的，那個小孩永遠是全畫面最亮的東西。
 - 整體色彩**繽紛但柔和**。
 - 結合水彩的半透明暈染效果增加層次，或是明顯的粉彩、油畫筆觸。**要有紙質感。**
 
@@ -335,8 +338,12 @@ const IMAGE_PROMPT_RULE = `## 第五步：寫出給圖像模型的 prompt（imag
   hard-edged blooms where a wash dried／dry-brush edges breaking over the grain。
 - **活著的元素**：wind、mist、water、clouds、plants、light（挑真的讓故事更強的寫）。
 - **流動感**：至少一種——wind lines、graded light、golden shimmer、surging clouds。
-- **光**：白天寫 light haze／sunlight through leaves；夜晚寫 warm lamplight on a wall
-  or on water／moonlight。整體要 luminous 且 hopeful，**不要 murky、dull、grey**。
+- **時辰（每一張都要寫，只能是傍晚或夜晚）**：從 evening／dusk／twilight／
+  the blue hour／last light after sunset／a moonlit night／under a starry sky
+  挑一個寫進去。**不可以寫 daylight／midday／noon sun／bright afternoon。**
+- **光**：夜裡的光源，至少一種——warm lamplight on a wall or on water／moonlight／
+  the last warm glow on the horizon／lantern light／fireflies／starlight。
+  整體要 luminous 且 hopeful，**不要 murky、dull、grey**：夜晚是暖的、透氣的，不是暗的。
 - **顏色**：colourful but soft，不要飽和。
 - **鬆與未完成**：寫出哪裡是 unfinished brushwork／blurred transitions／
   dissolving forms／negative space，以及形體互相融進去的地方
@@ -450,7 +457,14 @@ ${RULES}
 //      oracle card 就會自己加標題與外框，而畫出來的字是糊的、拼錯的、每次都不一樣）。
 //      牌卡的象牙白邊框、細金框與卡面文字由網站自己合成（js/oracleCard.js）。
 export const IMAGE_SUFFIX = 'Vertical composition. '
-  + 'Avoid: AI fantasy, romance novel covers, movie posters, game concept art, '
+  // 時辰（2026-08 加）。與人物是光體同一個道理：第四、五步已經要求模型自己寫，
+  // 這裡固定再接一次，模型漏寫時圖像模型才不會退回它的預設白天。
+  + 'The scene is set in the evening or at night — dusk, twilight, the blue hour, '
+  + 'moonlight or a starry sky. Never daylight, never midday sun, never a bright afternoon. '
+  + 'The night is warm and luminous, not dark or murky: warm lamplight, moonlight, '
+  + 'the last glow on the horizon. '
+  + 'Avoid: daylight, midday sun, bright afternoon, '
+  + 'AI fantasy, romance novel covers, movie posters, game concept art, '
   + 'glossy rendering, hyper realism, HDR lighting, excessive detail, decorative clutter, '
   + 'perfect symmetry, overly beautiful faces, fully rendered hair, every leaf fully painted, '
   + 'every object sharply defined. Do not paint everything — let the viewer complete the image. '

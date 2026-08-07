@@ -235,7 +235,6 @@ $('sideMenu').addEventListener('click', (e) => {
   if (act === 'home') restart();
   else if (act === 'history') renderHistory();
   else if (act === 'guide') renderGuide();
-  else if (act === 'cards') renderOracle();
   // act === 'close'：點背景即關閉（上面已 setMenu(false)）
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
@@ -488,6 +487,11 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('ocModal')) closeOracleModal();
 });
 
+// ⚠ 2026-08 起這一頁**沒有入口**：選單裡的「專屬靈感牌卡」已經拿掉，牌卡改成從
+// 每一則解讀底下那顆按鈕直接生（makeCardFromResult，畫在彈出視窗裡）。
+// 程式先留著沒刪，是因為它是唯一「貼上站外的解讀也能生卡」的路徑，站主還沒決定
+// 要不要保留這個能力。確定不要之後，這個函式、#screenOracle、oracleError、
+// paintOracleQuota、oracleLast（再生成用）以及 oracleMode 的雙軌都可以一起刪掉。
 function renderOracle() {
   stopOracleStage();
   // 從彈出視窗回到牌卡頁時，host 可能還指著視窗裡那顆——切回來
@@ -1649,6 +1653,15 @@ function renderResult(a) {
   if ($('btnBackTop')) $('btnBackTop').addEventListener('click', () => renderHistory());
   $('btnCopy').addEventListener('click', () => copyAnalysis(a));
   $('btnMakeCard').addEventListener('click', () => makeCardFromResult(a));
+  // 牌卡功能關著的時候不要留一顆按了才說「即將推出」的按鈕。
+  // 開關是站主在後台按的（存 Redis），所以一定要問伺服器，不能寫死在前端。
+  // 問不到就維持顯示——寧可讓他按了才知道，也不要因為一次網路失敗就把功能藏起來。
+  oracleApi({ action: 'info' }).then((info) => {
+    if (info && info.enabled === false) {
+      const cell = $('btnMakeCard') && $('btnMakeCard').closest('.r-act-cell');
+      if (cell) cell.remove();
+    }
+  }).catch(() => {});
   $('btnShare').addEventListener('click', shareSite);
   $('btnAdvanced').addEventListener('click', () => {
     const el = $('advToast');

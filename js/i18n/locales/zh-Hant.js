@@ -14,7 +14,6 @@ export default {
     history: '我的靈感訊息',
     guide: '探索工具介紹',
     dialogue: '直覺對話（1 對 1 諮詢）',
-    cards: '專屬靈感牌卡',
     support: '支持開發者🍰',
     close: '關閉選單',
     open: '開啟選單',

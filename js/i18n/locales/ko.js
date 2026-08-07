@@ -16,7 +16,6 @@ export default {
     history: '나의 메시지',
     guide: '탐색 도구 소개',
     dialogue: '직관 대화 (1:1 상담)',
-    cards: '나만의 오라클 카드',
     support: '만든 사람 응원하기🍰',
     close: '메뉴 닫기',
     open: '메뉴 열기',
