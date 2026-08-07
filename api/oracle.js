@@ -56,15 +56,33 @@ const IMAGE_QUALITY = process.env.ORACLE_IMAGE_QUALITY || 'medium';
 // 前端就完全不顯示用量、也不會鎖任何按鈕（見 js/app.js 的 paintOracleQuota）。
 const DAILY_LIMIT = Number(process.env.ORACLE_DAILY_LIMIT || 0);
 
-// 功能總開關。端點拒絕所有請求，牌卡頁改成顯示「即將開放」。
-// 關閉不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
+// 功能總開關。關閉時端點拒絕所有請求、牌卡頁顯示「即將開放」，
+// 但不刪任何東西——已產生的紀錄、存檔預覽、每日計數都留著。
 //
-// **預設是關閉的**（站主要求，2026-08）。要開的話兩種方式，任一即可：
-//   ・在 Vercel 設 ORACLE_ENABLED=1（改完要 Redeploy 才生效），不必改程式
-//   ・或把下面那個預設值改回 '1' 再部署
-// 為什麼預設關而不是預設開：這是全站唯一每次呼叫都有明確單張成本的功能（圖像生成），
-// 而且畫風還在調。預設關的話，任何一次意外部署都不會把它打開。
-const ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.ORACLE_ENABLED ?? '0').trim());
+// 兩層，優先序由高到低：
+//   1. 環境變數 ORACLE_ENABLED（**有設就贏**）——硬性的 kill switch。設了之後後台的
+//      開關就按不動了，畫面上會說明原因。要把控制權交回後台就把這個變數整個刪掉。
+//   2. Redis 的 pi:oracleon（後台那顆開關寫的）——站主隨時可以切，即時生效、
+//      不必改程式、不必重新部署。
+//   都沒有的話＝**關閉**。預設關而不是預設開：這是全站唯一每次呼叫都有明確單張成本
+//   的功能（圖像生成），預設關的話任何一次意外部署都不會把它打開。
+const ENV_SWITCH = process.env.ORACLE_ENABLED;
+const ENV_SET = ENV_SWITCH != null && String(ENV_SWITCH).trim() !== '';
+const truthy = (v) => !/^(0|false|off|no)$/i.test(String(v).trim());
+
+// 每次請求都讀一次 Redis：這顆開關就是要能即時生效，快取住就失去意義了
+//（多一個 GET，與這支端點本來要做的事相比可以忽略）。
+// Redis 讀不到就退回「關閉」——寧可誤關也不要誤開，因為誤開會花錢。
+async function isEnabled() {
+  if (ENV_SET) return truthy(ENV_SWITCH);
+  if (!redisConfigured()) return false;
+  try {
+    const [r] = await redisPipeline([['GET', 'pi:oracleon']]);
+    return r && r.result != null ? truthy(r.result) : false;
+  } catch {
+    return false;
+  }
+}
 const READING_MAX = 12000;   // 貼上的解讀長度上限（一則完整占星報告約 3000–4000 字）
 const ARCHIVE_MAX = 600_000; // 存檔預覽的 base64 長度上限（約 450 KB 的 JPEG）
 
@@ -540,11 +558,12 @@ export default async function handler(req, res) {
     // info 在關閉時仍然回 ok，只是帶 enabled:false——前端要靠它把畫面切成
     //「即將開放」。其他 action 一律直接拒絕。
     if (body.action === 'info') {
-      const used = ENABLED ? await dailyUsed(clean(body.vid, 32)) : 0;
-      res.status(200).json({ ok: true, enabled: ENABLED, used, limit: DAILY_LIMIT });
+      const on = await isEnabled();
+      const used = on ? await dailyUsed(clean(body.vid, 32)) : 0;
+      res.status(200).json({ ok: true, enabled: on, used, limit: DAILY_LIMIT });
       return;
     }
-    if (!ENABLED) { res.status(200).json({ ok: false, reason: 'disabled' }); return; }
+    if (!await isEnabled()) { res.status(200).json({ ok: false, reason: 'disabled' }); return; }
     if (body.action === 'text') return await doText(body, res);
     if (body.action === 'image') return await doImage(body, res);
     if (body.action === 'archive') return await doArchive(body, res);

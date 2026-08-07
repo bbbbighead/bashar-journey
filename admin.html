@@ -181,6 +181,17 @@
 
     <!-- ── 分頁五：專屬靈感牌卡（審核產出品質用） ── -->
     <div class="a-pane" data-pane="oracles">
+      <!-- 對外開關。即時生效（api/oracle.js 每次請求都讀），不必改程式也不必重新部署 -->
+      <div class="a-block">
+        <div class="osw" id="oswBox">
+          <div class="osw-main">
+            <div class="osw-label">專屬靈感牌卡對外開放</div>
+            <div class="osw-state" id="oswState">讀取中……</div>
+          </div>
+          <button type="button" class="btn small" id="oswBtn" disabled>讀取中</button>
+        </div>
+        <div class="a-hint small" id="oswNote"></div>
+      </div>
       <div class="a-block">
         <div class="a-hint">每一張牌卡的整條產出鏈，由上游到下游攤開：<b>挑中的牌</b>（所有東西的源頭）→ 卡面英文 → 卡面譯文 → 牌義 → 圖像 prompt。<b>牌義是 data/oracleDeck.js 的原文</b>，不是模型寫的（非繁中語系才另外翻譯），所以產出不對時要看的是「挑得準不準」——挑中的牌與挑它的理由從來不會給使用者看到，這裡是唯一看得到的地方。舊紀錄（固定牌組之前）顯示的是當時模型自己寫的牌義，會標「舊版」。每一筆都附<b>實際送出去的原始 prompt</b>（文字 system＋user、以及圖像模型收到的完整那一段）與<b>圖像模型畫的原始畫作</b>，可以直接對照「這段 prompt 到底畫出了什麼」。不受「資料範圍」影響。</div>
         <div class="oa-summary" id="oaSummary"></div>

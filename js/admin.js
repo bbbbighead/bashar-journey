@@ -1430,7 +1430,50 @@ function oaTokens(u) {
 const oaCost = (v) => (Number.isFinite(Number(v)) && Number(v) > 0
   ? `≈ US$${Number(v).toFixed(4)}` : '—');
 
+// ---- 對外開關 ----
+// 值存在 Redis，api/oracle.js 每次請求都讀，所以按下去下一個使用者就是新的狀態。
+// 環境變數 ORACLE_ENABLED 有設的話它贏，這時候把按鈕鎖住並說明原因——按了沒反應
+// 比按鈕消失更難懂。
+async function refreshOracleSwitch() {
+  const state = $('oswState');
+  const btn = $('oswBtn');
+  const note = $('oswNote');
+  if (!state || !btn) return;
+  let d;
+  try {
+    d = await api({ view: 'oracleswitch' });
+  } catch {
+    state.textContent = '讀不到目前狀態';
+    btn.disabled = true;
+    return;
+  }
+  const on = !!d.enabled;
+  $('oswBox').classList.toggle('on', on);
+  state.textContent = on ? '開放中——使用者可以製作牌卡' : '已關閉——使用者看到「即將開放」';
+  btn.textContent = on ? '關閉' : '開放';
+  btn.classList.toggle('primary', !on);
+  btn.disabled = !!d.envSet;
+  note.textContent = d.envSet
+    ? '目前由環境變數 ORACLE_ENABLED 決定，後台改不動。要把控制權交回這裡，'
+      + '請到 Vercel 把那個變數整個刪掉再 Redeploy。'
+    : '按下去即時生效，不必重新部署。關閉不會刪除任何已產生的紀錄與圖。'
+      + `每張牌卡約 US$0.08，其中圖像佔八成以上。`;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '處理中……';
+    try {
+      await api({}, { action: 'oracleswitch', on: !on });
+    } catch (e) {
+      note.textContent = e.code === 'env_override'
+        ? '環境變數 ORACLE_ENABLED 有設，後台改不動。'
+        : '切換失敗，請重試。';
+    }
+    refreshOracleSwitch();
+  };
+}
+
 async function refreshOracles() {
+  refreshOracleSwitch();
   const host = $('oaList');
   host.innerHTML = '<div class="a-hint">載入中……</div>';
   let data;

@@ -9,7 +9,9 @@
 //   oracles?limit=50    專屬靈感牌卡清單（新到舊）：挑中的牌與原因、卡面、譯文、牌義、圖像 prompt
 //   oracleimg?id=xxx[&kind=art]  單張牌卡的存檔圖：合成卡，或圖像模型的原始 artwork
 //   oracleprompt?id=xxx 那一張卡實際送給模型的原始 prompt（文字 system＋user、圖像）
+//   oracleswitch        專屬靈感牌卡的總開關現況（enabled／是誰在決定）
 // POST actions（body JSON）：
+//   { action:'oracleswitch', on }    即時開關專屬靈感牌卡（存 Redis，不必重新部署）
 //   { action:'note',   sid, note }   儲存自由文字標註（空字串＝清除）
 //   { action:'delete', sid|sids[] }  刪除紀錄（清單/題目/停留/標註），並回扣聚合統計與用量
 //   { action:'recalc' }              全面重算 pi:agg:bytes 用量估算（掃描所有紀錄）
@@ -19,6 +21,18 @@ import { chatComplete, llmConfigured } from '../lib/llm.js';
 // 圖像模型收到的收尾約束是程式接上去的，不在模型寫的 prompt 裡。後台要顯示「實際
 // 送出去的完整 prompt」就得把它接回來，否則看起來像少了那些禁令。
 import { IMAGE_SUFFIX } from '../prompts/oracle.js';
+
+// 專屬靈感牌卡的總開關：站主在後台切，值存在 Redis，api/oracle.js 每次請求都讀。
+// 讀不到（沒設定過、或 Redis 掛了）一律當關閉——誤關只是少賣一張卡，誤開會花錢。
+async function oracleSwitchStored() {
+  if (!redisConfigured()) return false;
+  try {
+    const [r] = await redisPipeline([['GET', 'pi:oracleon']]);
+    return r && r.result != null ? !/^(0|false|off|no)$/i.test(String(r.result).trim()) : false;
+  } catch {
+    return false;
+  }
+}
 
 const KEY_OVERHEAD = 64;
 const LIMIT_BYTES = Math.max(0.01, Number(process.env.STORAGE_LIMIT_MB) || 256) * 1024 * 1024;
@@ -220,6 +234,23 @@ export default async function handler(req, res) {
       const action = body && body.action;
       const cleanSid = (s) => String(s || '').slice(0, 16).replace(/[^\w-]/g, '');
       const sid = cleanSid(body && body.sid);
+
+      // 專屬靈感牌卡的總開關。即時生效：api/oracle.js 每次請求都讀這個值，
+      // 所以按下去之後下一個使用者就是新的狀態，不必改程式也不必重新部署。
+      // 環境變數 ORACLE_ENABLED 有設的話它贏，這裡就拒絕——否則畫面上按了沒反應，
+      // 站主會以為壞掉。
+      if (action === 'oracleswitch') {
+        const envRaw = process.env.ORACLE_ENABLED;
+        if (envRaw != null && String(envRaw).trim() !== '') {
+          res.status(409).json({ ok: false, error: 'env_override' });
+          return;
+        }
+        if (!redisConfigured()) { res.status(503).json({ ok: false, error: 'no_redis' }); return; }
+        const on = body.on === true || body.on === 1 || body.on === '1';
+        await redisPipeline([['SET', 'pi:oracleon', on ? '1' : '0']]);
+        res.status(200).json({ ok: true, enabled: on, source: 'redis' });
+        return;
+      }
 
       if (action === 'note') {
         if (!sid) { res.status(400).json({ ok: false, error: 'bad_sid' }); return; }
@@ -860,6 +891,18 @@ export default async function handler(req, res) {
       const key = url.searchParams.get('kind') === 'art' ? 'pi:oracleart' : 'pi:oracleimg';
       const [r] = await redisPipeline([['GET', `${key}:${id}`]]);
       res.status(200).json({ ok: true, image: r.result || null });
+      return;
+    }
+
+    // 專屬靈感牌卡的總開關現況。與 api/oracle.js 的 isEnabled() 是同一套判斷，
+    // 只是這裡多回報「現在是誰在決定」，畫面才能說明為什麼開關按不動。
+    if (view === 'oracleswitch') {
+      const envRaw = process.env.ORACLE_ENABLED;
+      const envSet = envRaw != null && String(envRaw).trim() !== '';
+      const on = envSet
+        ? !/^(0|false|off|no)$/i.test(String(envRaw).trim())
+        : await oracleSwitchStored();
+      res.status(200).json({ ok: true, enabled: on, envSet, source: envSet ? 'env' : 'redis' });
       return;
     }
 
