@@ -2172,3 +2172,55 @@ body.pv-open { overflow: hidden; }
      跟原始碼順序無關，是權重輸了。 */
   select, select.flt-select, input[type="datetime-local"] { font-size: 16px; }
 }
+
+/* ===== 置中的結構保險 ==========================================================
+   置中是相對「文件寬」算的，所以只要有任何一個元素把文件撐寬，全站置中的東西就會
+   整組往右移。與其每次去追是哪個元素撐的，不如從結構上讓它不可能發生：
+   文件寬永遠不超過視窗寬。
+
+   用 clip 而不是 hidden 是刻意的——hidden 會產生一個捲動容器，會把 position:
+   sticky 的表頭與 position: fixed 的選單、星圖背景一起弄壞。clip 只裁切，不建立
+   捲動容器，也不會變成 fixed 的包含塊。舊瀏覽器不認得 clip 就整條忽略，維持現狀，
+   不會壞。
+   ⚠ 這是保險，不是修法。真的溢出時仍然要去修那個元素——被裁掉的內容一樣看不到。
+   scratchpad/sweep_all.mjs 會掃四語系 × 六寬度 × 全部畫面，確保沒有東西真的溢出。 */
+html { overflow-x: clip; }
+body { overflow-x: clip; max-width: 100%; }
+.app { max-width: 100%; }
+
+/* ===== 版面診斷面板（index.html?diag=1）===================================== */
+#diagPanel {
+  position: fixed; left: 8px; right: 8px; top: 8px; z-index: 9999;
+  max-height: 88vh; overflow: auto;
+  background: rgba(6, 10, 17, .97); color: #e6ddc8;
+  border: 1px solid rgba(214, 183, 122, .5); border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .7);
+}
+.dg-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 10px; border-bottom: 1px solid rgba(214, 183, 122, .28);
+  letter-spacing: .12em; color: #e6cd96;
+}
+.dg-head button {
+  background: none; border: none; color: #e6cd96; font-size: 16px;
+  cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.dg-verdict { padding: 10px; line-height: 1.7; border-bottom: 1px solid rgba(214, 183, 122, .2); }
+.dg-verdict.dg-ok { color: #9fd6a8; }
+.dg-verdict.dg-bad { color: #f0b48a; }
+.dg-row {
+  display: flex; gap: 8px; padding: 5px 10px; line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+.dg-k { flex: 1 1 auto; min-width: 0; color: #a89f88; }
+.dg-v { flex: 0 0 auto; text-align: right; word-break: break-all; }
+.dg-row.dg-ok .dg-v { color: #9fd6a8; }
+.dg-row.dg-bad .dg-v { color: #f2a1a1; }
+.dg-ua { padding: 8px 10px; color: #7d7565; line-height: 1.5; word-break: break-all; }
+.dg-acts { display: flex; gap: 8px; padding: 10px; }
+.dg-acts button {
+  flex: 1; font: inherit; padding: 9px 6px; cursor: pointer;
+  background: rgba(214, 183, 122, .14); color: #e6cd96;
+  border: 1px solid rgba(214, 183, 122, .45); border-radius: 3px;
+}

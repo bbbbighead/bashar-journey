@@ -43,6 +43,15 @@ const PREVIEW = (() => {
   try { return new URLSearchParams(location.search).get('preview') === '1'; }
   catch { return false; }
 })();
+// 版面診斷面板（?diag=1）。動態載入，正常使用者一個位元組都不會下載到。
+// 「整頁往右偏」有兩個成因（文件被撐寬／整頁被放大），從截圖上長得一模一樣，
+// 修法卻完全不同——這一頁把兩邊的數字同時攤出來，不用再猜。見 js/diag.js。
+try {
+  if (new URLSearchParams(location.search).get('diag') === '1') {
+    import('./diag.js').then((m) => m.mountDiag()).catch(() => {});
+  }
+} catch { /* 舊瀏覽器沒有 URLSearchParams 就算了，診斷頁不是必要功能 */ }
+
 let spreadRepaint = null; // 選牌畫面的輕量重繪（切換語系時只換文字）
 
 // 工具名稱：走語系字典（synthesis 也在 tools 內）
