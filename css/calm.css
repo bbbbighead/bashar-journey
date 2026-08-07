@@ -181,7 +181,10 @@ textarea::placeholder { color: var(--ink-faint); opacity: .45; }
   font-size: 14px; color: var(--accent); font-family: var(--sans);
   letter-spacing: .22em; margin-bottom: 14px;
 }
-.tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* minmax(0, 1fr) 而不是 1fr：1fr 等於 minmax(auto, 1fr)，欄位縮不到內容的最小寬度以下。
+   手機上的襯線 CJK 比桌機的寬，六個工具名一撐，grid 就比可用寬度寬 → 整份文件被撐寬 →
+   置中的標題與選單看起來全部往右偏。minmax(0, …) 讓欄位可以縮，字自己換行就好。 */
+.tool-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .tool-opt {
   position: relative; font: inherit; font-size: 17px;
   font-family: var(--serif); color: var(--ink);
@@ -208,7 +211,9 @@ textarea::placeholder { color: var(--ink-faint); opacity: .45; }
 .soon-tag {
   display: block; margin-top: 5px; font-size: 11px; letter-spacing: .04em;
   font-family: var(--sans); color: var(--accent-dim); text-transform: uppercase;
-  white-space: nowrap; /* 字級提高後，字距要收一點才容得下一行「COMING SOON」 */
+  /* 字距收一點，一般寬度下「COMING SOON」自然排得下一行。這裡刻意不寫 white-space: nowrap：
+     窄螢幕或較寬的字型下，nowrap 會撐破欄位 → 撐寬整份文件 → 全站置中的東西往右偏。
+     真的排不下時讓它折成兩行，比整頁歪掉好。 */
 }
 /* 工具小標：一眼看出這個工具擅長回答哪一類問題 */
 .tool-sub {
