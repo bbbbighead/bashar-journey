@@ -51,9 +51,31 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 const MODEL = { analyze: 'claude-opus-4-8' };
 
-function openaiModels() {
-  const strong = process.env.OPENAI_MODEL_STRONG || 'gpt-5.6-terra';
-  return { analyze: strong };
+// 依工具選文字模型（站主 2026-08 指定）：
+//   雷諾曼卡、梅花易數 → gpt-5.6-terra
+//   星盤占星本命盤     → gpt-5.6-sol
+//
+// ⚠ 這裡有一個架構上的限制，看程式不會馬上發現，所以寫下來：
+// 一次分析**只呼叫模型一次**——使用者可以同時勾雷諾曼＋占星，那一次呼叫要一口氣
+// 產出各工具的完整解析再加一節交叉綜合（見 buildPrompt 的 multi 分支）。所以
+// 「一個工具一個模型」在混選時無法逐節成立，只能挑一個。
+//
+// 規則：**只要選了占星就用占星那一個**。理由是占星是三者中最吃模型的一段——
+// 送進去的星盤資料上限 11,000 字，輸出也最長，而且錯了最容易被看出來。
+// 只選雷諾曼／梅花（或兩者）時就是 terra，那是站主指定的情況，完全成立。
+//
+// 真的要「每個工具各用各的模型」，得把單次呼叫拆成一節一次呼叫再加一次綜合——
+// 成本與等待時間會變成 2–3 倍，而且交叉綜合的品質會掉（現在的綜合是同一次
+// 呼叫裡看著全部素材寫的）。那是另一件事，站主要的話再做。
+const TOOL_MODEL = {
+  astro: process.env.OPENAI_MODEL_ASTRO || 'gpt-5.6-sol',
+  default: process.env.OPENAI_MODEL_STRONG || 'gpt-5.6-terra',
+};
+
+function openaiModel(action, tools) {
+  if (action !== 'analyze') return TOOL_MODEL.default;
+  const list = Array.isArray(tools) ? tools : [];
+  return list.includes('astro') ? TOOL_MODEL.astro : TOOL_MODEL.default;
 }
 
 const MAX_TOKENS = { analyze: 6000 }; // 單工具＝完整報告；多工具＝各節＋綜合，需要較大額度
@@ -571,7 +593,7 @@ export default async function handler(req, res) {
   await recordPrompt(
     sid,
     openaiKey ? 'openai' : 'anthropic',
-    openaiKey ? openaiModels()[action] : MODEL[action],
+    openaiKey ? openaiModel(action, segments.tools) : MODEL[action],
     systemPrompt,
     sysHash,
     prompt,
@@ -585,7 +607,7 @@ export default async function handler(req, res) {
     promptChars: prompt.length,
     sysChars: systemPrompt.length,
     provider: openaiKey ? 'openai' : 'anthropic',
-    model: openaiKey ? openaiModels()[action] : MODEL[action],
+    model: openaiKey ? openaiModel(action, segments.tools) : MODEL[action],
     ...extra,
     serverMs: Date.now() - tEnter,
   });
@@ -601,7 +623,7 @@ export default async function handler(req, res) {
     const tLlm = Date.now();
     try {
       const data = openaiKey
-        ? await callOpenAI(openaiKey, openaiModels()[action], maxTokens, systemPrompt, prompt, schema, action)
+        ? await callOpenAI(openaiKey, openaiModel(action, segments.tools), maxTokens, systemPrompt, prompt, schema, action)
         : await callAnthropic(anthropicKey, MODEL[action], maxTokens, systemPrompt, prompt, schema);
       llmMs.push(Date.now() - tLlm);
       lastData = data;

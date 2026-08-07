@@ -125,31 +125,33 @@ const LANGS = new Set(['zh-Hant', 'en', 'ja', 'ko']);
 //   ・免費額度、批次折扣、稅金都不在這裡
 //   ・供應商回報的 token 數與計費 token 數偶爾會有差
 // 所以全部可以用環境變數覆寫，後台顯示的金額一律標「估算」。
-// ⚠ 預設值是 gpt-5.1 與 gpt-image-1 的檯面價。2026-08 文字換成 gpt-5.6-terra、
-// 圖像換成 gpt-image-2 之後都還沒對過新價目表，所以後台的成本估算目前一定不準——
-// 查到正確單價後在 Vercel 設 ORACLE_PRICE_* 覆寫即可，不必改程式。
+// 2026-08 依 OpenAI 官方定價頁更新，對應現在用的兩個模型：
+//   文字 gpt-5.6-terra（short context）：$2 ／ 快取 $0.20 ／ 輸出 $12
+//   圖像 gpt-image-2：文字輸入 $5 ／ 圖像輸出 $30
+// ⚠ terra 有 long context 級距（$4 ／ $0.40 ／ $18）。這裡填的是 short context 的價：
+//   system prompt 約 1 萬字、貼上的解讀上限 12,000 字，加起來約 1.5 萬 token，
+//   照理落在 short。真的跨過去的話這裡會低估，用環境變數改即可。
 const price = (name, fallback) => {
   const v = Number(process.env[name]);
   return Number.isFinite(v) && v >= 0 ? v : fallback;
 };
 const PRICE = {
   openai: {
-    in: price('ORACLE_PRICE_IN', 1.25),
-    cachedIn: price('ORACLE_PRICE_CACHED_IN', 0.125),
-    out: price('ORACLE_PRICE_OUT', 10),
+    in: price('ORACLE_PRICE_IN', 2),
+    cachedIn: price('ORACLE_PRICE_CACHED_IN', 0.2),
+    out: price('ORACLE_PRICE_OUT', 12),
   },
+  // Anthropic 備援的價目沒有一起核對過（那條路徑只在 OpenAI 沒金鑰時才走）。
   anthropic: {
     in: price('ORACLE_PRICE_A_IN', 15),
     cachedIn: price('ORACLE_PRICE_A_CACHED_IN', 1.5),
     out: price('ORACLE_PRICE_A_OUT', 75),
   },
-  // 圖像：輸入是文字 token，輸出是「圖像 token」，兩者單價不同。
-  // ⚠ 這兩個預設值是 gpt-image-1 的檯面價。2026-08 模型換成 gpt-image-2 之後
-  //   還沒對過新的價目表，所以後台的圖像成本**目前一定不準**——
-  //   查到正確單價後在 Vercel 設 ORACLE_PRICE_IMG_IN／ORACLE_PRICE_IMG_OUT 即可。
+  // 圖像：我們送的是文字 prompt（算文字輸入），拿回來的是圖（算圖像輸出），
+  // 所以取 gpt-image-2 的 Text input 與 Image output 這兩格。
   image: {
     in: price('ORACLE_PRICE_IMG_IN', 5),
-    out: price('ORACLE_PRICE_IMG_OUT', 40),
+    out: price('ORACLE_PRICE_IMG_OUT', 30),
   },
 };
 
