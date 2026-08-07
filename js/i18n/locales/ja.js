@@ -255,6 +255,8 @@ export default {
 
   result: {
     titleFallback: '鑑定結果',
+    backToList: 'わたしのメッセージ',
+    backToListBtn: '一覧に戻る',
     about: (topic) => `「${topic}」について`,
     sponsorBtn: '🍰 ケーキを一切れ贈る',
     sponsorSoon: '応援リンクは近日公開します。お気持ちをありがとうございます ☕',

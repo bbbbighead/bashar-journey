@@ -252,6 +252,9 @@ export default {
 
   result: {
     titleFallback: '分析結果',
+    // 從「我的靈感訊息」點進來時才出現：回列表的路。頁面很長，所以上下各放一個
+    backToList: '我的靈感訊息',
+    backToListBtn: '回到列表',
     about: (topic) => `關於「${topic}」`,
     sponsorBtn: '🍰 贊助一塊蛋糕',
     sponsorSoon: '贊助連結即將開放，感謝你的支持 ☕',

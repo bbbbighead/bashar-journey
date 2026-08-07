@@ -254,6 +254,8 @@ export default {
 
   result: {
     titleFallback: 'Your reading',
+    backToList: 'My messages',
+    backToListBtn: 'Back to list',
     about: (topic) => `On “${topic}”`,
     sponsorBtn: '🍰 Buy me a slice of cake',
     sponsorSoon: 'The support link is opening soon — thank you for the thought ☕',
