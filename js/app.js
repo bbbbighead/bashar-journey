@@ -560,12 +560,11 @@ async function oracleResult(card, imageDataUrl) {
   }
 
   oracleRepaint = null;
-  // 牌卡下方把卡面上的兩樣東西再列一次。看起來像重複，但有兩個實際理由：
-  //   ・卡片是一張圖，上面的字選不起來也複製不了；這裡是真的文字
-  //   ・圖沒生出來時，這一塊就是讀者唯一看得到卡面內容的地方
-  // 2026-08 起句子本來就是使用者的語言（逐字取自他貼的解讀），所以這裡不再是
-  // 「譯文」，就是原文本身——keywordLocal／sentenceLocal 那兩個欄位已經拿掉了。
-  const trans = `
+  // 卡面文字**只在圖沒生出來時**才另外列一次。
+  // 站主：「牌卡上面已經有了，下面就不用再打一次。」——卡片正常時再列一遍確實是重複。
+  // 但圖失敗時不能什麼都不給：那時候讀者手上沒有卡片，這一塊是他唯一看得到
+  // 卡面內容的地方，拿掉的話畫面只剩一行「這次的畫面沒能畫出來」。
+  const trans = previewSrc ? '' : `
     <div class="oc-trans">
       <div class="oc-t-title">${esc(card.keyword)}</div>
       <div class="oc-t-msg">${esc(card.sentence)}</div>
