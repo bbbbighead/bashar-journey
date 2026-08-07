@@ -1973,6 +1973,11 @@ button.badge.repeat:hover {
 .oc-t-msg {
   font-family: var(--serif); font-size: 15.5px; line-height: 1.95;
   color: var(--ink);
+  /* 這一句常常剛好排不下一行，第二行只剩兩三個字，看起來像斷掉。balance 讓瀏覽器
+     在不增加行數的前提下把兩行排得一樣長。舊瀏覽器不認得就當沒寫，維持原本的貪心
+     斷行——不會壞，只是沒變好。（卡面上那句英文在 SVG 裡，沒有這個屬性可用，
+     所以 js/oracleCard.js 的 wrapLatin() 自己算了一份同樣邏輯的平衡斷行。） */
+  text-wrap: balance;
 }
 /* 牌義的第一段（核心訊息）：牌組原文，是這張牌最核心的一兩句，所以比洞見重一級。
    左側金線與後台的精髓欄同一個手法——一眼就知道這一段的份量不一樣。 */
