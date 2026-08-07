@@ -296,16 +296,9 @@ function renderGuide() {
 }
 
 // ---- 專屬靈感牌卡（選單頁） ----
-// 使用者貼上一則自己喜歡的解讀，系統從固定的神諭卡牌組（data/oracleDeck.js）挑出
-// 接得上的那一張，畫出那張牌的世界。牌義是牌組原文，不是為這一則現寫的。
-// 三個狀態畫在同一個 host 裡：表單 → 生成中 → 結果。
-//
-// 刻意沒有「重新生成」按鈕——而且伺服器端也擋（api/oracle.js 的 imaged 旗標）。
-// 圖像生成是全站唯一每次呼叫都有明確單張成本的功能，只把按鈕藏起來的話，
-// 重送一次請求還是會再付一次錢。
-//
-// 文字與圖像分兩次請求：兩段模型呼叫加起來很可能超過函式執行上限，而且分開之後
-// 可以先把卡面文字拿到手，等圖的時候畫面有東西在動。
+// 使用者貼上一則自己喜歡的解讀，系統從那則解讀裡**逐字**挑出最有力量的一句話，
+// 替它下一個英文標題，再畫一張對應的圖，合成一張可以下載、可以分享的牌卡。
+// 卡面上的話是使用者自己剛剛讀到的話——這是這個功能的整個重點（見 prompts/oracle.js）。
 let oracleBusy = false;
 // 切換語系時的輕量重繪。與選牌畫面同一個判斷：不重建，只換文字——重建會清掉
 // 使用者已經貼好的解讀。生成中與結果狀態設為 null（結果裡的牌義是用當時的輸出
@@ -502,6 +495,8 @@ async function runOracle(reading) {
     const text = await oracleApi({ action: 'text', reading, lang: getLocale() });
     if (!text.ok) {
       if (text.reason === 'disabled') { oracleSoon(); return; }
+      // not_verbatim（模型改了原文的字，重試後仍然改）走一般的失敗訊息就好：
+      // 對讀者來說那就是「這次沒成功，再試一次」，沒必要解釋內部的比對機制。
       oracleFailed(text.reason === 'daily_limit'
         ? t('oracle.limit', text.limit || 0)
         : text.reason === 'reading_too_short' ? t('oracle.tooShort') : t('oracle.failed'));
@@ -565,20 +560,16 @@ async function oracleResult(card, imageDataUrl) {
   }
 
   oracleRepaint = null;
-  // 卡面文字是英文，所以牌卡下方先列出使用者語言的版本，再接牌義。
-  // 圖沒生出來時也照樣顯示這一塊——那時候讀者手上沒有卡片，這裡就是他唯一
-  // 看得到卡面內容的地方。英文原文不另外再列一次：沒有卡可以對照，列了只是重複
-  //（英文使用者的 Local 欄位本來就等於原文）。
+  // 牌卡下方把卡面上的兩樣東西再列一次。看起來像重複，但有兩個實際理由：
+  //   ・卡片是一張圖，上面的字選不起來也複製不了；這裡是真的文字
+  //   ・圖沒生出來時，這一塊就是讀者唯一看得到卡面內容的地方
+  // 2026-08 起句子本來就是使用者的語言（逐字取自他貼的解讀），所以這裡不再是
+  // 「譯文」，就是原文本身——keywordLocal／sentenceLocal 那兩個欄位已經拿掉了。
   const trans = `
     <div class="oc-trans">
-      <div class="oc-t-title">${esc(card.keywordLocal || card.keyword)}</div>
-      <div class="oc-t-msg">${esc(card.sentenceLocal || card.sentence)}</div>
+      <div class="oc-t-title">${esc(card.keyword)}</div>
+      <div class="oc-t-msg">${esc(card.sentence)}</div>
     </div>`;
-
-  // 牌義是牌組原文（data/oracleDeck.js），不是為這一則寫的——所以這裡只排版，
-  // 不做任何加工。核心訊息一段、洞見一段。
-  const para = (s) => String(s || '').split(/\n+/).filter(Boolean)
-    .map((p) => `<p>${esc(p)}</p>`).join('');
 
   const host = $('oracleHost');
   host.innerHTML = `
@@ -586,9 +577,6 @@ async function oracleResult(card, imageDataUrl) {
     ? `<div class="oc-card-wrap"><img class="oc-card-img" src="${previewSrc}" alt="${esc(card.keyword)}"></div>`
     : `<div class="oc-err oc-err-block">${esc(t('oracle.imageFailed'))}</div>`}
     ${trans}
-    <div class="rule-orn" aria-hidden="true"></div>
-    <div class="oc-essence">${para(card.essence)}</div>
-    <div class="oc-long">${para(card.insights)}</div>
     <div class="oc-actions">
       ${blob ? `<button type="button" class="btn primary" id="btnOracleDl">${esc(t('oracle.download'))}</button>` : ''}
       ${blob && navigator.share ? `<button type="button" class="btn" id="btnOracleShare">${esc(t('oracle.share'))}</button>` : ''}
@@ -615,14 +603,7 @@ async function oracleResult(card, imageDataUrl) {
     const fileName = `intuitive-notes-oracle-${Date.now()}.png`;
     // 分享時把解讀文字一併帶出去。注意：多數社群平台收到圖片就會丟掉文字，
     // 這不是我們能控制的——但帶上去至少讓支援的地方（訊息類 App）拿得到。
-    const shareText = [
-      card.keywordLocal || card.keyword,
-      card.sentenceLocal || card.sentence,
-      '',
-      card.essence || '',
-      '',
-      card.insights || '',
-    ].filter((x) => x !== null && x !== undefined).join('\n');
+    const shareText = [card.keyword, card.sentence].filter(Boolean).join('\n');
     const note = (key) => {
       const el = $('oracleSaved');
       el.textContent = t(key);
@@ -637,7 +618,7 @@ async function oracleResult(card, imageDataUrl) {
       shareBtn.addEventListener('click', async () => {
         try {
           const how = await shareCardPng(blob, {
-            fileName, title: card.keywordLocal || card.keyword, text: shareText,
+            fileName, title: card.keyword, text: shareText,
           });
           note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
         } catch { /* 使用者取消分享不是錯誤 */ }
