@@ -1247,8 +1247,23 @@ select.flt-select {
   border: 1px solid rgba(214, 183, 122, .16); border-radius: 3px;
   background: rgba(11, 17, 27, .5);
 }
-/* 寬表格在窄螢幕上自己橫向捲，不要撐破版面 */
-.a-scroll { overflow-x: auto; }
+/* 寬表格在窄螢幕上自己橫向捲，不要撐破版面。
+   ⚠ 這一層在 css 檔尾的 overflow-x: clip 護欄之後變成必要的：整頁已經不能橫捲了，
+   放不下的表格如果沒有自己的捲動容器，右邊的欄位就永遠碰不到。
+   -webkit-overflow-scrolling 是給舊版 iOS 用的慣性捲動。 */
+.a-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* 手機上捲軸只有在捲的時候才看得見，所以放不下的時候要主動說一聲——
+   站主就是因為不知道可以捲，才以為右邊的欄位不見了。
+   sticky + left:0 讓這行提示固定在容器左緣，不會跟著內容捲走。
+   桌機（表格放得下）不顯示。 */
+@media (max-width: 1100px) {
+  .a-scroll::before {
+    content: '← 左右滑動可看到右邊的欄位 →';
+    position: sticky; left: 0; display: block; width: max-content;
+    font-family: var(--sans); font-size: 11.5px; letter-spacing: .1em;
+    color: var(--accent-dim); padding: 2px 0 7px;
+  }
+}
 .admin-login-box { max-width: 380px; margin: 0 auto 30px; }
 input.admin-pw {
   width: 100%; color: var(--ink);
