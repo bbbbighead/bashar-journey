@@ -164,6 +164,14 @@ keywordLocal／sentenceLocal＝上面那兩樣的使用者語言版本。
 // 站主原規格的 STEP 10（Oracle Card Layout：象牙白邊框、細金框、襯線字、
 // artwork 佔 70–75%）刻意**不寫進提示**——那是牌卡的合成規格，js/oracleCard.js
 // 已經照著做了。寫給圖像模型只會讓它自己畫一個框跟一堆糊掉的字。
+//
+// 2026-08 追加：人物改成固定角色（見下面「人物與動物」）。原因是站主回報人物一直被
+// 畫成暗的、陰鬱的實體人。舊寫法「Human figures are optional / 不強調美貌 / 重姿態」
+// 沒有規定人物的**明度**，而圖像模型畫人的預設就是實心、有膚色、被環境光打暗。
+// 改法不是再加一條「不要畫暗」——那種否定規則前幾輪已經證明擋不住——而是把人物
+// 重新定義成**自己發光的半透明光體**：光源本身不可能是暗的，問題從結構上就不成立。
+// 這一條同時寫在第四步（給模型判斷用）、第六步（強制寫進英文 prompt）與
+// IMAGE_SUFFIX（程式固定接上，模型漏寫也還在），三層都有。
 const WORLD = `## 第四步：畫面要畫什麼
 
 ### 構圖來自兩筆資訊的結合
@@ -206,17 +214,34 @@ everything that is unnecessary.
 
 One card. One emotion. One visual center.
 
-### 人物與動物
+### 人物與動物（固定設定，每一張都要有）
 
-Human figures are optional. If included:
+**每一張牌都要有一個人物，而且永遠是同一個角色。** 這個角色的設定是固定的，
+不隨牌義改變：
 
-- Do not make them heroes.
-- Do not prioritize beauty.
-- Prioritize posture, gesture and presence.
-- Allow viewers to project themselves.
-- Keep the character visually universal.
+- **一個小孩。** 不指定性別，也不指定種族——因為他不是一個有膚色的人，
+  是一團有人形的光。
+- **由光構成的身體**：霧霧白白、半透明、自己會發光，像一團被點亮的薄霧站在那裡；
+  身體的邊緣是散開的、糊掉的，融進周圍的空氣裡。
+- **他自己就是畫面裡最亮的東西**，不是被別的光源照亮的。所以他永遠不會是暗的、
+  不會是逆光的剪影、不會是一團陰影。
+- **五官不畫。** 臉是一片柔和的光，看不出表情，也看不出是誰。
+- **頭髮到脖子的長度**，有點飄逸，跟著風或動作揚起來。頭髮也是光，不是實心的色塊。
+- 不要把他畫成英雄，也不要強調美貌。重點是姿態、動作與存在感，讓看的人能把自己
+  投射進去。
 
-Animals may appear when they naturally strengthen the emotional story.`;
+**這個小孩一定要正在做一件事。** 不要畫成站著不動的象徵物——他是這個世界裡活著
+的一個人。依這張牌的訊息挑一個動作，例如：跳舞、仰望天空、聞花、跟小動物互動、
+彈奏樂器、躺在草地上、睡覺、作夢、摘花、散步、駕著馬車、跟人交談、奔跑、看風景、
+涉水、爬樹、放紙船、追蝴蝶、坐在鞦韆上、讀著一本書。挑最貼合這張牌訊息的那一個，
+不要每張都用同一個動作。
+
+**畫面裡一定要有一隻陪在他旁邊的小動物。** 貓、狗、鳥、兔子、蝴蝶、鹿、狐狸、
+小羊都可以。牠是陪伴者，不是背景裝飾——要看得出來牠跟這個小孩有關係：跟著走、
+停在手上、抬頭看他、依偎在旁邊。
+
+⚠ 這個人物的**畫法**是一種技法（發光的半透明人形），不是要把整張畫的風格換掉。
+世界、光、色彩、媒材仍然照第五步的藝術指導走。`;
 
 // ── 藝術指導 ──
 // 同樣是站主 2026-08 重寫的版本（見上面第四步的說明）。
@@ -288,7 +313,8 @@ const IMAGE_PROMPT_RULE = `## 第六步：寫出給圖像模型的 prompt（imag
 - 用英文寫（圖像模型對英文的服從度明顯較好）。150–250 words。
 - 一段連續的散文式描述，不要用條列、不要用權重語法（不要 \`::\`、不要 \`--ar\`）。
 - 依序帶到：**媒材與畫法**（放最前面——圖像模型對開頭的權重最高）→ 場景與地點 →
-  季節／時辰／天氣／光 → 畫面裡活著的元素 → 人物（若有）→ 鏡頭與構圖。
+  季節／時辰／天氣／光 → 畫面裡活著的元素 → **發光的小孩＋他正在做的動作＋陪著他的
+  小動物** → 鏡頭與構圖。
 
 下面每一項都要真的寫進那段英文裡，少一項就等於沒有：
 
@@ -306,9 +332,29 @@ const IMAGE_PROMPT_RULE = `## 第六步：寫出給圖像模型的 prompt（imag
   （mist becoming trees／light becoming clouds／water becoming sky）。
 - **風格定位**（放在媒材那一句附近）：refined, European classical, dreamlike;
   light and space rather than ornament。
-- **人物**（若有）：universal，不是英雄、不強調美貌，重姿態與存在感；
-  **不要指定性別**——用 a figure／someone／a person，不要 a woman／a man／her／his。
+- **人物（每一張都要寫，不可以省略）**：下面每一句都要出現在英文裡。少寫一句，
+  圖像模型就會畫回一個暗暗的、實心的人——那是目前最常出錯的地方：
+  a luminous translucent child made of soft white light；
+  glowing from within and the brightest thing in the picture；
+  never a dark silhouette, never backlit, never in shadow；
+  the face left as soft light with no rendered features；
+  neck-length hair drifting slightly, painted as light rather than solid colour；
+  the edges of the body dissolving into the surrounding air。
+  **不要指定性別、不要指定種族**——用 a child／the child／they，
+  不要 a woman／a man／a boy／a girl／her／his，也不要寫任何膚色。
+  不是英雄、不強調美貌，重姿態與存在感。
+- **動作（每一張都要寫）**：這個小孩正在做的**一個具體動作**，用現在進行式寫出來
+  （dancing／looking up at the sky／smelling a flower／playing a small instrument／
+  lying in the grass／sleeping／picking flowers／walking／running／wading in water／
+  riding in a horse-drawn cart／reading／reaching toward a butterfly／
+  sitting on a swing）。挑最貼合這張牌訊息的那一個，不要每張都寫一樣的。
+- **小動物（每一張都要寫）**：一隻陪在小孩旁邊的小動物，要寫出**是什麼動物**以及
+  **牠正在做什麼**（a small cat following at their heels／a bird perched on their
+  hand／a rabbit sitting beside them／a butterfly circling them／
+  a young deer watching them from the grass）。牠是陪伴者，不是背景裝飾。
 - **鏡頭**：wide／close／medium 三選一，照第四步的判斷寫出來。
+  ⚠ 就算是 wide、小孩在畫面裡很小，上面三項（發光的小孩／動作／小動物）也一樣
+  要寫進去——只是尺度變小，不是可以省略。
 
 最後兩件事：
 
@@ -401,7 +447,11 @@ export function buildTranslatePrompt(lang) {
 //   1. 站主原規格的 Negative Guidance（2026-08 加進來）。放在這裡而不是要求模型
 //      自己寫：這樣每一張都完整出現、一字不差，而且不佔掉模型那 250 字的額度——
 //      它的字數該花在正面描述上。
-//   2. 文字與邊框的禁令。這一類是具體的名詞，圖像模型擋得住（不然它一看到
+//   2. 人物是光體的宣告（2026-08 加）。第四、六步已經要求模型自己寫進 prompt 了，
+//      這裡再固定接一次是刻意的雙保險：站主回報人物一直被畫成暗的、陰鬱的實體人，
+//      而那正是圖像模型的預設傾向——只要模型漏寫一句，它就會畫回去。這一段不佔
+//      模型的字數，而且每一張都一字不差地出現。
+//   3. 文字與邊框的禁令。這一類是具體的名詞，圖像模型擋得住（不然它一看到
 //      oracle card 就會自己加標題與外框，而畫出來的字是糊的、拼錯的、每次都不一樣）。
 //      牌卡的象牙白邊框、細金框與卡面文字由網站自己合成（js/oracleCard.js）。
 export const IMAGE_SUFFIX = 'Vertical composition. '
@@ -409,5 +459,8 @@ export const IMAGE_SUFFIX = 'Vertical composition. '
   + 'glossy rendering, hyper realism, HDR lighting, excessive detail, decorative clutter, '
   + 'perfect symmetry, overly beautiful faces, fully rendered hair, every leaf fully painted, '
   + 'every object sharply defined. Do not paint everything — let the viewer complete the image. '
+  + 'The child in the picture is made of light: self-luminous, translucent, misty white, '
+  + 'the brightest thing in the frame. Never a dark silhouette, never backlit, never in shadow, '
+  + 'never an opaque solid body, no skin tone, no rendered facial features. '
   + 'Absolutely no text, no letters, no words, no numbers, no signature, no title, '
   + 'no border, no frame, no card layout, no margin — the painting only, filling the whole image.';
