@@ -1502,7 +1502,8 @@ async function refreshOracles() {
         <code>${esc(o.vid || '')}</code>
         ${o.textMs ? `<span class="oa-ms">文字 ${(o.textMs / 1000).toFixed(1)}s</span>` : ''}
         ${o.imageMs ? `<span class="oa-ms">圖 ${(o.imageMs / 1000).toFixed(1)}s</span>` : ''}
-        ${o.imaged ? '' : '<span class="oa-noimg">沒生圖</span>'}
+        ${o.imageError ? '<span class="oa-noimg">生圖失敗</span>'
+    : (o.imaged ? '' : '<span class="oa-noimg">沒生圖</span>')}
         ${Number(o.costUsd) > 0 ? `<span class="oa-cost">${esc(oaCost(o.costUsd))}</span>` : ''}
       </div>
 
@@ -1573,9 +1574,20 @@ async function refreshOracles() {
         <div class="oa-v oa-usage">
           <div><span class="oa-ulab">文字（${esc(o.model || o.provider || '?')}）</span>${oaTokens(o.usage.text)}</div>
           ${o.usage.translate ? `<div><span class="oa-ulab">牌義翻譯<span class="oa-usub">舊版</span></span>${oaTokens(o.usage.translate)}</div>` : ''}
-          <div><span class="oa-ulab">圖像（${esc(o.imageModel || 'gpt-image-1')}）</span>${o.imaged ? oaTokens(o.usage.image) : '<span class="dim-dash">沒生圖</span>'}${o.imageQuality ? `<span class="oa-usub">${esc(o.imageQuality)}　${esc(o.imageSize || '')}</span>` : ''}</div>
+          <div><span class="oa-ulab">圖像（${esc(o.imageModel || 'gpt-image-1')}）</span>${o.imageError
+    ? '<span class="oa-noimg">生圖失敗</span>'
+    : (o.imaged ? oaTokens(o.usage.image) : '<span class="dim-dash">沒生圖</span>')}${o.imageQuality ? `<span class="oa-usub">${esc(o.imageQuality)}　${esc(o.imageSize || '')}</span>` : ''}</div>
           <div class="oa-utotal">合計 ${esc(oaCost(o.costUsd))}</div>
         </div>
+      </div>` : ''}
+
+      ${o.imageError ? `<div class="oa-row">
+        <div class="oa-k">生圖失敗</div>
+        <div class="oa-v"><div class="oa-pre oa-ltr">${esc(o.imageError)}</div>
+          <div class="a-hint small">換圖像模型或改尺寸／品質之後最常看到這一則。
+            model not found ＝ 模型名稱不對；invalid size／quality ＝ 新模型不吃這個參數值。
+            三個都是環境變數（ORACLE_IMAGE_MODEL／ORACLE_IMAGE_SIZE／ORACLE_IMAGE_QUALITY），
+            改完重新部署即可，不必改程式。</div></div>
       </div>` : ''}
 
       <details class="oa-more">

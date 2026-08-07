@@ -1834,7 +1834,6 @@ button.badge.repeat:hover {
 
 /* ---- 探索工具介紹 ---- */
 /* ---- 專屬靈感牌卡 ---- */
-.oracle-wrap { padding-top: 9vh; }
 /* ---- 後台：靈感牌卡審核 ---- */
 .oa-count {
   font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint); letter-spacing: .1em;
@@ -1932,43 +1931,18 @@ button.badge.repeat:hover {
   font-family: var(--serif); font-size: 16px; line-height: 2;
   color: var(--ink-dim); text-align: center; padding: 46px 10px 30px;
 }
-.oc-lede {
-  font-family: var(--serif); font-size: 16px; line-height: 1.95;
-  color: var(--ink-dim); text-align: center; max-width: 26em; margin: 0 auto 26px;
-}
-/* 輸入區包在一塊面板裡，理由與首頁的 .ask-box 相同：星圖中央很亮，輸入框直接
-   放在上面的話 placeholder 幾乎讀不到（實際截圖確認過）。 */
-.oc-panel {
-  padding: 20px 20px 18px; margin-bottom: 4px;
-  border: 1px solid rgba(214, 183, 122, .28); border-radius: 3px;
-  background: rgba(13, 20, 31, .55);
-  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
-  box-shadow: 0 0 22px rgba(214, 183, 122, .08), 0 10px 34px rgba(0, 0, 0, .4);
-}
-.oc-field { margin-bottom: 22px; }
-.oc-field-last { margin-bottom: 0; }
-.oc-label {
-  display: block; font-family: var(--sans); font-size: 12px;
-  letter-spacing: .22em; color: var(--accent-dim); margin-bottom: 9px;
-}
-/* 底色、邊框、內陰影都由全域的 textarea 規則負責（與首頁同一套）；
-   這裡只調字級——貼過來的是一整則解讀，比首頁的一句主題長得多。 */
-/* 16px 是下限（iOS 自動放大，見檔尾說明）——原本 15px */
-#oracleReading { font-size: 16px; line-height: 1.8; }
-.oc-hint, .oc-note {
+/* 貼上一則解讀的那張表單（.oc-lede／.oc-panel／.oc-field／.oc-label／
+   #oracleReading／.oc-note／.oc-actions-sub）連同整頁已於 2026-08 刪除——
+   牌卡只剩結果頁那一個入口，畫在彈出視窗裡。 */
+.oc-hint {
+  margin-top: 8px;
   font-family: var(--sans); font-size: 12px; line-height: 1.8; color: var(--ink-faint);
 }
-.oc-hint { margin-top: 8px; }
-.oc-note { text-align: center; margin: 24px 0 4px; min-height: 1.8em; }
-.oc-note-out { color: #d9a08a; }
-/* 結果頁的用量：主要按鈕下方一行小字，不搶注意力 */
+/* 用量：主要按鈕下方一行小字，不搶注意力 */
 .oc-usage {
   font-family: var(--sans); font-size: 12px; letter-spacing: .1em;
   color: var(--ink-faint); text-align: center;
 }
-/* 「換一則解讀」是次要動作，與上排的下載／分享／再生成分開 */
-.oc-actions-sub { padding: 6px 0 24px; }
-.oc-actions-sub .btn { font-size: 12.5px; padding: 9px 22px; }
 .oc-err { font-family: var(--sans); font-size: 13px; color: #d9a08a; text-align: center; margin-top: 14px; }
 .oc-err-block { margin: 30px 0; line-height: 1.9; }
 .oc-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 24px 0 10px; }
@@ -1976,7 +1950,7 @@ button.badge.repeat:hover {
 /* 生成中：一個緩慢呼吸的光點。圖像生成要等 20–40 秒，畫面必須有東西在動，
    不然使用者會以為卡住了（跟「分析中」那頁同一個判斷）。 */
 /* 牌卡的生成中畫面直接套 .weaving（探索工具那一套星軌與階段列），這裡只調上緣：
-   #oracleHost 上面已經有頁標與金線，不需要 .weaving 原本那 8vh 的留白。 */
+   彈出視窗自己已經有邊距，不需要 .weaving 原本那 8vh 的留白。 */
 .oc-weaving { padding-top: 2vh; }
 
 /* 牌卡本身是象牙白的實體卡，不套站上的深色面板——讓它看起來像一張卡躺在星圖上 */
@@ -2174,7 +2148,7 @@ body.pv-open { overflow: hidden; }
 
    所以規則是：**任何會叫出鍵盤的輸入框（input 的文字類 type、textarea）字級一律
    >= 16px**。checkbox／radio 不會叫出鍵盤，不在此限。
-   已知曾經違規的：.af-row input（15px）、#oracleReading（15px）、.fb-text（14px）。
+   已知曾經違規的：.af-row input（15px）、.fb-text（14px）。
 
    ⚠ 不要改用 <meta name="viewport" maximum-scale=1> 來擋。那會連使用者自己想
    放大都做不到（無障礙倒退），而且 iOS 10 之後本來就不理這個設定。

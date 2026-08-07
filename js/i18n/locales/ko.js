@@ -16,7 +16,6 @@ export default {
     history: '나의 메시지',
     guide: '탐색 도구 소개',
     dialogue: '직관 대화 (1:1 상담)',
-    cards: '나만의 오라클 카드',
     support: '만든 사람 응원하기🍰',
     close: '메뉴 닫기',
     open: '메뉴 열기',
@@ -322,10 +321,6 @@ export default {
   // (prompts/oracle.js 참고). 여기에는 화면 문구만 있습니다.
   oracle: {
     title: '전용 영감 카드',
-    lede: '마음에 남은 풀이를 붙여 넣어, 당신만의 영감 카드로 만들어 보세요.',
-    readingLabel: '풀이 붙여 넣기',
-    readingPh: '풀이 전문을 붙여 넣으세요 — 르노르망, 매화역수, 출생 차트 모두 괜찮습니다.',
-    submit: '전용 영감 카드 만들기',
     soon: '이 기능은 준비 중입니다. 곧 공개됩니다.',
     tooShort: '풀이가 너무 짧습니다. 전문을 붙여 넣어 주세요.',
     busy: '생성 중',
@@ -337,8 +332,6 @@ export default {
     saved: '저장했습니다 ✓',
     saveHint: '뜬 창에서 “이미지 저장”을 선택하면 사진에 저장됩니다',
     shared: '공유했습니다 ✓',
-    again: '다른 풀이 사용',
-    regen: '한 장 더 만들기',
     usage: (used, limit) => `오늘 ${used} ／ ${limit} 장`,
     usedUp: (limit) => `오늘의 ${limit} 장을 모두 썼습니다. 내일 다시 오세요.`,
     failed: '이번에는 만들지 못했습니다. 잠시 후 다시 시도해 주세요.',

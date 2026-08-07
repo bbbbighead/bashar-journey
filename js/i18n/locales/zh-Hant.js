@@ -14,7 +14,6 @@ export default {
     history: '我的靈感訊息',
     guide: '探索工具介紹',
     dialogue: '直覺對話（1 對 1 諮詢）',
-    cards: '專屬靈感牌卡',
     support: '支持開發者🍰',
     close: '關閉選單',
     open: '開啟選單',
@@ -322,10 +321,6 @@ export default {
   //   ・卡面那一句逐字取自使用者貼過來的解讀，所以本來就是他的語言，不需要翻譯
   oracle: {
     title: '專屬靈感牌卡',
-    lede: '貼上一則你喜歡的解讀，把它變成一張專屬於你的靈感牌卡。',
-    readingLabel: '貼上解讀',
-    readingPh: '把整則解讀複製貼上——雷諾曼、梅花易數或西洋占星都可以。',
-    submit: '製作專屬靈感牌卡',
     soon: '這個功能正在準備中，即將開放。',
     tooShort: '解讀內容太短了，請貼上完整的一則。',
     // 星軌中央的字（與探索工具的「分析中」同一個位置）
@@ -338,8 +333,6 @@ export default {
     saved: '已下載 ✓',
     saveHint: '請在跳出的視窗選「儲存影像」，就會存進相簿',
     shared: '已分享 ✓',
-    again: '換一則解讀',
-    regen: '再生成一張',
     usage: (used, limit) => `今天已使用 ${used} ／ ${limit} 張`,
     usedUp: (limit) => `今天的 ${limit} 張已用完，明天再來`,
     failed: '這次沒能生成，請稍後再試。',

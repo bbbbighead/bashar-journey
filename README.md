@@ -50,7 +50,10 @@ AI 分析（單次呼叫）：每個所選工具一節完整解析；
 
 1. 於 [vercel.com](https://vercel.com) 匯入此 repo（Framework 選 Other，Build 設定全部留空）。
 2. 設定金鑰環境變數（擇一即可，兩者皆設時優先 OpenAI）：
-   - `OPENAI_API_KEY` — 走 OpenAI（預設 gpt-5.1，可用 `OPENAI_MODEL_STRONG` 覆寫）
+   - `OPENAI_API_KEY` — 走 OpenAI。文字模型依工具而定：
+     雷諾曼／梅花易數用 `gpt-5.6-terra`（`OPENAI_MODEL_STRONG` 覆寫），
+     占星本命盤用 `gpt-5.6-sol`（`OPENAI_MODEL_ASTRO` 覆寫）。
+     牌卡與後台除錯對話走 `OPENAI_MODEL_STRONG`。
    - `ANTHROPIC_API_KEY` — 走 Claude（[Anthropic Console](https://platform.claude.com) 取得）
 3. Deploy。開啟 `https://<專案名>.vercel.app/` 即可開始。
 
@@ -126,7 +129,10 @@ vercel dev                     # 含 AI 代理（需 OPENAI_API_KEY 或 ANTHROPI
 
 每場體驗 **1 次呼叫**：
 
-- **analyze**（交叉整合＋靈感訊息）：Opus 4.8（或 OpenAI gpt-5.1，可用 `OPENAI_MODEL_STRONG` 覆寫）
+- **analyze**（交叉整合＋靈感訊息）：Opus 4.8，或 OpenAI——
+  選了占星就用 `gpt-5.6-sol`，否則 `gpt-5.6-terra`。
+  一次分析只呼叫一次模型（多工具是同一次產出各節＋交叉綜合），
+  所以混選時只能挑一個模型，規則是「有占星就以占星為準」。
 
 ## 檔案結構
 
