@@ -113,7 +113,27 @@ const CARD_TEXT = `## 第二步：卡面文字（一律英文）
 - ✗ \`Healthy love helps you learn to love yourself more deeply, not replace it.\`（後半句拿掉就對了）
 
 ⚠ 牌義原文很常用「不是A，而是B」的寫法（那是牌義的筆法，沒有問題）。
-**遇到這種原文，卡面只取「是B」那一半**，不要把整個對比搬上卡面。`;
+**遇到這種原文，卡面只取「是B」那一半**，不要把整個對比搬上卡面。
+
+**卡面那一句要具體，不要用抽象的大詞。**
+判準只有一句話：讀者看完，知不知道要去注意什麼、或去做什麼？
+抽象的說法（成為真實的自己、活出你的目的、跟隨最高的喜悅、與你的本質對齊、
+顯化你的實相……）聽起來很有份量，但讀者拿它沒辦法。**改成描述那件事實際
+長什麼樣子。**
+
+- ✗ \`Your only real mission is to become yourself as fully as you can.\`
+  （「成為自己」要怎麼做？沒說。）
+- ✓ \`You get to learn what you actually love, and let your days follow it.\`
+- ✗ \`Act on your highest excitement in this moment.\`
+  （「最高的喜悅」是什麼？沒說。）
+- ✓ \`Of the things you could do now, choose the one you most want to start.\`
+- ✗ \`Align with your true frequency and abundance will find you.\`
+- ✓ \`Notice what you already have today; you will see more of it.\`
+
+牌組的牌義本身已經是用具體的說法寫的（那是刻意的），所以正常情況下，只要
+**照著核心訊息說的那件事去收緊**就會是具體的。會變抽象，通常是你為了壓進
+8–18 words 而把它「總結」成一個大詞——那是要避免的方向：寧可只講核心訊息裡的
+**一個具體動作或一個具體觀察**，也不要用一個大詞把整段包起來。`;
 
 // ── 翻譯 ──
 const TRANSLATE = `## 第三步：卡面文字的使用者語言版本
@@ -126,7 +146,14 @@ keywordLocal／sentenceLocal＝上面那兩樣的使用者語言版本。
 - **第二人稱要留著**：譯文裡一樣要有「你」。中文很容易把 you 省略掉變成一句格言
   （「唯有踏實的行動能讓靈感成形」），那就失去對讀者說話的位置了。
 - **也不要在譯文裡加回否定或對比**：英文那一句沒有 not，中文就不要出現「不是……而是」
-  或「而不是」。譯的時候很容易順手補一個對比進去，那會把卡面又變成在下定義。`;
+  或「而不是」。譯的時候很容易順手補一個對比進去，那會把卡面又變成在下定義。
+- **不要在譯文裡把具體的說法換成抽象的大詞**。中文有一整套現成的靈性用語（做自己、
+  活出使命、跟隨最高的喜悅、對齊本質、顯化、頻率、能量……），翻譯時很容易順手抓一個
+  來用，因為它讀起來比較「像神諭卡」。那正是要避免的。英文那句在講一個具體的動作或
+  觀察，中文就照著那個動作或觀察講。
+  - 英文 \`You get to learn what you actually love, and let your days follow it.\`
+  - ✓ 「你可以慢慢弄清楚自己真正喜歡什麼，並讓日子跟著它走。」
+  - ✗ 「你的使命就是活出真實的自己。」（把具體的動作換成了大詞）`;
 
 // ── 畫面 ──
 // ⚠ 這一段與第五步（藝術指導）在 2026-08 由站主整段重寫。
@@ -357,6 +384,11 @@ export function buildTranslatePrompt(lang) {
 - 第二人稱維持第二人稱。收尾若是提問，譯文也要是提問。
 - 段落數與原文一致（原文是一整段就譯成一整段）。
 - 自然的說法優先於字面對應，但不可以改變它在說的事。
+- **原文是刻意寫得具體的，譯文不可以換成抽象的大詞。** 每個語言都有一套現成的靈性
+  用語（become your true self／follow your highest excitement／align with your
+  essence／manifest your reality／本当の自分になる／최고의 기쁨을 따르다……），
+  翻到這種句子時很容易順手抓一個來用，因為它讀起來比較「像神諭卡」。不要。原文在講
+  一個具體的動作或觀察，譯文就照著那個動作或觀察講。
 
 只輸出 JSON 物件本身。essence 對應核心訊息，insights 對應洞見。`;
 }
