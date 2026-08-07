@@ -1697,6 +1697,8 @@ button.badge.repeat:hover {
     flex-direction: column; align-items: center; gap: 12px;
   }
   .divine-actions .btn, .r-actions .btn { width: 100%; max-width: 320px; }
+  /* 直排時「製作專屬靈感卡」那一格要跟其他兩顆一樣寬，說明句才會對齊在它下面 */
+  .r-actions .r-act-cell { width: 100%; max-width: 320px; }
   .ai-row { gap: 10px; }
   .ai-row .btn { padding: 11px 18px; }
   .deck-grid { gap: 6px; }
@@ -2277,12 +2279,18 @@ body.ocm-open { overflow: hidden; }
 /* 等待動畫在視窗裡要有高度，不然星軌會被壓扁 */
 .ocm .oc-weaving { min-height: 320px; }
 
-/* 結果頁：三顆按鈕之後的說明，以及搬到「直覺對話」下面的分享區 */
+/* 結果頁：「製作專屬靈感卡」那一顆自己的說明句 ------------------------------
+   說明句要**跟著那顆按鈕**，不是掛在三顆按鈕底下（站主回報位置不對），
+   所以按鈕與說明包成同一個 flex 項目。三顆的高度因此不一樣，
+   .r-actions 要改成上緣對齊，不然另外兩顆會被說明句拉到中線去。 */
+.r-act-cell { display: flex; flex-direction: column; align-items: center; }
+.r-actions { align-items: flex-start; flex-wrap: wrap; }
 .r-makecard-hint {
-  margin: 10px 0 0; text-align: center;
+  margin: 10px auto 0; text-align: center; max-width: 15em; text-wrap: balance;
   font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
 }
-.r-sharesite { margin-top: 30px; text-align: center; }
+/* 分享給朋友：與「追蹤最新消息」同一個區塊（共用上面那條金線），排在它前面 */
+.r-sharesite { text-align: center; margin-bottom: 34px; }
 .r-sharesite-hint {
   margin-top: 9px; font-family: var(--sans); font-size: 12px;
   line-height: 1.7; color: var(--ink-faint);
