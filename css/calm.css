@@ -2303,8 +2303,22 @@ body.ocm-open { overflow: hidden; }
   font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
 }
 
-/* 牌卡視窗的第二列：一顆寬的贊助鈕（站主指定的版面——第一列儲存／分享，
-   第二列橫跨整排的「贊助一塊蛋糕」）。 */
-.oc-donate { padding: 4px 0 8px; text-align: center; }
-.oc-donate-btn { display: block; width: 100%; max-width: 340px; margin: 0 auto; }
+/* 牌卡視窗的兩列按鈕：第一列下載／分享，第二列「贊助一塊蛋糕」。
+   兩列**等寬**（站主：不等寬看起來不和諧），做法是兩列都撐滿視窗的內容寬度——
+   那也正好是上面那張卡的寬度，三者的左右緣因此對齊。
+   第一列用 grid 而不是 flex：grid-auto-columns:1fr 會把寬度平均分給按鈕，
+   所以「下載圖片」與「分享」字數不同也一樣寬；桌機沒有 Web Share API 時
+   只剩一顆，那一顆就自己撐滿整列，仍然跟第二列對齊。 */
+.ocm .oc-actions {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  gap: 12px; width: 100%;
+}
+.oc-donate { padding: 4px 0 8px; }
+/* 底色跟其他按鈕一樣（站主：那個亮黃在這裡太跳），所以這一顆不套 .bmc-btn。
+   ⚠ 順帶查到的事：.bmc-btn（本檔 557 行）那組亮黃**其實一直沒有生效**——
+   它的 background 被後面 618 行的 .btn 蓋掉了（選擇器權重相同，後者勝）。
+   所以結果頁的「贊助一塊蛋糕」現在也是一般按鈕的樣子，不是金色的。
+   要讓它真的變金，得把 .bmc-btn 移到 .btn 後面或提高權重——那是另一個決定，
+   沒有跟著這次一起改（站主看到的一直是現在這個樣子）。 */
+.oc-donate-btn { display: block; width: 100%; }
 .oc-donate .copy-toast { margin-top: 10px; }

@@ -566,7 +566,7 @@ async function oracleResult(card, imageDataUrl) {
           只在真的拿到卡的時候出現——圖沒畫出來的那個畫面上放一顆要錢的按鈕
           很不得體，那時候該說的是「這次沒成功」。 */ ''}
     ${blob ? `<div class="oc-donate">
-      <button type="button" class="btn bmc-btn oc-donate-btn" id="btnOracleCoffee">${esc(t('result.sponsorBtn'))}</button>
+      <button type="button" class="btn oc-donate-btn" id="btnOracleCoffee">${esc(t('result.sponsorBtn'))}</button>
       <div class="copy-toast" id="oracleCoffeeToast"></div>
     </div>` : ''}`;
 
