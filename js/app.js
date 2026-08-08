@@ -10,6 +10,9 @@ import { castMeihua, getAnalysis, fetchAstroChart } from './engine/inquiry.js';
 import {
   saveAnalysisToHistory, loadHistory, deleteHistoryRecord, clearHistory,
 } from './engine/history.js';
+import {
+  saveCard, cardsFor, deleteCardsFor, clearCards,
+} from './engine/cards.js';
 import { loadBirthProfile, saveBirthProfile, clearBirthProfile } from './engine/profile.js';
 import { feedbackFor, rememberFeedback } from './engine/feedback.js';
 import { shuffledDeckOrder, spreadFromPicks } from './engine/lenormand.js';
@@ -427,10 +430,17 @@ function closeOracleModal() {
   oracleRepaint = null;
 }
 
+// 這張卡是為了哪一則解讀做的。生完之後要存回那一則的名下（見 oracleResult），
+// 使用者下次打開同一則就看得到自己做過的卡。
+let oracleForRun = null;
+
 function makeCardFromResult(a) {
   if (oracleBusy) return;
   const reading = fullText(a);
   if (!reading || reading.length < 80) return;
+  // 後台的預覽走的是同一支 renderResult，但 runId 是 'preview'——那不是使用者的
+  // 紀錄，不能寫進他的瀏覽器（見檔頭「預覽模式不寫 localStorage」）。
+  oracleForRun = (state && state.runId && state.runId !== 'preview') ? state.runId : null;
 
   const el = document.createElement('div');
   el.id = 'ocModal';
@@ -572,16 +582,7 @@ async function oracleResult(card, imageDataUrl) {
     });
     const shareBtn = $('btnOracleShare');
     if (shareBtn) {
-      shareBtn.addEventListener('click', async () => {
-        try {
-          // 分享出去的文字用 result.shareText——那本來就是站主指定的那一句
-          // （推廣這個網站）。不用卡面的句子：圖上已經有了，收到的人看得到。
-          const how = await shareCardPng(blob, {
-            fileName, title: t('result.shareTitle'), text: t('result.shareText'),
-          });
-          note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
-        } catch { /* 使用者取消分享不是錯誤 */ }
-      });
+      shareBtn.addEventListener('click', () => shareOracleCard(blob, fileName, note));
     }
 
     // 存檔給站主審核品質。兩張都送：合成好的卡（使用者拿到的東西）與圖像模型畫的
@@ -597,7 +598,42 @@ async function oracleResult(card, imageDataUrl) {
       if (!preview && !art) return;
       return oracleApi({ action: 'archive', id: card.id, preview, art });
     }).catch(() => {});
+
+    // 存進使用者自己的瀏覽器，讓他回到這一則解讀時看得到自己做過的卡。
+    // 跟站方那份存檔是兩回事：那份給站主審核（Redis），這份純本機、不外送。
+    // 存壓過的 JPEG，不是原始的 PNG——原圖約 1.5–3 MB，localStorage 整個也才
+    // 5–10 MB，塞兩張就滿了（見 js/engine/cards.js）。
+    if (oracleForRun) {
+      const rid = oracleForRun;
+      imagePreview(blob, 1024, 0.8)
+        .then((img) => {
+          const ok = saveCard({
+            rid, id: card.id, keyword: card.keyword, sentence: card.sentence, img,
+          });
+          // 底下的結果頁還是舊的，補上這一塊，關掉視窗就看得到
+          if (ok) refreshMyCards();
+        })
+        .catch(() => {});   // 存不下就算了，不打擾使用者：他手上這張卡是好的
+    }
   }
+}
+
+// 分享一張牌卡。站主要求：除了圖，也要把推廣這個網站的那句話與網址一起帶出去。
+//
+// 網址放在 text 裡而不是 navigator.share 的 url 欄位——這是刻意的：部分平台看到
+// url 欄位就只取連結、把圖丟掉，那就變成分享網址而不是分享卡片了。塞進文字裡
+// 兩者都保得住（收到的人仍然可以點）。
+function oracleShareText() {
+  return `${t('result.shareText')}\n${siteUrl()}`;
+}
+
+async function shareOracleCard(blob, fileName, note) {
+  try {
+    const how = await shareCardPng(blob, {
+      fileName, title: t('result.shareTitle'), text: oracleShareText(),
+    });
+    if (note) note(how === 'shared' ? 'oracle.shared' : 'oracle.saved');
+  } catch { /* 使用者取消分享不是錯誤 */ }
 }
 
 // ---- 我的靈感訊息（本機歷史回顧） ----
@@ -644,6 +680,7 @@ function renderHistory(keepScreen) {
           return;
         }
         deleteHistoryRecord(b.dataset.id);
+        deleteCardsFor(b.dataset.id);   // 那一則的靈感卡跟著走，不留孤兒佔配額
         renderHistory(true);
       });
     });
@@ -657,6 +694,7 @@ function renderHistory(keepScreen) {
         return;
       }
       clearHistory();
+      clearCards();
       renderHistory(true);
     });
   }
@@ -1370,6 +1408,89 @@ function feedbackHtml() {
   </div>`;
 }
 
+// ---- 這一則做過的靈感卡（純本機） ----
+// 站主要的是「他在這一則做過的卡，回來就看得到」，而且**只從自己的瀏覽器讀**，
+// 不打後台——那份是站主審核用的，兩者用途不同（見 js/engine/cards.js）。
+//
+// 存的是壓過的 JPEG，所以從這裡再下載一次拿到的畫質會低於當初那張原圖。
+// 這是為了「存得下好幾張」付的代價：原圖 PNG 一張就 1.5–3 MB。
+function myCardsHtml() {
+  const rid = state && state.runId;
+  const list = rid ? cardsFor(rid) : [];
+  if (!list.length) return '';
+  return `
+    <div class="r-mycards">
+      <div class="r-mycards-title">${esc(t('result.myCardsTitle'))}</div>
+      <div class="r-mycards-grid">
+        ${list.map((c, i) => `
+          <figure class="mycard" data-idx="${i}">
+            <img class="mycard-img" src="${c.img}" alt="${esc(c.keyword || '')}" loading="lazy">
+            <figcaption class="mycard-act">
+              <button type="button" class="btn small mycard-dl" data-idx="${i}">${esc(t('oracle.download'))}</button>
+              ${navigator.share ? `<button type="button" class="btn small mycard-share" data-idx="${i}">${esc(t('oracle.share'))}</button>` : ''}
+            </figcaption>
+          </figure>`).join('')}
+      </div>
+      <div class="r-mycards-hint">${esc(t('result.myCardsHint'))}</div>
+      <div class="oc-hint" id="myCardNote" hidden></div>
+    </div>`;
+}
+
+// 剛生完一張卡，底下的結果頁還是舊的。只換掉這一塊就好——整頁重畫會把捲動位置
+// 拉回最上面，而使用者剛剛就在下面按按鈕。
+function refreshMyCards() {
+  const host = $('resultHost');
+  const screen = $('screenResult');
+  if (!host || !screen || !screen.classList.contains('active')) return;
+  const html = myCardsHtml();
+  if (!html) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const node = tmp.firstElementChild;
+  const existing = host.querySelector('.r-mycards');
+  if (existing) existing.replaceWith(node);
+  else {
+    // 位置與 renderResult 裡的順序一致：解讀之後、意見回饋之前
+    const after = host.querySelector('.r-feedback, .r-sponsor');
+    if (after) host.insertBefore(node, after); else host.appendChild(node);
+  }
+  bindMyCards();
+}
+
+function bindMyCards() {
+  const host = document.querySelector('.r-mycards');
+  if (!host) return;
+  const rid = state && state.runId;
+  const list = rid ? cardsFor(rid) : [];
+  const note = (key) => {
+    const el = $('myCardNote');
+    if (!el) return;
+    el.textContent = t(key);
+    el.hidden = false;
+  };
+  // 存的是 data: URI，要變回 Blob 才能走跟剛生成時同一條下載／分享的路
+  // （尤其是 iOS：只有分享面板的「儲存影像」進得了相簿）。
+  const blobOf = (i) => fetch(list[i].img).then((r) => r.blob());
+  const name = (i) => `intuitive-notes-oracle-${list[i].ts || Date.now()}.jpg`;
+
+  host.querySelectorAll('.mycard-dl').forEach((b) => {
+    b.addEventListener('click', async () => {
+      try {
+        const how = await saveImage(await blobOf(Number(b.dataset.idx)), name(Number(b.dataset.idx)));
+        note(how === 'shared' ? 'oracle.saveHint' : 'oracle.saved');
+      } catch { /* 取消不是錯誤 */ }
+    });
+  });
+  host.querySelectorAll('.mycard-share').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const i = Number(b.dataset.idx);
+      try {
+        await shareOracleCard(await blobOf(i), name(i), note);
+      } catch { /* 取消不是錯誤 */ }
+    });
+  });
+}
+
 function bindFeedback() {
   const block = $('fbBlock');
   if (!block) return; // 已回饋過，沒有互動元素
@@ -1493,6 +1614,7 @@ function renderResult(a) {
     <div class="r-topic">${esc(t('result.about', state.opening))}</div>
     <div class="rule-orn" aria-hidden="true"></div>
     ${secHtml}
+    ${myCardsHtml()}
     ${feedbackHtml()}
     <div class="r-sponsor">
       <button class="btn bmc-btn" id="btnCoffee">${esc(t('result.sponsorBtn'))}</button>
@@ -1536,6 +1658,7 @@ function renderResult(a) {
     </div>`;
   applyLocaleOnly($('resultHost'));   // 結果頁是動態組的，語系限定區塊要在這裡才生效
   bindFeedback();
+  bindMyCards();
   $('btnRestart').addEventListener('click', restart);
   // 回列表：只剩結果頁最上方那一個入口（底下那顆已經按站主要求拿掉）。
   // 重畫一次清單再切回去——剛剛可能在別的地方刪掉了某一筆。

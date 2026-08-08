@@ -2269,3 +2269,36 @@ body.ocm-open { overflow: hidden; }
   margin-top: 9px; font-family: var(--sans); font-size: 12px;
   line-height: 1.7; color: var(--ink-faint);
 }
+
+/* ---- 結果頁：這一則做過的靈感卡（純本機，見 js/engine/cards.js） ----
+   一則解讀可以做好幾張，所以是格狀排列而不是單張。手機一排一張、寬一點兩張——
+   卡是 2:3 直式，一排塞三張的話每一張都會小到看不清卡面的字。 */
+.r-mycards {
+  margin-top: 10px; padding: 30px 0 6px; text-align: center;
+  border-top: 1px solid var(--line);
+}
+.r-mycards-title {
+  font-family: var(--serif); font-size: 16px; color: var(--ink);
+  letter-spacing: .08em; margin-bottom: 18px;
+}
+.r-mycards-grid {
+  display: grid; gap: 20px; justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 560px) {
+  .r-mycards-grid { grid-template-columns: repeat(2, minmax(0, 260px)); }
+}
+.mycard { margin: 0; }
+/* 卡片本身是白的，直接放在深色星圖上會像貼上去的——給它一點陰影當落地感 */
+.mycard-img {
+  display: block; width: 100%; height: auto; border-radius: 2px;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, .45);
+}
+.mycard-act {
+  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+}
+.mycard-act .btn { font-size: 12.5px; padding: 9px 18px; }
+.r-mycards-hint {
+  margin: 18px auto 0; max-width: 23em; text-wrap: balance;
+  font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
+}

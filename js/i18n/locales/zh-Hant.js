@@ -259,6 +259,8 @@ export default {
     copy: '複製這則內容',
     makeCard: '製作專屬靈感卡',
     makeCardHint: '把這則訊息做成一張可以收藏、可以分享的牌卡',
+    myCardsTitle: '你為這則訊息做的靈感卡',
+    myCardsHint: '這些卡只存在你自己的瀏覽器，換裝置或清除瀏覽資料就會不見。',
     copyFull: '複製完整內容',
     copied: '已複製 ✓',
     copyFail: '複製失敗',

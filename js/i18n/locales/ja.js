@@ -261,6 +261,8 @@ export default {
     copy: 'この内容をコピー',
     makeCard: 'インスピレーションカードを作る',
     makeCardHint: 'この鑑定を、手元に残せて共有もできる一枚のカードに',
+    myCardsTitle: 'この鑑定からつくったカード',
+    myCardsHint: 'カードはこのブラウザにだけ残ります。端末を変えるか閲覧データを消すと失われます。',
     copyFull: '全文をコピー',
     copied: 'コピーしました ✓',
     copyFail: 'コピーできませんでした',
