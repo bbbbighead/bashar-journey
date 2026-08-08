@@ -2269,3 +2269,56 @@ body.ocm-open { overflow: hidden; }
   margin-top: 9px; font-family: var(--sans); font-size: 12px;
   line-height: 1.7; color: var(--ink-faint);
 }
+
+/* ---- 結果頁：這一則做過的靈感卡（純本機，見 js/engine/cards.js） ----
+   一則解讀可以做好幾張，所以是格狀排列而不是單張。手機一排一張、寬一點兩張——
+   卡是 2:3 直式，一排塞三張的話每一張都會小到看不清卡面的字。 */
+.r-mycards {
+  margin-top: 10px; padding: 30px 0 6px; text-align: center;
+  border-top: 1px solid var(--line);
+}
+.r-mycards-title {
+  font-family: var(--serif); font-size: 16px; color: var(--ink);
+  letter-spacing: .08em; margin-bottom: 18px;
+}
+.r-mycards-grid {
+  display: grid; gap: 20px; justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 560px) {
+  .r-mycards-grid { grid-template-columns: repeat(2, minmax(0, 260px)); }
+}
+.mycard { margin: 0; }
+/* 卡片本身是白的，直接放在深色星圖上會像貼上去的——給它一點陰影當落地感 */
+.mycard-img {
+  display: block; width: 100%; height: auto; border-radius: 2px;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, .45);
+}
+.mycard-act {
+  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+}
+.mycard-act .btn { font-size: 12.5px; padding: 9px 18px; }
+.r-mycards-hint {
+  margin: 18px auto 0; max-width: 23em; text-wrap: balance;
+  font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
+}
+
+/* 牌卡視窗的兩列按鈕：第一列下載／分享，第二列「贊助一塊蛋糕」。
+   兩列**等寬**（站主：不等寬看起來不和諧），做法是兩列都撐滿視窗的內容寬度——
+   那也正好是上面那張卡的寬度，三者的左右緣因此對齊。
+   第一列用 grid 而不是 flex：grid-auto-columns:1fr 會把寬度平均分給按鈕，
+   所以「下載圖片」與「分享」字數不同也一樣寬；桌機沒有 Web Share API 時
+   只剩一顆，那一顆就自己撐滿整列，仍然跟第二列對齊。 */
+.ocm .oc-actions {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  gap: 12px; width: 100%;
+}
+.oc-donate { padding: 4px 0 8px; }
+/* 底色跟其他按鈕一樣（站主：那個亮黃在這裡太跳），所以這一顆不套 .bmc-btn。
+   ⚠ 順帶查到的事：.bmc-btn（本檔 557 行）那組亮黃**其實一直沒有生效**——
+   它的 background 被後面 618 行的 .btn 蓋掉了（選擇器權重相同，後者勝）。
+   所以結果頁的「贊助一塊蛋糕」現在也是一般按鈕的樣子，不是金色的。
+   要讓它真的變金，得把 .bmc-btn 移到 .btn 後面或提高權重——那是另一個決定，
+   沒有跟著這次一起改（站主看到的一直是現在這個樣子）。 */
+.oc-donate-btn { display: block; width: 100%; }
+.oc-donate .copy-toast { margin-top: 10px; }

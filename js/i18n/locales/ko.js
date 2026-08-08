@@ -260,6 +260,8 @@ export default {
     copy: '이 내용 복사',
     makeCard: '영감 카드 만들기',
     makeCardHint: '이 풀이를 간직하고 나눌 수 있는 한 장의 카드로',
+    myCardsTitle: '이 풀이로 만든 영감 카드',
+    myCardsHint: '카드는 이 브라우저에만 저장됩니다. 기기를 바꾸거나 사용 기록을 지우면 사라집니다.',
     copyFull: '전문 복사',
     copied: '복사했습니다 ✓',
     copyFail: '복사하지 못했습니다',

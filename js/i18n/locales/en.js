@@ -260,6 +260,8 @@ export default {
     copy: 'Copy this reading',
     makeCard: 'Make an inspiration card',
     makeCardHint: 'Turn this reading into a card you can keep and share',
+    myCardsTitle: 'The cards you made from this reading',
+    myCardsHint: 'These are kept in this browser only. Clearing your browsing data or switching device will lose them.',
     copyFull: 'Copy the full reading',
     copied: 'Copied ✓',
     copyFail: 'Copy failed',
