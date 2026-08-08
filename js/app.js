@@ -561,7 +561,14 @@ async function oracleResult(card, imageDataUrl) {
     </div>
     ${limit > 0 ? `<div class="oc-usage">${esc(quotaOut
     ? t('oracle.usedUp', limit) : t('oracle.usage', used, limit))}</div>` : ''}
-    <div class="oc-hint" id="oracleSaved" hidden></div>`;
+    <div class="oc-hint" id="oracleSaved" hidden></div>
+    ${/* 第二列：一顆寬的贊助鈕（站主指定的版面）。
+          只在真的拿到卡的時候出現——圖沒畫出來的那個畫面上放一顆要錢的按鈕
+          很不得體，那時候該說的是「這次沒成功」。 */ ''}
+    ${blob ? `<div class="oc-donate">
+      <button type="button" class="btn bmc-btn oc-donate-btn" id="btnOracleCoffee">${esc(t('result.sponsorBtn'))}</button>
+      <div class="copy-toast" id="oracleCoffeeToast"></div>
+    </div>` : ''}`;
 
   if (blob) {
     const fileName = `intuitive-notes-oracle-${Date.now()}.png`;
@@ -584,6 +591,8 @@ async function oracleResult(card, imageDataUrl) {
     if (shareBtn) {
       shareBtn.addEventListener('click', () => shareOracleCard(blob, fileName, note));
     }
+    const coffeeBtn = $('btnOracleCoffee');
+    if (coffeeBtn) coffeeBtn.addEventListener('click', () => openSponsor('oracleCoffeeToast'));
 
     // 存檔給站主審核品質。兩張都送：合成好的卡（使用者拿到的東西）與圖像模型畫的
     // 原始 artwork（要拿來對照 imagePrompt 的那一張）。都壓成小張 JPEG——原圖 PNG
@@ -616,6 +625,17 @@ async function oracleResult(card, imageDataUrl) {
         .catch(() => {});   // 存不下就算了，不打擾使用者：他手上這張卡是好的
     }
   }
+}
+
+// 贊助。連結還沒開通時退回一句提示，不要給一顆按了沒反應的按鈕。
+// 結果頁與牌卡視窗兩處共用——兩邊各寫一份的話，哪天換了連結會有一邊忘記改。
+function openSponsor(toastId) {
+  if (BMC_URL) { window.open(BMC_URL, '_blank', 'noopener,noreferrer'); return; }
+  const el = $(toastId);
+  if (!el) return;
+  el.textContent = t('result.sponsorSoon');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
 }
 
 // 分享一張牌卡。站主要求：除了圖，也要把推廣這個網站的那句話與網址一起帶出去。
@@ -1681,13 +1701,7 @@ function renderResult(a) {
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 3200);
   });
-  $('btnCoffee').addEventListener('click', () => {
-    if (BMC_URL) { window.open(BMC_URL, '_blank', 'noopener,noreferrer'); return; }
-    const el = $('coffeeToast');
-    el.textContent = t('result.sponsorSoon');
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 3200);
-  });
+  $('btnCoffee').addEventListener('click', () => openSponsor('coffeeToast'));
   const handoffUrlText = buildHandoff(a, true); // 網址用精簡版，避免被截斷
   $('resultHost').querySelectorAll('.ai-btn').forEach((b) => {
     const provider = b.dataset.ai;

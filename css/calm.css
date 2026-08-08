@@ -2302,3 +2302,9 @@ body.ocm-open { overflow: hidden; }
   margin: 18px auto 0; max-width: 23em; text-wrap: balance;
   font-family: var(--sans); font-size: 12px; line-height: 1.7; color: var(--ink-faint);
 }
+
+/* 牌卡視窗的第二列：一顆寬的贊助鈕（站主指定的版面——第一列儲存／分享，
+   第二列橫跨整排的「贊助一塊蛋糕」）。 */
+.oc-donate { padding: 4px 0 8px; text-align: center; }
+.oc-donate-btn { display: block; width: 100%; max-width: 340px; margin: 0 auto; }
+.oc-donate .copy-toast { margin-top: 10px; }
