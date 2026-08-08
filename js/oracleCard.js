@@ -3,92 +3,107 @@
 // 為什麼邊框與文字在這裡畫、不交給圖像模型：
 // prompt 裡只要出現 oracle card，圖像模型就會自己加上標題與外框，而它畫出來的字
 // 是糊的、常拼錯、每次都不一樣，而且沒辦法修。這裡自己排版的話文字永遠是真文字，
-// 字級與比例都精確（artwork 佔 70–75% 是規格明訂的），日後要換語系也不必重畫圖。
+// 字級與比例都精確，日後要換語系也不必重畫圖。
 //
 // 手法沿用 js/shareCard.js：組一張自給自足的 SVG，再用瀏覽器自己的光柵化能力轉
 // PNG，零外部套件。同樣的關鍵限制也適用——SVG 透過 <img> 載入時是隔離環境，頁面
 // 的 CSS 完全不套用、外部資源一律不載入，所以：
 //   ・樣式必須內嵌，顏色要寫字面值（不能用 var(--accent)）
-//   ・artwork 必須是 data: URI（伺服器回傳的就是 base64，剛好）
+//   ・artwork 與 logo 都必須是 data: URI（logo 由 oracleCardPng 先抓好再塞進來）
 // 字型不必內嵌：用的是系統襯線堆疊，隔離環境照樣拿得到。
 //
-// 卡片本身是白底、細金框、深墨字——與全站的深色介面刻意不同。神諭卡要看起來
-// 像一張實體卡片躺在星圖上，這是規格要的樣子（STEP 10），不是漏了套主題。
+// ── 版面（2026-08 依站主提供的參考卡整個改掉）─────────────────────
+// 舊版是「白卡紙中間貼一張畫」；新版是**滿版**——artwork 鋪滿整張卡，
+// 文字直接壓在畫上。由上而下：
+//   細金框（四角切邊）→ logo 標記 → INTUITIVE NOTES
+//   →（畫面）→ 關鍵字 → 分隔線（中央一顆星點）→ 句子
 //
-// 版面（2026-08 依站主提供的參考塔羅卡調整）由上而下：
-//   白色外緣 → 細金雙框 → **站名 INTUITIVE NOTES** → artwork → 標題 → 花飾 → 句子
-
+// 滿版最大的風險是**文字讀不到**：artwork 是模型畫的，我們無法保證上下緣夠暗。
+// 所以上下各鋪一層由透明漸到深的遮罩（scrim），字永遠有底。這不是裝飾，
+// 是這個版面能成立的前提——拿掉它，遇到一張亮色的畫就整段字消失。
 import { svgToPng } from './shareCard.js';
 
 const W = 400;          // 內部座標寬
 const H = 600;          // 2:3 直式
-const OUT_W = 1024;     // 實際輸出（與 gpt-image-1 的 1024×1536 同比例）
+const OUT_W = 1024;     // 實際輸出（與圖像模型的 1024×1536 同比例，滿版剛好不必裁）
 const OUT_H = 1536;
 
-const PAD = 18;                  // 白色外緣
-const FRAME = 8;                 // 金框與外緣之間的距離
-const ART_W = W - (PAD + FRAME) * 2;
+// logo 檔的位置。用 import.meta.url 解析，站台掛在子路徑下也找得到。
+const LOGO_URL = new URL('../assets/logo-mark.png', import.meta.url).href;
 
-// 版面的所有可調旋鈕。抽成一份設定是為了「同一支渲染程式可以畫出不同版型」——
-// 站主要比較幾種花邊與字級時，比出來的就是實際上線的東西，不是另外做的假預覽。
-// 呼叫端不傳 style 就用這一份（＝目前上線的版型）。
-//
-// artwork 上面留 headH 給站名，底下的空間放標題、花飾、句子。每一段的間距都是
-// 量過的：站名貼著上框（常數），句子區則是畫作下緣到下框之間垂直置中，
-// 排不下就一路縮字級到 msgMin——三行的長句也不會把字頂出金框。
+// 版面旋鈕。抽成一份設定是為了「同一支渲染程式可以畫出不同版型」——
+// 站主要比較字級或線條時，比出來的就是實際上線的東西，不是另外做的假預覽。
 const BASE_STYLE = {
-  artRatio: 0.70,     // artwork 佔全卡高度
-  frame: 'double',    // 外框：'single' 單線｜'double' 雙線
-  frameW: 1.2,        // 外框線寬（比照參考卡：線細，靠顏色而不是粗細撐存在感）
-  radius: 0,          // 外框圓角
-  corner: 'diamond',  // 四角：'none'｜'diamond' 實心菱形｜'bracket' 細角線
-  artFrame: true,     // artwork 要不要自己的細金框
-  ornTop: 'rule',     // 畫與標題之間：'none'｜'dot' 一顆小菱形｜'rule' 線—菱形—線
-  ornTitle: 'rule',   // 標題與句子之間：同上
-  titleScale: 1,      // 標題字級倍率
-  msgSize: 11.5,      // 句子字級（會依行數再退）
-  msgMin: 8.5,        // 句子字級的下限
-  footSize: 9.5,      // 站名字級
-  headH: 22,          // 上緣留給站名的帶狀高度（站名搬到上面之後才有這一段）
-  footGap: 12,        // 站名基線距上框（固定，不跟著句子跑）
-  msgBotGap: 12,      // 句子最後一行到下框至少要留的距離
-  tKeyMin: 24,        // 畫作下緣 → 標題基線的最小距離（垂直置中後的保險）
-  tRule: 21,          // 標題 → 花飾線
-  tMsg: 19,           // 花飾線 → 句子第一行
+  framePad: 11,     // 金框距卡緣
+  chamfer: 20,      // 四角切邊的長度
+  frameW: 0.9,      // 金框線寬（站主：細細的淺色金線）
+  cornerTick: true, // 切邊內側再補一道短線，角落才有「切過」的層次
+  logoSize: 30,     // logo 標記的邊長
+  logoY: 46,        // logo 中心
+  nameY: 88,        // 站名基線
+  nameSize: 10.5,
+  titleMax: 34,     // 關鍵字最大字級（太長會自己退）
+  titleMin: 17,
+  msgSize: 14,
+  msgMin: 9.5,
+  msgBottom: 562,   // **句子最後一行的基線**：版面由下往上長，這個值固定
+  tOrn: 30,         // 句子第一行 → 分隔線
+  tKey: 24,         // 分隔線 → 關鍵字基線
+  scrimTop: 0.55,   // 上緣遮罩最深處的不透明度
+  scrimBot: 0.8,    // 下緣遮罩最深處
 };
 
-// 卡面底色。站主回報舊的象牙白 #f3ece0「帶黃色調」，要求「盡量乾淨的白」——
-// 改成中性的近白，只留一點點灰度避免在深色介面上刺眼，色相上不偏暖。
-const IVORY = '#fcfcfc';
-const IVORY_EDGE = '#e8e8e6';
-// 金色的色調與粗細比照站主給的參考塔羅卡（LA ESTRELLA）。取樣那張照片的框線，
-// 最常出現的是 #806838 / #887040 這一族——比舊版的 #9c7a33 更暗、更偏橄欖，
-// 是「印刷的金」而不是「螢光的金」，而且線本身很細。三級用法不變：
-//   GOLD       主框線與裝飾
-//   GOLD_MID   次要線條（第二道細框、分隔線）
-//   GOLD_SOFT  最淡的一級，只給不該搶戲的地方
-const GOLD = '#846c3c';
-const GOLD_MID = 'rgba(132,108,60,.68)';
-const GOLD_SOFT = 'rgba(132,108,60,.44)';
-const INK = '#2b2620';
-const INK_SOFT = '#6b6154';
+// 金色一族。滿版之後字是壓在畫上的，所以全部改成「淺金」——
+// 舊版那組印刷金（#846c3c）是給白紙用的，放到深色畫面上會直接糊掉看不見。
+const LINE_GOLD = 'rgba(226,201,150,.62)';    // 主框線
+const LINE_GOLD_SOFT = 'rgba(226,201,150,.34)'; // 角落短線、分隔線兩側
+const TITLE_GOLD = '#ecd9ad';
+const TEXT_GOLD = '#e0c99e';
+const NAME_GOLD = 'rgba(233,214,175,.88)';
+const SCRIM = '#070b12';                       // 遮罩用的深色（與站上的夜空同色系）
 
-// 小菱形（稜形花飾）。神諭卡的線條裝飾幾乎都由它與細線組成——
-// 放在框角、分隔線中央、標題下方，一眼就看得出是「一張牌」而不是一張貼了字的圖。
-const diamond = (cx, cy, r, fill) =>
-  `<path d="M${cx} ${cy - r}L${cx + r} ${cy}L${cx} ${cy + r}L${cx - r} ${cy}Z" fill="${fill}"/>`;
+// 四角星（sparkle）。logo 上那顆星的簡化版——分隔線中央、四角的點綴都用它。
+// 用二次曲線做出內凹的腰身，看起來才是「星芒」而不是菱形。
+const star = (cx, cy, r, fill) => {
+  const k = r * 0.16;
+  return `<path d="M${cx} ${cy - r}Q${cx + k} ${cy - k} ${cx + r} ${cy}`
+    + `Q${cx + k} ${cy + k} ${cx} ${cy + r}Q${cx - k} ${cy + k} ${cx - r} ${cy}`
+    + `Q${cx - k} ${cy - k} ${cx} ${cy - r}Z" fill="${fill}"/>`;
+};
 
-// 細角線（L 形）。比實心菱形柔和——站主回報菱形「太線條、比較僵硬」，
-// 這是另一個方向的角飾。
-const bracket = (x, y, dx, dy, len, color) => `
-<path d="M${x + dx * len} ${y}L${x} ${y}L${x} ${y + dy * len}"
-  fill="none" stroke="${color}" stroke-width="0.9" stroke-linecap="round"/>`;
+// 一條「線—星點—線」的分隔線（站主指定：分隔線中間有一個星點）。
+const ornRule = (cx, cy, half, gap, r, color, starColor) => `
+<line x1="${cx - half}" y1="${cy}" x2="${cx - gap}" y2="${cy}" stroke="${color}" stroke-width="0.7"/>
+<line x1="${cx + gap}" y1="${cy}" x2="${cx + half}" y2="${cy}" stroke="${color}" stroke-width="0.7"/>
+${star(cx, cy, r, starColor)}`;
 
-// 一條「線—菱形—線」的裝飾橫線。half 是整條的半寬，gap 是中間留給菱形的半寬。
-const ornRule = (cx, cy, half, gap, r, color) => `
-<line x1="${cx - half}" y1="${cy}" x2="${cx - gap}" y2="${cy}" stroke="${color}" stroke-width="0.6"/>
-<line x1="${cx + gap}" y1="${cy}" x2="${cx + half}" y2="${cy}" stroke="${color}" stroke-width="0.6"/>
-${diamond(cx, cy, r, color)}`;
+// 四角切邊的外框。八個點繞一圈，每個角用一段 45° 的斜線切掉，
+// 而不是直角相接——這是站主指定的「四個角有切邊的設計」。
+const chamferPath = (pad, c) => [
+  `M${pad + c} ${pad}`, `L${W - pad - c} ${pad}`, `L${W - pad} ${pad + c}`,
+  `L${W - pad} ${H - pad - c}`, `L${W - pad - c} ${H - pad}`,
+  `L${pad + c} ${H - pad}`, `L${pad} ${H - pad - c}`, `L${pad} ${pad + c}`, 'Z',
+].join('');
+
+// 切邊內側的短線。四個角各一道，與斜邊平行，讓角落看起來是「切出來的」
+// 而不是單純少了一塊。
+const cornerTicks = (pad, c, color) => {
+  const d = 5;          // 內縮距離
+  const len = c * 0.52; // 短線長度（比斜邊短，才看得出是內側的細節）
+  const corners = [
+    [pad, pad, 1, 1], [W - pad, pad, -1, 1],
+    [pad, H - pad, 1, -1], [W - pad, H - pad, -1, -1],
+  ];
+  return corners.map(([x, y, sx, sy]) => {
+    // 斜邊的兩個端點內縮 d，再各取 len 長度
+    const x1 = x + sx * (c + d - len);
+    const y1 = y + sy * d;
+    const x2 = x + sx * d;
+    const y2 = y + sy * (c + d - len);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+  stroke="${color}" stroke-width="0.7" stroke-linecap="round"/>`;
+  }).join('\n');
+};
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -187,139 +202,122 @@ function wrapText(text, fontSize, maxWidth) {
   return greedyLines(segs, hi);
 }
 
-// 關鍵字規定是一個英文單字（見 prompts/oracle.js），所以正常情況下都落在最大的
-// 字級。字級仍然隨長度退：模型偶爾會回一個詞組，那時候縮小總比撐出金框好。
-// 中日韓的關鍵字也吃得下（把它換成中文標題只需要改提示，版面這一側不必動）。
+// 關鍵字規定是一個英文單字（見 prompts/oracle.js），所以正常情況下都吃得到最大字級。
+// 字級仍然隨長度退：模型偶爾會回一個詞組，那時候縮小總比撐出金框好。
 // 用等效字元數而不是字元數，中日韓的關鍵字才不會撐破（一個中文字約等於兩個字母寬）。
 // 一律不換行——關鍵字換行在這個版面上會把句子頂下去。
-function titleSize(title) {
+function titleSize(title, max, min, maxWidth) {
   const n = unitsOf(title);
-  if (n <= 6.5) return 27;   // 約 12 個字母／6 個中文字
-  if (n <= 9.5) return 23;
-  if (n <= 13.5) return 19;
-  return 16;
+  if (!n) return max;
+  // .06em 的字距也要算進去，不然剛好卡邊的關鍵字會超出去
+  let size = Math.min(max, maxWidth / (n * 1.06));
+  return Math.max(min, Math.round(size * 2) / 2);
 }
 
-// artworkDataUrl：data:image/png;base64,…（伺服器回傳的原樣）
+// artworkDataUrl：data:image/png;base64,…（伺服器回傳的原樣）。滿版鋪滿整張卡。
+// logoDataUrl：assets/logo-mark.png 的 data URI，由 oracleCardPng 先抓好。
+//              拿不到就不畫 logo，站名照樣在——logo 是加分，不是必要條件。
 // keyword   卡面標題。一個英文單字（模型自己從句子下的標題）
 // sentence  卡面句子。**逐字取自使用者貼上的解讀**，所以是使用者的語言
-// footer    卡片下緣的站名
-// style     版面覆寫（見 BASE_STYLE）。正式站不傳，用預設；
-//           scratchpad/card_styles.mjs 靠它畫出幾種版型讓站主挑。
-export function buildOracleCardSvg({ artworkDataUrl, keyword, sentence, footer, style }) {
+// footer    站名
+// style     版面覆寫（見 BASE_STYLE）。正式站不傳，用預設。
+export function buildOracleCardSvg({
+  artworkDataUrl, logoDataUrl, keyword, sentence, footer, style,
+}) {
   const S = { ...BASE_STYLE, ...(style || {}) };
-  // 站名搬到卡片上方（站主要求：位置比照參考塔羅卡上緣的「XVII」），
-  // 所以畫作要往下讓出一條帶子。
-  const artTop = PAD + FRAME + S.headH;
-  const artH = Math.round(H * S.artRatio);
-  const artBottom = artTop + artH;
-  const tSize = titleSize(keyword) * S.titleScale;
+  const textW = W - 108;          // 句子的可用寬度
+  const titleW = W - 84;          // 關鍵字的可用寬度
+  const tSize = titleSize(keyword, S.titleMax, S.titleMin, titleW);
   // 斜體只給拉丁文字。中日韓沒有真正的斜體字，瀏覽器會把字機械地斜過去，
-  // 看起來是歪的而不是斜的（牌卡下方的譯文區為了同樣的理由也不用斜體，
-  // 見 css/calm.css 的 .oc-t-msg）。
+  // 看起來是歪的而不是斜的。
   const msgItalic = hasCJK(sentence) ? 'normal' : 'italic';
 
-  // ---- 文字區的排法 ----
-  //
-  // 站名**固定貼著上框**（2026-08 從下緣搬上來）。它的位置是常數，不受句子長短影響，
-  // 所以一疊卡放在一起上緣是齊的——這也解決了舊版「站名跟著句子跑、下面不整齊」。
-  //
-  // 句子區則是畫作下緣到下框之間，把「標題＋花飾＋句子」當成一整塊**垂直置中**。
-  // 不置中的話，短句子會在下方留一個尷尬的洞。
-  const yFoot = PAD + FRAME + S.footGap;
-  const bandTop = artBottom;
-  const bandBottom = H - PAD - S.msgBotGap;
-
-  // 句子字級：先用設定值，排不進可用高度就一路退到下限。
-  // 2026-08 起句子逐字取自使用者貼上的解讀，長度不再由規格保證，所以要退得夠深。
-  const blockH = (n, size) => tSize * 0.72 + S.tRule + S.tMsg
-    + (n - 1) * size * 1.55 + size * 0.3;
+  // ---- 文字區：由下往上長 ----
+  // 句子的**最後一行**貼在固定的高度（S.msgBottom），往上依序是句子其他行、
+  // 分隔線、關鍵字。這樣句子長短不同的卡片下緣一律齊平，而關鍵字自然往上讓。
+  // 舊版是由上往下排再置中，句子一長下緣就參差不齊。
   let msgSize = S.msgSize;
-  let msgLines = wrapText(sentence, msgSize, ART_W - 24);
-  while (msgSize > S.msgMin
-    && (msgLines.length > 4 || blockH(msgLines.length, msgSize) > bandBottom - bandTop)) {
+  let msgLines = wrapText(sentence, msgSize, textW);
+  while (msgSize > S.msgMin && msgLines.length > 4) {
     msgSize -= 0.5;
-    msgLines = wrapText(sentence, msgSize, ART_W - 24);
+    msgLines = wrapText(sentence, msgSize, textW);
   }
-  const msgLH = msgSize * 1.55;
+  const msgLH = msgSize * 1.62;
+  const n = Math.max(1, msgLines.length);
+  const yMsg = S.msgBottom - (n - 1) * msgLH;   // 第一行
+  const yOrn = yMsg - S.tOrn;
+  const yKey = yOrn - S.tKey;
 
-  const yKey = bandTop + Math.max(S.tKeyMin,
-    (bandBottom - bandTop - blockH(msgLines.length, msgSize)) / 2 + tSize * 0.72);
-  const yRule = yKey + S.tRule;
-  const yMsg = yRule + S.tMsg;
-
-  // ---- 外框 ----
-  const inset = 3.5;
-  const frame = `<rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}" rx="${S.radius}"
-  fill="none" stroke="${GOLD}" stroke-width="${S.frameW}"/>`
-    + (S.frame === 'double'
-      ? `\n<rect x="${PAD + inset}" y="${PAD + inset}" width="${W - (PAD + inset) * 2}"
-  height="${H - (PAD + inset) * 2}" rx="${Math.max(0, S.radius - 1)}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.5"/>` : '');
-
-  // ---- 四角 ----
-  const cIn = S.frame === 'double' ? PAD + inset : PAD;
-  const corners = [[cIn, cIn, 1, 1], [W - cIn, cIn, -1, 1],
-    [cIn, H - cIn, 1, -1], [W - cIn, H - cIn, -1, -1]];
-  const cornerArt = S.corner === 'diamond'
-    ? corners.map(([x, y]) => diamond(x, y, 2.8, GOLD)).join('\n')
-    : S.corner === 'bracket'
-      ? corners.map(([x, y, dx, dy]) => bracket(x, y, dx, dy, 11, GOLD_MID)).join('\n')
-      : '';
-
-  // ---- 兩處花飾 ----
-  // 'line' 是最素的一種：一條金色細線，沒有菱形、沒有斷口。
-  // 站主要的「最原始的花邊」就是這個。
-  const orn = (kind, cy, half, color) => (kind === 'rule'
-    ? ornRule(W / 2, cy, half, 8, 2.6, color)
-    : kind === 'line'
-      ? `<line x1="${W / 2 - half}" y1="${cy}" x2="${W / 2 + half}" y2="${cy}"
-  stroke="${color}" stroke-width="0.6"/>`
-      : kind === 'dot' ? diamond(W / 2, cy, 2.4, color) : '');
+  const pad = S.framePad;
+  const c = S.chamfer;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
   viewBox="0 0 ${W} ${H}" font-family="'Songti TC','Noto Serif TC',Georgia,'Times New Roman',serif">
 <style>
-  .oc-title{fill:${INK};font-size:${tSize}px;letter-spacing:.18em;text-anchor:middle}
-  .oc-msg{fill:${INK_SOFT};font-size:${msgSize}px;text-anchor:middle;font-style:${msgItalic}}
-  /* 站名：站主回報「顏色太淡、字也可以再大一點」，7.5px + 42% 的金在手機上看不到。 */
-  .oc-foot{fill:${GOLD};font-size:${S.footSize}px;letter-spacing:.3em;text-anchor:middle;
-    font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
+  .oc-title{fill:${TITLE_GOLD};font-size:${tSize}px;letter-spacing:.06em;text-anchor:middle}
+  .oc-msg{fill:${TEXT_GOLD};font-size:${msgSize}px;text-anchor:middle;font-style:${msgItalic}}
+  .oc-foot{fill:${NAME_GOLD};font-size:${S.nameSize}px;letter-spacing:.34em;text-anchor:middle;
+    font-family:Georgia,'Times New Roman',serif}
 </style>
 <defs>
-  <clipPath id="ocArt">
-    <rect x="${PAD + FRAME}" y="${artTop}" width="${ART_W}" height="${artH}" rx="1"/>
-  </clipPath>
+  <!-- 上下的遮罩：文字壓在畫上，沒有它遇到亮色的畫就整段字消失 -->
+  <linearGradient id="ocTop" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${SCRIM}" stop-opacity="${S.scrimTop}"/>
+    <stop offset="1" stop-color="${SCRIM}" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="ocBot" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${SCRIM}" stop-opacity="0"/>
+    <stop offset=".45" stop-color="${SCRIM}" stop-opacity="${S.scrimBot * 0.62}"/>
+    <stop offset="1" stop-color="${SCRIM}" stop-opacity="${S.scrimBot}"/>
+  </linearGradient>
 </defs>
 
-<rect width="${W}" height="${H}" fill="${IVORY}"/>
-<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none"
-  stroke="${IVORY_EDGE}" stroke-width="1"/>
+<!-- 卡片外緣是完整的矩形，只有金線的四角是切邊的（參考卡就是這樣）。
+     一度把整張卡也切成八邊形，四角會露出背景的黑色三角，不對。 -->
+<g>
+  <rect width="${W}" height="${H}" fill="${SCRIM}"/>
+  <!-- artwork 滿版。slice：寧可裁掉邊緣也不要留白條（來源就是 2:3，正常不會裁到） -->
+  <image href="${artworkDataUrl}" x="0" y="0" width="${W}" height="${H}"
+    preserveAspectRatio="xMidYMid slice"/>
+  <rect x="0" y="0" width="${W}" height="170" fill="url(#ocTop)"/>
+  <rect x="0" y="${H - 290}" width="${W}" height="290" fill="url(#ocBot)"/>
+</g>
 
-<!-- artwork。preserveAspectRatio 用 slice：寧可裁掉邊緣也不要在框內留白條。 -->
-<image href="${artworkDataUrl}" x="${PAD + FRAME}" y="${artTop}"
-  width="${ART_W}" height="${artH}"
-  preserveAspectRatio="xMidYMid slice" clip-path="url(#ocArt)"/>
+<path d="${chamferPath(pad, c)}" fill="none" stroke="${LINE_GOLD}" stroke-width="${S.frameW}"/>
+${S.cornerTick ? cornerTicks(pad, c, LINE_GOLD_SOFT) : ''}
 
-${frame}
-${cornerArt}
-${S.artFrame ? `<rect x="${PAD + FRAME}" y="${artTop}" width="${ART_W}" height="${artH}"
-  fill="none" stroke="${GOLD_MID}" stroke-width="0.6"/>` : ''}
-
-<!-- 站名：卡片上緣，位置對應參考塔羅卡的羅馬數字。 -->
-<text x="${W / 2}" y="${yFoot}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
-
-${orn(S.ornTop, artBottom + 13, ART_W / 2 - 14, GOLD_MID)}
+${logoDataUrl ? `<image href="${logoDataUrl}" x="${(W - S.logoSize) / 2}"
+  y="${S.logoY - S.logoSize / 2}" width="${S.logoSize}" height="${S.logoSize}"/>` : ''}
+<text x="${W / 2}" y="${S.nameY}" class="oc-foot">${esc(footer || 'INTUITIVE NOTES')}</text>
 
 <text x="${W / 2}" y="${yKey}" class="oc-title">${esc(keyword)}</text>
-${orn(S.ornTitle, yRule, 34, GOLD)}
+${ornRule(W / 2, yOrn, 62, 13, 4.6, LINE_GOLD_SOFT, LINE_GOLD)}
 ${msgLines.map((line, i) => `<text x="${W / 2}" y="${yMsg + i * msgLH}" class="oc-msg">${esc(line)}</text>`).join('\n')}
 </svg>`;
 }
 
-// 合成 → PNG Blob（1024×1536，與圖像模型的原生尺寸同比例）
-export function oracleCardPng(parts) {
-  return svgToPng(buildOracleCardSvg(parts), OUT_W, OUT_H);
+// logo 只抓一次，之後共用同一個 Promise。抓不到就回空字串——
+// 卡片少一個標記還是完整的卡片，不值得為它整張失敗。
+let logoPromise = null;
+export function oracleLogoDataUrl() {
+  if (!logoPromise) {
+    logoPromise = fetch(LOGO_URL)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error('logo ' + r.status))))
+      .then((blob) => new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = () => rej(new Error('logo read'));
+        fr.readAsDataURL(blob);
+      }))
+      .catch(() => '');
+  }
+  return logoPromise;
+}
+
+// 合成 → PNG Blob（1024×1536，與圖像模型的原生尺寸同比例；滿版剛好不必裁）
+export async function oracleCardPng(parts) {
+  const logo = parts.logoDataUrl != null ? parts.logoDataUrl : await oracleLogoDataUrl();
+  return svgToPng(buildOracleCardSvg({ ...parts, logoDataUrl: logo }), OUT_W, OUT_H);
 }
 
 // 存檔用的小張預覽：長邊 900px 的 JPEG。

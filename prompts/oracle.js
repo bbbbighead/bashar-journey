@@ -281,6 +281,22 @@ a page from an old storybook／a poetic painting
 Never feel like a rendered AI illustration.
 Emotion is always more important than perfection.
 
+### 少畫，不是多畫（2026-08 加強）
+
+站主回報換模型之後畫面「太過 AI 感、太精細、很多細節被刻畫得太清楚」。
+新的圖像模型能力更強，預設就會把每一片葉子、每一塊磚、每一道水紋都畫出來——
+那正是要避免的東西。所以這一節的規則權重最高，與上面衝突時以這一節為準：
+
+- **整張畫裡只有一個地方可以有細節**，其餘一律留給大面積的濕染與色塊。
+- 遠景、天空、水面、樹叢、建築群：**一律不要交代個別的東西**。
+  一整排房子是一團帶著幾點暖光的形，不是十棟畫得出窗框的房子；
+  一片樹林是一塊深色的濕痕，不是看得出樹枝的樹。
+- **大部分的畫面應該是「沒畫完」的**。看得出筆停在哪裡、看得出紙的紋理。
+- 邊界互相滲透，幾乎沒有東西有乾淨完整的輪廓線。
+- 寧可**筆觸少而準**，也不要密密麻麻地補滿。
+- 不要平滑的漸層、不要噴槍感、不要 3D 算圖的體積光、不要照片般的材質。
+  水彩的層次來自「紙上的水痕」，不是來自「算出來的光影」。
+
 ### 點綴：流動感與希望感
 
 - 畫面中要有能創造**流動感、動感**的元素，至少使用一種：風的線條、漸層的光線、
@@ -345,6 +361,16 @@ const IMAGE_PROMPT_RULE = `## 第五步：寫出給圖像模型的 prompt（imag
   the last warm glow on the horizon／lantern light／fireflies／starlight。
   整體要 luminous 且 hopeful，**不要 murky、dull、grey**：夜晚是暖的、透氣的，不是暗的。
 - **顏色**：colourful but soft，不要飽和。
+- **克制（每一張都要寫，2026-08 加強）**：這是目前最容易失守的一項，
+  英文裡一定要出現這幾件事——
+  loose and economical brushwork with very few strokes；
+  most of the picture left unresolved and unrendered；
+  distant houses, trees, crowds and water read as simple soft masses,
+  never as individually drawn windows, bricks, leaves or ripples；
+  only one small area of the picture carries any fine detail。
+- **上下留白（配合卡面版面）**：卡片的文字壓在畫的**最上緣與最下緣**，
+  所以那兩條帶子要是安靜的——sky, mist, still water, or open shadow——
+  不要把主體、臉、複雜的建築或高反差的東西擺在畫面的最上方或最下方。
 - **鬆與未完成**：寫出哪裡是 unfinished brushwork／blurred transitions／
   dissolving forms／negative space，以及形體互相融進去的地方
   （mist becoming trees／light becoming clouds／water becoming sky）。
@@ -457,6 +483,18 @@ ${RULES}
 //      oracle card 就會自己加標題與外框，而畫出來的字是糊的、拼錯的、每次都不一樣）。
 //      牌卡的象牙白邊框、細金框與卡面文字由網站自己合成（js/oracleCard.js）。
 export const IMAGE_SUFFIX = 'Vertical composition. '
+  // 「少畫」的最後一道（2026-08）。站主回報換模型之後畫面太精細、太有 AI 感——
+  // 新模型預設就會把每片葉子每塊磚都畫出來。第四、五步已經要求模型自己寫進 prompt，
+  // 這裡固定再接一次，理由與「人物是光體」那一段相同：漏寫一句就會退回預設。
+  + 'Loose, economical brushwork: very few strokes, most of the picture left '
+  + 'unresolved and unrendered. Distant houses, trees, crowds and water are simple '
+  + 'soft masses — never individually drawn windows, bricks, roof tiles, leaves, '
+  + 'hair strands or ripples. Only one small area carries fine detail. '
+  + 'Soft edges that bleed into each other; almost nothing has a clean outline. '
+  + 'The top and bottom edges of the image stay quiet and simple — sky, mist, '
+  + 'still water or open shadow — with no faces or busy detail there. '
+  + 'Avoid: digital painting, airbrush gradients, 3D render, volumetric light, '
+  + 'photographic texture, crisp micro-detail, every surface fully described. '
   // 時辰（2026-08 加）。與人物是光體同一個道理：第四、五步已經要求模型自己寫，
   // 這裡固定再接一次，模型漏寫時圖像模型才不會退回它的預設白天。
   + 'The scene is set in the evening or at night — dusk, twilight, the blue hour, '
